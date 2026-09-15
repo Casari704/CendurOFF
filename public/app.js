@@ -46,7 +46,7 @@ function fmtDate(iso){ try{ return new Date(iso).toLocaleDateString('cs-CZ',{day
 
 
  // Vlož tvou URL adresu z Railway bez lomítka na konci
-const API_URL = 'https://github.com/Casari704/CendurOFF.git';
+const API_URL = 'https://cenduroff-web.up.railway.app';
 
 async function api(url, options){
   // Automaticky připojí adresu backendu z Railway ke všem voláním
