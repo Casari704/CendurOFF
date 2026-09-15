@@ -44,14 +44,21 @@ function parseGPX(text){
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmtDate(iso){ try{ return new Date(iso).toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'}); }catch(e){ return ''; } }
 
+
+ // Vlož tvou URL adresu z Railway bez lomítka na konci
+const API_URL = 'https://casari704.github.io/CendurOFF';
+
 async function api(url, options){
-  const res = await fetch(url, Object.assign({ credentials:'include' }, options));
+  // Automaticky připojí adresu backendu z Railway ke všem voláním
+  const fullUrl = url.startsWith('http') ? url : API_URL + url;
+  const res = await fetch(fullUrl, Object.assign({ credentials:'include' }, options));
   let data = null;
   try{ data = await res.json(); }catch(e){}
   if(!res.ok) throw new Error((data && data.error) || 'Něco se pokazilo.');
   return data;
 }
 
+  
 const PALETTE = ['#A8572E','#4F7048','#2F5D62','#8A5FA6','#B08A2E','#3C5E8A'];
 function colorFor(id){
   const s = String(id);
