@@ -133,7 +133,7 @@ function initMap(){
   map = L.map('map', { zoomControl:true }).setView([49.8967, 18.1969], 8);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> přispěvatelé'
+    attribution: '© OpenStreetMap contributors, CyclOSM'
   }).addTo(map);
 }
 
@@ -175,7 +175,7 @@ async function loadRoutes(){
 function drawRoute(route){
   const latlngs = route.points.map(p=>[p[0],p[1]]);
   const color = colorFor(route.id);
-  const line = L.polyline(latlngs, { color, weight:4, opacity:0.85 }).addTo(map);
+  const line = L.polyline(latlngs, { color:'#FF0000', weight:4, opacity:0.85 }).addTo(map);
   line.bindTooltip(`<b>${escapeHtml(route.name)}</b><br>${escapeHtml(route.owner_display)} · ${Number(route.distance_km).toFixed(1)} km`,
     { sticky:true, className:'trail-tip' });
   line.on('mouseover', ()=>{ if(route.id!==activeRouteId) line.setStyle({weight:6, opacity:1}); });
