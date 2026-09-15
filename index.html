@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CendurOFF — trasy na hraně zákona</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login-screen">
+  <div class="login-hero">
+    <svg viewBox="0 0 600 500" preserveAspectRatio="xMidYMax slice">
+      <g fill="none" stroke="#3C5636" stroke-width="1.4">
+        <path d="M-20 420 C 100 380, 180 440, 280 400 S 460 340, 620 380"/>
+        <path d="M-20 450 C 110 410, 190 470, 290 430 S 470 370, 620 410"/>
+        <path d="M-20 380 C 90 340, 170 400, 270 360 S 450 300, 620 340"/>
+        <path d="M-20 340 C 80 300, 160 360, 260 320 S 440 260, 620 300"/>
+        <path d="M-20 300 C 70 260, 150 320, 250 280 S 430 220, 620 260"/>
+      </g>
+      <g stroke="#C79A3E" stroke-width="2.4" fill="none" stroke-linecap="round">
+        <path d="M40 470 L 150 410 L 220 430 L 300 350 L 380 370 L 470 280 L 560 300"/>
+      </g>
+    </svg>
+    <div class="brand">CendurOFF</div>
+    <p>Nahraj svou GPX trasu, a utvářej s námi svět který nenajdeš v žádných offroad mapách.</p>
+  </div>
+  <div class="login-side">
+    <div class="tabs">
+      <button class="tab active" id="tab-login" type="button">Přihlásit se</button>
+      <button class="tab" id="tab-register" type="button">Vytvořit účet</button>
+    </div>
+    <form id="login-form">
+      <label for="li-user">Uživatelské jméno</label>
+      <input type="text" id="li-user" autocomplete="username" required>
+      <label for="li-pass">Heslo</label>
+      <input type="password" id="li-pass" autocomplete="current-password" required minlength="4">
+      <button class="primary-btn" type="submit" id="login-submit">Přihlásit se</button>
+      <div class="form-msg" id="form-msg"></div>
+    </form>
+    <div class="login-foot">Účet i trasy se ukládají do skutečné databáze na serveru.</div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app-screen">
+  <header class="topbar">
+    <div class="brand">CendurOFF</div>
+    <button class="btn solid" id="open-upload">+ Nahrát trasu</button>
+    <span class="user-chip" id="user-chip"></span>
+    <button class="btn" id="logout-btn">Odhlásit se</button>
+  </header>
+  <main class="mapwrap">
+    <div id="map"></div>
+    <div id="route-list">
+      <h2>Trasy <span class="count" id="route-count"></span></h2>
+      <div id="route-items"></div>
+    </div>
+    <div id="detail-panel">
+      <div class="detail-inner" id="detail-inner"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ============ UPLOAD MODAL ============ -->
+<div class="modal-overlay" id="upload-overlay">
+  <div class="modal">
+    <h2>Nahrát trasu</h2>
+    <p class="sub">Vyberte GPX soubor s vaší trasou.</p>
+    <label for="gpx-file">GPX soubor</label>
+    <input type="file" id="gpx-file" accept=".gpx">
+    <label for="route-name">Název trasy</label>
+    <input type="text" id="route-name" placeholder="např. Okruh kolem Landeku">
+    <label for="route-desc">Popis (nepovinné)</label>
+    <textarea id="route-desc" placeholder="Pár slov o trase, terénu, náročnosti…"></textarea>
+    <div class="form-msg" id="upload-msg"></div>
+    <div class="actions">
+      <button class="ghost-btn" id="cancel-upload" type="button">Zrušit</button>
+      <button class="primary-btn" id="confirm-upload" type="button" style="margin-top:0;">Nahrát</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
