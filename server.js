@@ -1,5 +1,6 @@
 const path = require('path');
 const express = require('express');
+const cors = require('cors'); // <--- PŘIDÁNO CORS
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -60,7 +61,16 @@ async function initDb() {
 }
 
 const app = express();
-app.use(express.json({ limit: '8mb' })); // GPX body doraz\u00ed jako JSON pole bod\u016f
+
+// ---------------------------------------------------------------
+// NASTAVENÍ CORS (POVOLENÍ PRO VERCEL FRONTEND)
+// ---------------------------------------------------------------
+app.use(cors({
+  origin: true, // Povolí požadavky ze všech domén (Vercel, localhost atd.)
+  credentials: true // DŮLEŽITÉ: Umožňuje předávání cookies mezi Vercelem a Railway
+}));
+
+app.use(express.json({ limit: '8mb' })); // GPX body dorazí jako JSON pole bodů
 app.use(cookieParser());
 
 const upload = multer({
@@ -77,6 +87,7 @@ function haversine(a, b) {
   const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLon / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(s));
 }
+
 function computeStats(points) {
   let dist = 0, gain = 0;
   for (let i = 1; i < points.length; i++) {
@@ -86,17 +97,21 @@ function computeStats(points) {
   }
   return { distanceKm: dist / 1000, elevGainM: gain };
 }
+
 function signToken(user) {
   return jwt.sign({ id: user.id, username: user.username, displayName: user.display_name }, JWT_SECRET, { expiresIn: '30d' });
 }
+
 function setAuthCookie(res, token) {
+  // UPRAVENO: pro komunikaci Vercel (Frontend) -> Railway (Backend)
   res.cookie('token', token, {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'none', // Důležité pro cross-site cookies mezi různými doménami
+    secure: true,    // Musí být true, pokud je sameSite 'none'
     maxAge: 30 * 24 * 60 * 60 * 1000
   });
 }
+
 function requireAuth(req, res, next) {
   const token = req.cookies && req.cookies.token;
   if (!token) return res.status(401).json({ error: 'Nejste přihlášen(a).' });
@@ -155,7 +170,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.post('/api/auth/logout', (req, res) => {
-  res.clearCookie('token');
+  res.clearCookie('token', { sameSite: 'none', secure: true });
   res.json({ ok: true });
 });
 
@@ -274,11 +289,9 @@ app.patch('/api/routes/:id/photos/:photoId/main', requireAuth, async (req, res) 
 });
 
 // ---------------------------------------------------------------
-// Frontend (statické soubory)
+// Handlery pro API chybějící cesty & statické soubory
 // ---------------------------------------------------------------
-app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api', (req, res) => res.status(404).json({ error: 'Neznámý endpoint.' }));
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError || err) {
