@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   display_name TEXT NOT NULL,
+  is_approved BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -57,6 +58,19 @@ CREATE INDEX IF NOT EXISTS idx_photos_route ON photos(route_id);
 
 async function initDb() {
   await pool.query(SCHEMA_SQL);
+
+  // Bezpečná migrace pro už běžící databázi, která sloupec is_approved ještě nemá:
+  // přidá ho a všechny DOSAVADNÍ účty rovnou označí za schválené, ať nikoho
+  // stávajícího tahle změna neodhlásí / nezablokuje.
+  const col = await pool.query(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'is_approved'`
+  );
+  if (col.rows.length === 0) {
+    await pool.query(`ALTER TABLE users ADD COLUMN is_approved BOOLEAN NOT NULL DEFAULT false`);
+    await pool.query(`UPDATE users SET is_approved = true`);
+    console.log('Migrace: sloupec is_approved přidán, stávající účty byly automaticky schváleny.');
+  }
+
   console.log('Databázové schéma je připravené.');
 }
 
@@ -138,14 +152,24 @@ app.post('/api/auth/register', async (req, res) => {
     if (existing.rows.length) {
       return res.status(409).json({ error: 'Toto uživatelské jméno už existuje.' });
     }
+    // úplně první registrovaný účet v celé databázi se považuje za majitele projektu
+    // a schvaluje se automaticky, aby nedošlo k patové situaci "nikdo nemůže schválit nikoho"
+    const countResult = await pool.query('SELECT COUNT(*)::int AS n FROM users');
+    const isFirstUser = countResult.rows[0].n === 0;
     const hash = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      'INSERT INTO users (username, password_hash, display_name) VALUES ($1,$2,$3) RETURNING id, username, display_name',
-      [username, hash, displayName]
+      'INSERT INTO users (username, password_hash, display_name, is_approved) VALUES ($1,$2,$3,$4) RETURNING id, username, display_name, is_approved',
+      [username, hash, displayName, isFirstUser]
     );
     const user = result.rows[0];
+    if (!user.is_approved) {
+      return res.status(201).json({
+        approved: false,
+        message: 'Registrace přijata. Účet teď čeká na schválení administrátorem, pak se budeš moct přihlásit.'
+      });
+    }
     setAuthCookie(res, signToken(user));
-    res.json({ id: user.id, username: user.username, displayName: user.display_name });
+    res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Registrace se nepovedla.' });
@@ -161,8 +185,11 @@ app.post('/api/auth/login', async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Účet nenalezen. Zkuste "Vytvořit účet".' });
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ error: 'Nesprávné heslo.' });
+    if (!user.is_approved) {
+      return res.status(403).json({ error: 'Účet ještě čeká na schválení administrátorem.' });
+    }
     setAuthCookie(res, signToken(user));
-    res.json({ id: user.id, username: user.username, displayName: user.display_name });
+    res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Přihlášení se nepovedlo.' });
@@ -285,6 +312,44 @@ app.patch('/api/routes/:id/photos/:photoId/main', requireAuth, async (req, res) 
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Nepodařilo se nastavit hlavní fotku.' });
+  }
+});
+
+app.delete('/api/routes/:id/photos/:photoId', requireAuth, async (req, res) => {
+  try {
+    const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1', [req.params.id]);
+    const route = routeResult.rows[0];
+    if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
+    if (route.owner_id !== req.user.id) return res.status(403).json({ error: 'Fotky může mazat jen vlastník trasy.' });
+    const photoResult = await pool.query('SELECT is_main FROM photos WHERE id = $1 AND route_id = $2', [req.params.photoId, req.params.id]);
+    if (!photoResult.rows[0]) return res.status(404).json({ error: 'Fotka nenalezena.' });
+    const wasMain = photoResult.rows[0].is_main;
+    await pool.query('DELETE FROM photos WHERE id = $1', [req.params.photoId]);
+    if (wasMain) {
+      const remaining = await pool.query('SELECT id FROM photos WHERE route_id = $1 ORDER BY created_at ASC LIMIT 1', [req.params.id]);
+      if (remaining.rows[0]) await pool.query('UPDATE photos SET is_main = true WHERE id = $1', [remaining.rows[0].id]);
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Fotku se nepodařilo smazat.' });
+  }
+});
+
+// ---------------------------------------------------------------
+// Smazání trasy
+// ---------------------------------------------------------------
+app.delete('/api/routes/:id', requireAuth, async (req, res) => {
+  try {
+    const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1', [req.params.id]);
+    const route = routeResult.rows[0];
+    if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
+    if (route.owner_id !== req.user.id) return res.status(403).json({ error: 'Trasu může smazat jen vlastník.' });
+    await pool.query('DELETE FROM routes WHERE id = $1', [req.params.id]); // fotky se smažou kaskádově
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Trasu se nepodařilo smazat.' });
   }
 });
 

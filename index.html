@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CendurOFF — trasy na hraně zákona</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700&family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="public/style.css">
 </head>
 <body>
@@ -27,6 +27,7 @@
     </svg>
     <div class="brand">CendurOFF</div>
     <p>Nahraj svou GPX trasu, a utvářej s námi svět který nenajdeš v žádných offroad mapách.</p>
+    <p class="hero-credit">Projekt skupiny Petrol Machine Silesia</p>
   </div>
   <div class="login-side">
     <div class="tabs">
@@ -48,17 +49,29 @@
 <!-- ============ APP ============ -->
 <div id="app-screen">
   <header class="topbar">
+    <img class="brand-logo" src="public/img/pms-logo.png" alt="Petrol Machine Silesia">
     <div class="brand">CendurOFF</div>
     <button class="btn solid" id="open-upload">+ Nahrát trasu</button>
+    <button class="btn" id="open-about">O projektu</button>
     <span class="user-chip" id="user-chip"></span>
     <button class="btn" id="logout-btn">Odhlásit se</button>
   </header>
   <main class="mapwrap">
     <div id="map"></div>
+
     <div id="route-list">
-      <h2>Trasy <span class="count" id="route-count"></span></h2>
+      <h2 id="route-list-toggle">
+        <span>Trasy <span class="count" id="route-count"></span></span>
+        <span class="collapse-arrow">▾</span>
+      </h2>
       <div id="route-items"></div>
     </div>
+
+    <div id="locate-controls">
+      <button class="map-fab" id="locate-btn" title="Zobrazit / sledovat mou polohu">📍</button>
+      <button class="map-fab" id="heading-btn" title="Přepnout sever nahoru / směr jízdy nahoru" disabled>🧭</button>
+    </div>
+
     <div id="detail-panel">
       <div class="detail-inner" id="detail-inner"></div>
     </div>
@@ -81,6 +94,22 @@
       <button class="ghost-btn" id="cancel-upload" type="button">Zrušit</button>
       <button class="primary-btn" id="confirm-upload" type="button" style="margin-top:0;">Nahrát</button>
     </div>
+  </div>
+</div>
+
+<!-- ============ O PROJEKTU MODAL ============ -->
+<div class="modal-overlay" id="about-overlay">
+  <div class="modal about-modal">
+    <button class="detail-close" id="about-close">×</button>
+    <img class="about-logo" src="public/img/pms-logo.png" alt="Petrol Machine Silesia">
+    <h2>O projektu</h2>
+    <p class="sub">CendurOFF vytvořila a spravuje parta <strong>Petrol Machine Silesia</strong> —
+      skupina lidí, které baví offroad, enduro a objevování tras, které nenajdete na žádné
+      turistické mapě.</p>
+    <p class="sub">Cílem je jednoduchá mapa, kam si každý může nahrát vlastní GPX trasu, ukázat
+      ji ostatním a přidat pár fotek z cesty.</p>
+    <p class="sub about-soon">Brzy: možnost koupit si nálepku Petrol Machine Silesia a podpořit
+      tak provoz projektu.</p>
   </div>
 </div>
 
