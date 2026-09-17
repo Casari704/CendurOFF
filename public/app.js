@@ -94,6 +94,7 @@ loginForm.addEventListener('submit', async (e)=>{
   const pass = document.getElementById('li-pass').value;
   if(!username || !pass){ formMsg.textContent='Vyplňte jméno i heslo.'; return; }
   formMsg.textContent='';
+  formMsg.style.color='';
   loginSubmit.disabled = true;
   try{
     const endpoint = mode==='register' ? '/api/auth/register' : '/api/auth/login';
@@ -105,6 +106,12 @@ loginForm.addEventListener('submit', async (e)=>{
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body)
     });
+    if(mode==='register' && user.approved===false){
+      formMsg.style.color = 'var(--moss-dark)';
+      formMsg.textContent = user.message || 'Registrace přijata, počkej na schválení administrátorem.';
+      loginSubmit.disabled = false;
+      return;
+    }
     currentUser = user;
     enterApp();
   }catch(err){
@@ -127,6 +134,21 @@ document.getElementById('logout-btn').addEventListener('click', async ()=>{
 let map, activeRouteId=null;
 const layersById = {};
 let routesCache = {};
+
+// sbalitelný seznam tras
+const routeListEl = document.getElementById('route-list');
+const routeListToggle = document.getElementById('route-list-toggle');
+if(localStorage.getItem('routeListCollapsed') === '1') routeListEl.classList.add('collapsed');
+routeListToggle.addEventListener('click', ()=>{
+  routeListEl.classList.toggle('collapsed');
+  localStorage.setItem('routeListCollapsed', routeListEl.classList.contains('collapsed') ? '1' : '0');
+});
+
+// modal "O projektu"
+const aboutOverlay = document.getElementById('about-overlay');
+document.getElementById('open-about').addEventListener('click', ()=> aboutOverlay.classList.add('open'));
+document.getElementById('about-close').addEventListener('click', ()=> aboutOverlay.classList.remove('open'));
+aboutOverlay.addEventListener('click', (e)=>{ if(e.target===aboutOverlay) aboutOverlay.classList.remove('open'); });
 
 function initMap(){
   if(map) return;
@@ -192,6 +214,38 @@ function highlightRoute(id){
 }
 
 // ---------------------------------------------------------------
+// Výškový profil
+// ---------------------------------------------------------------
+function renderElevationProfile(points){
+  const hasEle = points.some(p => p[2] != null && !isNaN(p[2]));
+  if(!hasEle) return '<p class="elev-note">Trasa neobsahuje data o nadmořské výšce.</p>';
+  let dist = 0;
+  const series = [[0, points[0][2] ?? 0]];
+  for(let i=1;i<points.length;i++){
+    dist += haversine(points[i-1], points[i]);
+    const ele = points[i][2];
+    if(ele != null && !isNaN(ele)) series.push([dist/1000, ele]);
+  }
+  if(series.length < 2) return '<p class="elev-note">Trasa neobsahuje data o nadmořské výšce.</p>';
+  const eles = series.map(p=>p[1]);
+  const minEle = Math.min(...eles), maxEle = Math.max(...eles);
+  const maxDist = series[series.length-1][0] || 1;
+  const W=300, H=90, PAD=4;
+  const scaleX = d => PAD + (d/maxDist) * (W-2*PAD);
+  const scaleY = e => H-PAD - ((e-minEle)/((maxEle-minEle)||1)) * (H-2*PAD);
+  const pathD = series.map((p,i)=> (i===0?'M':'L') + scaleX(p[0]).toFixed(1) + ',' + scaleY(p[1]).toFixed(1)).join(' ');
+  const areaD = pathD + ` L${scaleX(series[series.length-1][0]).toFixed(1)},${H-PAD} L${scaleX(0).toFixed(1)},${H-PAD} Z`;
+  return `
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+      <path d="${areaD}" fill="#4F7048" fill-opacity="0.18" stroke="none"></path>
+      <path d="${pathD}" fill="none" stroke="#4F7048" stroke-width="2"></path>
+    </svg>
+    <div style="display:flex;justify-content:space-between;font-size:0.72rem;color:var(--ink-soft);margin-top:4px;">
+      <span>${Math.round(minEle)} m</span><span>${Math.round(maxEle)} m</span>
+    </div>`;
+}
+
+// ---------------------------------------------------------------
 // Detail panel + photos
 // ---------------------------------------------------------------
 async function openDetail(id){
@@ -223,6 +277,7 @@ async function openDetail(id){
     return `<div class="photo-slot">
         <img src="${p.data_url}" alt="Fotka trasy ${escapeHtml(route.name)}">
         ${p.is_main ? '<span class="main-badge">HLAVNÍ</span>' : ''}
+        ${isOwner ? `<button class="delete-photo-btn" data-photo="${p.id}" title="Smazat fotku">×</button>` : ''}
         ${isOwner && !p.is_main ? `<button class="set-main-btn" data-photo="${p.id}">Nastavit jako hlavní</button>` : ''}
       </div>`;
   }).join('');
@@ -236,6 +291,10 @@ async function openDetail(id){
       <div class="stat"><b>${Math.round(route.elev_gain_m)}</b><span>m převýšení</span></div>
       <div class="stat"><b>${route.points.length}</b><span>bodů GPX</span></div>
     </div>
+    <div class="elev-profile">
+      <h3>Výškový profil</h3>
+      ${renderElevationProfile(route.points)}
+    </div>
     ${route.description ? `<div class="detail-desc">${escapeHtml(route.description)}</div>` : ''}
     <div class="photo-grid">${photoSlots}</div>
     ${isOwner ? `
@@ -244,6 +303,7 @@ async function openDetail(id){
         <p class="hint">Jako vlastník trasy můžete nahrát až 3 fotky a vybrat, která bude hlavní (max 3 MB na fotku).</p>
         <input type="file" id="photo-input" accept="image/*" ${photos.length>=3 ? 'disabled' : ''}>
         ${photos.length>=3 ? '<p class="hint">Všechny 3 sloty jsou obsazené.</p>' : ''}
+        <button class="danger-btn" id="delete-route-btn">Smazat trasu</button>
       </div>` : ''}
   `;
 
@@ -259,6 +319,28 @@ async function openDetail(id){
         }catch(e){ toast(e.message || 'Nepodařilo se uložit změnu.'); }
       });
     });
+    inner.querySelectorAll('.delete-photo-btn').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        if(!confirm('Smazat tuto fotku?')) return;
+        try{
+          await api(`/api/routes/${id}/photos/${btn.dataset.photo}`, { method:'DELETE' });
+          toast('Fotka smazána.');
+          openDetail(id);
+        }catch(e){ toast(e.message || 'Fotku se nepodařilo smazat.'); }
+      });
+    });
+    const deleteRouteBtn = document.getElementById('delete-route-btn');
+    if(deleteRouteBtn){
+      deleteRouteBtn.addEventListener('click', async ()=>{
+        if(!confirm('Opravdu chceš trasu "'+route.name+'" natrvalo smazat? Tuto akci nejde vrátit zpět.')) return;
+        try{
+          await api(`/api/routes/${id}`, { method:'DELETE' });
+          toast('Trasa byla smazána.');
+          closeDetail();
+          await loadRoutes();
+        }catch(e){ toast(e.message || 'Trasu se nepodařilo smazat.'); }
+      });
+    }
     const photoInput = document.getElementById('photo-input');
     if(photoInput){
       photoInput.addEventListener('change', async ()=>{
@@ -337,6 +419,120 @@ document.getElementById('confirm-upload').addEventListener('click', async ()=>{
     openDetail(route.id);
   }catch(e){
     msg.textContent = e.message || 'Soubor se nepodařilo zpracovat.';
+  }
+});
+
+// ---------------------------------------------------------------
+// GPS poloha, sledování a kompas
+// ---------------------------------------------------------------
+let gpsMarker=null, gpsAccuracyCircle=null, watchId=null;
+let followMode=false, headingMode='north', currentHeading=0, lastLatLng=null, orientationBound=false;
+
+const locateBtn = document.getElementById('locate-btn');
+const headingBtn = document.getElementById('heading-btn');
+const mapEl = document.getElementById('map');
+
+function arrowSvg(){
+  return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#4F7048" stroke="#fff" stroke-width="2"/><path d="M12 5 L16 14 L12 12 L8 14 Z" fill="#fff"/></svg>';
+}
+function ensureGpsMarker(latlng, accuracy){
+  if(!gpsMarker){
+    const icon = L.divIcon({
+      className:'gps-marker-icon', html:`<div class="gps-heading-icon" id="gps-arrow">${arrowSvg()}</div>`,
+      iconSize:[26,26], iconAnchor:[13,13]
+    });
+    gpsMarker = L.marker(latlng, { icon, zIndexOffset:1000 }).addTo(map);
+    gpsAccuracyCircle = L.circle(latlng, { radius:accuracy||20, color:'#4F7048', fillColor:'#4F7048', fillOpacity:0.15, weight:1 }).addTo(map);
+  } else {
+    gpsMarker.setLatLng(latlng);
+    gpsAccuracyCircle.setLatLng(latlng);
+    gpsAccuracyCircle.setRadius(accuracy||20);
+  }
+}
+function updateArrowRotation(deg){
+  const el = document.getElementById('gps-arrow');
+  if(el) el.style.transform = 'rotate('+deg+'deg)';
+}
+
+function onPosition(pos){
+  const latlng = [pos.coords.latitude, pos.coords.longitude];
+  lastLatLng = latlng;
+  ensureGpsMarker(latlng, pos.coords.accuracy);
+  if(pos.coords.heading != null && !isNaN(pos.coords.heading)){
+    currentHeading = pos.coords.heading;
+    if(headingMode==='heading') setMapRotation(true); else updateArrowRotation(currentHeading);
+  }
+  if(followMode) map.setView(latlng, map.getZoom(), { animate:true });
+}
+function onPositionError(err){
+  toast('Polohu se nepodařilo získat: ' + (err.message || 'neznámá chyba'));
+  followMode = false;
+  locateBtn.classList.remove('active');
+}
+
+locateBtn.addEventListener('click', ()=>{
+  if(!navigator.geolocation){ toast('Prohlížeč nepodporuje GPS polohu.'); return; }
+  if(watchId==null){
+    followMode = true;
+    locateBtn.classList.add('active');
+    headingBtn.disabled = false;
+    watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, { enableHighAccuracy:true, maximumAge:2000, timeout:15000 });
+  } else if(!followMode){
+    followMode = true;
+    locateBtn.classList.add('active');
+    if(lastLatLng) map.setView(lastLatLng, map.getZoom());
+  } else {
+    followMode = false;
+    locateBtn.classList.remove('active');
+  }
+});
+
+function startOrientation(){
+  if(orientationBound) return;
+  orientationBound = true;
+  const handler = (e)=>{
+    let heading = null;
+    if(e.webkitCompassHeading != null) heading = e.webkitCompassHeading;
+    else if(e.alpha != null) heading = 360 - e.alpha;
+    if(heading==null || isNaN(heading)) return;
+    currentHeading = heading;
+    if(headingMode==='heading') setMapRotation(true); else updateArrowRotation(heading);
+  };
+  window.addEventListener('deviceorientationabsolute', handler, true);
+  window.addEventListener('deviceorientation', handler, true);
+}
+
+function setMapRotation(on){
+  if(on){
+    mapEl.style.transform = 'scale(1.6) rotate(' + (-currentHeading) + 'deg)';
+    map.dragging.disable();
+    map.touchZoom.disable();
+    map.doubleClickZoom.disable();
+    updateArrowRotation(0);
+  } else {
+    mapEl.style.transform = 'none';
+    map.dragging.enable();
+    map.touchZoom.enable();
+    map.doubleClickZoom.enable();
+  }
+}
+
+headingBtn.addEventListener('click', async ()=>{
+  if(headingMode==='north'){
+    if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+      try{
+        const perm = await DeviceOrientationEvent.requestPermission();
+        if(perm !== 'granted'){ toast('Přístup ke kompasu nebyl povolen.'); return; }
+      }catch(e){ toast('Kompas není na tomto zařízení dostupný.'); return; }
+    }
+    startOrientation();
+    headingMode = 'heading';
+    headingBtn.classList.add('active');
+    setMapRotation(true);
+  } else {
+    headingMode = 'north';
+    headingBtn.classList.remove('active');
+    setMapRotation(false);
   }
 });
 
