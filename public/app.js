@@ -152,7 +152,7 @@ aboutOverlay.addEventListener('click', (e)=>{ if(e.target===aboutOverlay) aboutO
 
 function initMap(){
   if(map) return;
-  map = L.map('map', { zoomControl:true }).setView([49.8967, 18.1969], 8);
+  map = L.map('map', { zoomControl:false }).setView([49.8967, 18.1969], 8);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '© OpenStreetMap contributors, CyclOSM'
@@ -183,21 +183,43 @@ async function loadRoutes(){
     drawRoute(route);
     const item = document.createElement('div');
     item.className='route-item';
-    item.innerHTML = `<div class="r-name">${escapeHtml(route.name)}</div>
-      <div class="r-meta">${escapeHtml(route.owner_display)} · ${Number(route.distance_km).toFixed(1)} km</div>`;
-    item.addEventListener('click', ()=>{
+    item.innerHTML = `
+      <label class="visibility-toggle" title="Zobrazit/skrýt trasu na mapě">
+        <input type="checkbox" class="route-visibility-checkbox" checked>
+        <span class="visibility-box"></span>
+      </label>
+      <div class="route-item-info">
+        <div class="r-name">${escapeHtml(route.name)}</div>
+        <div class="r-meta">${escapeHtml(route.owner_display)} · ${Number(route.distance_km).toFixed(1)} km</div>
+      </div>`;
+    item.querySelector('.route-item-info').addEventListener('click', ()=>{
       const layer = layersById[route.id];
-      if(layer) map.fitBounds(layer.getBounds(), {maxZoom:14});
+      if(layer){
+        if(!map.hasLayer(layer)){
+          layer.addTo(map);
+          const cb = item.querySelector('.route-visibility-checkbox');
+          if(cb) cb.checked = true;
+        }
+        map.fitBounds(layer.getBounds(), {maxZoom:14});
+      }
       openDetail(route.id);
+    });
+    item.querySelector('.route-visibility-checkbox').addEventListener('change', (e)=>{
+      const layer = layersById[route.id];
+      if(!layer) return;
+      if(e.target.checked) layer.addTo(map);
+      else map.removeLayer(layer);
     });
     listEl.appendChild(item);
   });
 }
 
+const ROUTE_COLOR = '#FF0000';
+const ROUTE_COLOR_SELECTED = '#1E64D6';
+
 function drawRoute(route){
   const latlngs = route.points.map(p=>[p[0],p[1]]);
-  const color = colorFor(route.id);
-  const line = L.polyline(latlngs, { color:'#FF0000', weight:4, opacity:0.85 }).addTo(map);
+  const line = L.polyline(latlngs, { color:ROUTE_COLOR, weight:4, opacity:0.85 }).addTo(map);
   line.bindTooltip(`<b>${escapeHtml(route.name)}</b><br>${escapeHtml(route.owner_display)} · ${Number(route.distance_km).toFixed(1)} km`,
     { sticky:true, className:'trail-tip' });
   line.on('mouseover', ()=>{ if(route.id!==activeRouteId) line.setStyle({weight:6, opacity:1}); });
@@ -208,8 +230,12 @@ function drawRoute(route){
 
 function highlightRoute(id){
   Object.entries(layersById).forEach(([rid, layer])=>{
-    if(Number(rid)===Number(id)) layer.setStyle({ weight:6, opacity:1 });
-    else layer.setStyle({ weight:4, opacity:0.85 });
+    if(Number(rid)===Number(id)){
+      layer.setStyle({ color: ROUTE_COLOR_SELECTED, weight:6, opacity:1 });
+      layer.bringToFront();
+    } else {
+      layer.setStyle({ color: ROUTE_COLOR, weight:4, opacity:0.85 });
+    }
   });
 }
 
@@ -286,6 +312,18 @@ async function openDetail(id){
     <button class="detail-close" id="detail-close">×</button>
     <h2>${escapeHtml(route.name)}</h2>
     <div class="detail-owner">Přidal(a) ${escapeHtml(route.owner_display)} · ${fmtDate(route.created_at)}</div>
+    ${isOwner ? `
+      <div class="edit-route-form" id="edit-route-form" style="display:none;">
+        <label for="edit-route-name">Název trasy</label>
+        <input type="text" id="edit-route-name" value="${escapeHtml(route.name)}">
+        <label for="edit-route-desc">Popis</label>
+        <textarea id="edit-route-desc">${escapeHtml(route.description||'')}</textarea>
+        <div class="form-msg" id="edit-route-msg"></div>
+        <div class="actions">
+          <button class="ghost-btn" id="cancel-edit-route" type="button">Zrušit</button>
+          <button class="primary-btn" id="save-edit-route" type="button" style="margin-top:0;">Uložit</button>
+        </div>
+      </div>` : ''}
     <div class="detail-stats">
       <div class="stat"><b>${Number(route.distance_km).toFixed(1)}</b><span>km</span></div>
       <div class="stat"><b>${Math.round(route.elev_gain_m)}</b><span>m převýšení</span></div>
@@ -295,7 +333,7 @@ async function openDetail(id){
       <h3>Výškový profil</h3>
       ${renderElevationProfile(route.points)}
     </div>
-    ${route.description ? `<div class="detail-desc">${escapeHtml(route.description)}</div>` : ''}
+    ${route.description ? `<div class="detail-desc" id="detail-desc-text">${escapeHtml(route.description)}</div>` : ''}
     <div class="photo-grid">${photoSlots}</div>
     ${isOwner ? `
       <div class="owner-controls">
@@ -303,6 +341,7 @@ async function openDetail(id){
         <p class="hint">Jako vlastník trasy můžete nahrát až 3 fotky a vybrat, která bude hlavní (max 3 MB na fotku).</p>
         <input type="file" id="photo-input" accept="image/*" ${photos.length>=3 ? 'disabled' : ''}>
         ${photos.length>=3 ? '<p class="hint">Všechny 3 sloty jsou obsazené.</p>' : ''}
+        <button class="ghost-btn" id="edit-route-btn" style="width:100%;margin-top:14px;">Upravit trasu</button>
         <button class="danger-btn" id="delete-route-btn">Smazat trasu</button>
       </div>` : ''}
   `;
@@ -310,6 +349,33 @@ async function openDetail(id){
   document.getElementById('detail-close').addEventListener('click', closeDetail);
 
   if(isOwner){
+    const editForm = document.getElementById('edit-route-form');
+    const editBtn = document.getElementById('edit-route-btn');
+    editBtn.addEventListener('click', ()=>{
+      editForm.style.display = editForm.style.display==='none' ? 'block' : 'none';
+      if(editForm.style.display==='block') editForm.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    });
+    document.getElementById('cancel-edit-route').addEventListener('click', ()=>{
+      editForm.style.display = 'none';
+    });
+    document.getElementById('save-edit-route').addEventListener('click', async ()=>{
+      const msg = document.getElementById('edit-route-msg');
+      const newName = document.getElementById('edit-route-name').value.trim();
+      const newDesc = document.getElementById('edit-route-desc').value.trim();
+      if(!newName){ msg.textContent = 'Zadejte název trasy.'; return; }
+      msg.textContent = 'Ukládám…';
+      try{
+        await api(`/api/routes/${id}`, {
+          method:'PATCH',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ name:newName, description:newDesc })
+        });
+        toast('Trasa byla upravena.');
+        await loadRoutes();
+        openDetail(id);
+      }catch(e){ msg.textContent = e.message || 'Trasu se nepodařilo upravit.'; }
+    });
+
     inner.querySelectorAll('.set-main-btn').forEach(btn=>{
       btn.addEventListener('click', async ()=>{
         try{
@@ -362,7 +428,7 @@ async function openDetail(id){
 function closeDetail(){
   document.getElementById('detail-panel').classList.remove('open');
   activeRouteId = null;
-  Object.values(layersById).forEach(l=>l.setStyle({weight:4, opacity:0.85}));
+  Object.values(layersById).forEach(l=>l.setStyle({color:ROUTE_COLOR, weight:4, opacity:0.85}));
 }
 
 // ---------------------------------------------------------------
@@ -430,16 +496,24 @@ let followMode=false, headingMode='north', currentHeading=0, lastLatLng=null, or
 
 const locateBtn = document.getElementById('locate-btn');
 const headingBtn = document.getElementById('heading-btn');
+const locateBtnLabel = document.getElementById('locate-btn-label');
+const headingBtnLabel = document.getElementById('heading-btn-label');
 const mapEl = document.getElementById('map');
 
+document.getElementById('zoom-in-btn').addEventListener('click', ()=> map.zoomIn());
+document.getElementById('zoom-out-btn').addEventListener('click', ()=> map.zoomOut());
+
 function arrowSvg(){
-  return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#4F7048" stroke="#fff" stroke-width="2"/><path d="M12 5 L16 14 L12 12 L8 14 Z" fill="#fff"/></svg>';
+  return `<svg viewBox="0 0 24 24">
+    <path d="M12 2 L22 22 L12 16 L2 22 Z" fill="#FF7A1A" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M12 2 L22 22 L12 16 Z" fill="#B8480D"/>
+  </svg>`;
 }
 function ensureGpsMarker(latlng, accuracy){
   if(!gpsMarker){
     const icon = L.divIcon({
       className:'gps-marker-icon', html:`<div class="gps-heading-icon" id="gps-arrow">${arrowSvg()}</div>`,
-      iconSize:[26,26], iconAnchor:[13,13]
+      iconSize:[34,34], iconAnchor:[17,17]
     });
     gpsMarker = L.marker(latlng, { icon, zIndexOffset:1000 }).addTo(map);
     gpsAccuracyCircle = L.circle(latlng, { radius:accuracy||20, color:'#4F7048', fillColor:'#4F7048', fillOpacity:0.15, weight:1 }).addTo(map);
@@ -468,6 +542,7 @@ function onPositionError(err){
   toast('Polohu se nepodařilo získat: ' + (err.message || 'neznámá chyba'));
   followMode = false;
   locateBtn.classList.remove('active');
+  locateBtnLabel.textContent = 'Nesleduji polohu';
 }
 
 locateBtn.addEventListener('click', ()=>{
@@ -475,15 +550,18 @@ locateBtn.addEventListener('click', ()=>{
   if(watchId==null){
     followMode = true;
     locateBtn.classList.add('active');
+    locateBtnLabel.textContent = 'Sleduji polohu';
     headingBtn.disabled = false;
     watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, { enableHighAccuracy:true, maximumAge:2000, timeout:15000 });
   } else if(!followMode){
     followMode = true;
     locateBtn.classList.add('active');
+    locateBtnLabel.textContent = 'Sleduji polohu';
     if(lastLatLng) map.setView(lastLatLng, map.getZoom());
   } else {
     followMode = false;
     locateBtn.classList.remove('active');
+    locateBtnLabel.textContent = 'Nesleduji polohu';
   }
 });
 
@@ -514,6 +592,7 @@ function setMapRotation(on){
     map.dragging.enable();
     map.touchZoom.enable();
     map.doubleClickZoom.enable();
+    updateArrowRotation(currentHeading);
   }
 }
 
@@ -528,10 +607,12 @@ headingBtn.addEventListener('click', async ()=>{
     startOrientation();
     headingMode = 'heading';
     headingBtn.classList.add('active');
+    headingBtnLabel.textContent = 'Směr jízdy';
     setMapRotation(true);
   } else {
     headingMode = 'north';
     headingBtn.classList.remove('active');
+    headingBtnLabel.textContent = 'Sever nahoru';
     setMapRotation(false);
   }
 });
