@@ -124,6 +124,7 @@ loginForm.addEventListener('submit', async (e)=>{
 document.getElementById('logout-btn').addEventListener('click', async ()=>{
   try{ await api('/api/auth/logout', { method:'POST' }); }catch(e){}
   currentUser = null;
+  releaseWakeLock();
   document.getElementById('app-screen').style.display='none';
   document.getElementById('login-screen').style.display='flex';
 });
@@ -618,6 +619,42 @@ headingBtn.addEventListener('click', async ()=>{
 });
 
 // ---------------------------------------------------------------
+// Wake Lock - zabránění zhasnutí/vypnutí displeje během používání
+// ---------------------------------------------------------------
+let wakeLock = null;
+async function requestWakeLock(){
+  if(!('wakeLock' in navigator)) return;
+  try{
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', ()=>{ wakeLock = null; });
+  }catch(e){ /* zařízení/prohlížeč to nepodporuje nebo je málo baterie - v pořádku, tiše ignorujeme */ }
+}
+function releaseWakeLock(){
+  if(wakeLock){ wakeLock.release(); wakeLock = null; }
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible' && currentUser) requestWakeLock();
+});
+
+// ---------------------------------------------------------------
+// Celá obrazovka (schová adresní řádek prohlížeče)
+// ---------------------------------------------------------------
+const fullscreenBtn = document.getElementById('fullscreen-btn');
+fullscreenBtn.addEventListener('click', async ()=>{
+  try{
+    if(!document.fullscreenElement){
+      await document.documentElement.requestFullscreen();
+    } else {
+      await document.exitFullscreen();
+    }
+  }catch(e){ toast('Celou obrazovku se nepodařilo přepnout.'); }
+});
+document.addEventListener('fullscreenchange', ()=>{
+  fullscreenBtn.classList.toggle('active', !!document.fullscreenElement);
+  fullscreenBtn.title = document.fullscreenElement ? 'Ukončit celou obrazovku' : 'Celá obrazovka';
+});
+
+// ---------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------
 async function enterApp(){
@@ -627,6 +664,7 @@ async function enterApp(){
   initMap();
   setTimeout(()=>map.invalidateSize(), 50);
   await loadRoutes();
+  requestWakeLock();
 }
 
 (async function boot(){
