@@ -72,8 +72,18 @@
     </div>
 
     <div id="locate-controls">
-      <button class="map-fab" id="locate-btn" title="Zobrazit / sledovat mou polohu">📍</button>
-      <button class="map-fab" id="heading-btn" title="Přepnout sever nahoru / směr jízdy nahoru" disabled>🧭</button>
+      <button class="map-btn" id="heading-btn" title="Přepnout sever nahoru / směr jízdy nahoru" disabled>
+        <span class="map-btn-icon">🧭</span>
+        <span class="map-btn-label" id="heading-btn-label">Sever nahoru</span>
+      </button>
+      <button class="map-btn" id="locate-btn" title="Zobrazit / sledovat mou polohu">
+        <span class="map-btn-icon">📍</span>
+        <span class="map-btn-label" id="locate-btn-label">Nesleduji polohu</span>
+      </button>
+      <div class="zoom-btn-group">
+        <button class="map-btn map-btn-square" id="zoom-in-btn" title="Přiblížit">+</button>
+        <button class="map-btn map-btn-square" id="zoom-out-btn" title="Oddálit">−</button>
+      </div>
     </div>
 
     <div id="detail-panel">

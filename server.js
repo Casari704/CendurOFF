@@ -273,6 +273,47 @@ app.post('/api/routes', requireAuth, async (req, res) => {
 });
 
 // ---------------------------------------------------------------
+// Úprava trasy (vlastník)
+// ---------------------------------------------------------------
+app.patch('/api/routes/:id', requireAuth, async (req, res) => {
+  try {
+    const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1', [req.params.id]);
+    const route = routeResult.rows[0];
+    if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
+    if (route.owner_id !== req.user.id) return res.status(403).json({ error: 'Trasu může upravovat jen vlastník.' });
+
+    const name = String(req.body.name || '').trim();
+    const description = String(req.body.description || '').trim();
+    if (!name) return res.status(400).json({ error: 'Zadejte název trasy.' });
+
+    // volitelné: pokud přijde i nová sada bodů (znovu nahraná GPX), přepočítat i statistiky
+    if (Array.isArray(req.body.points) && req.body.points.length >= 2) {
+      const clean = req.body.points
+        .map(p => [Number(p[0]), Number(p[1]), p[2] == null ? null : Number(p[2])])
+        .filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+      const stats = computeStats(clean);
+      const result = await pool.query(
+        `UPDATE routes SET name=$1, description=$2, points=$3, distance_km=$4, elev_gain_m=$5
+         WHERE id=$6
+         RETURNING id, name, description, points, distance_km, elev_gain_m, created_at`,
+        [name, description, JSON.stringify(clean), stats.distanceKm, stats.elevGainM, req.params.id]
+      );
+      return res.json(result.rows[0]);
+    }
+
+    const result = await pool.query(
+      `UPDATE routes SET name=$1, description=$2 WHERE id=$3
+       RETURNING id, name, description, points, distance_km, elev_gain_m, created_at`,
+      [name, description, req.params.id]
+    );
+    res.json(result.rows[0]);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Trasu se nepodařilo upravit.' });
+  }
+});
+
+// ---------------------------------------------------------------
 // Fotky
 // ---------------------------------------------------------------
 app.post('/api/routes/:id/photos', requireAuth, upload.single('photo'), async (req, res) => {
