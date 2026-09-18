@@ -215,7 +215,10 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
   gap:5px;
 }
 .nav-grid .nav-btn{
-  width:150px;min-width:0;height:64px;border-radius:14px;
+  width:150px;min-width:0;height:64px;border-radius:14px;padding:0 12px;gap:8px;
+}
+.nav-grid .nav-btn .map-btn-label{
+  white-space:normal;line-height:1.05;font-size:0.82rem;
 }
 .nav-grid .nav-zoom{
   width:64px;height:64px;border-radius:14px;
@@ -279,22 +282,31 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
   #route-list h2{padding:10px 12px;font-size:0.9rem;}
   .visibility-toggle{width:24px;height:24px;}
 
-  #locate-controls{right:8px;bottom:10px;gap:6px;}
-  .map-btn{min-width:0;height:50px;padding:0 12px;gap:8px;border-radius:11px;}
+  #locate-controls{
+    position:fixed;left:0;right:0;bottom:0;top:auto;
+    display:flex;flex-direction:row;align-items:stretch;
+    gap:5px;padding:0 6px 6px;z-index:950;
+  }
+  .map-btn{min-width:0;height:50px;padding:0 10px;gap:6px;border-radius:11px 11px 0 0;}
   .map-btn-icon{font-size:1.2rem;}
-  .map-btn-label{font-size:0.76rem;}
+  .map-btn-label{font-size:0.72rem;white-space:normal;line-height:1.05;}
   .map-btn-square{width:50px;height:50px;font-size:1.4rem;}
-  /* Sever je v mobilu přesunutý úplně dolů (viz #heading-btn níže), takže mřížka
-     zbyde jen s "sleduji polohu" + zoomem - stačí prostý sloupec. */
-  .nav-grid{display:flex;flex-direction:column;gap:6px;}
-  .nav-grid .nav-btn{width:auto;height:50px;border-radius:11px;}
-  .nav-grid .nav-zoom{width:50px;height:50px;border-radius:11px;align-self:flex-end;}
 
-  /* Tlačítko sever/směr jízdy v mobilu přesunuto úplně dolů (jako spodní lišta),
-     ať nepřekáží nad mapou vedle tlačítka polohy a zoomu. */
-  #heading-btn{
-    position:fixed;left:0;right:0;bottom:0;width:100%;
-    height:46px;min-width:0;border-radius:0;border-width:1px 0 0 0;
-    justify-content:center;gap:8px;z-index:950;
+  /* Fullscreen tlačítko pryč ze spodní lišty (viz mockup) - malé, u horního okraje mapy */
+  #fullscreen-btn{
+    position:fixed;top:56px;right:8px;bottom:auto;z-index:950;
+    width:42px;height:42px;font-size:1.2rem;border-radius:11px;
+  }
+
+  /* Spodní lišta: "Sever nahoru" + "Sleduji polohu" vedle sebe (jedna široká
+     lišta), vpravo od ní kompaktně + a - vedle sebe - podle mockupu. */
+  .nav-grid{
+    flex:1 1 auto;display:flex;flex-direction:row;gap:5px;
+  }
+  .nav-grid .nav-btn{
+    flex:1 1 0;width:auto;height:50px;border-radius:11px 11px 0 0;
+  }
+  .nav-grid .nav-zoom{
+    width:50px;height:50px;border-radius:11px 11px 0 0;
   }
 }

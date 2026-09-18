@@ -41,6 +41,28 @@ function parseGPX(text){
   const nameEl = doc.getElementsByTagName('name')[0];
   return { points, suggestedName: nameEl ? nameEl.textContent.trim() : '' };
 }
+function pointsToGPX(points, name){
+  const trkpts = points.map(p=>{
+    const ele = p[2];
+    const eleTag = (ele!=null && !isNaN(ele)) ? `<ele>${ele}</ele>` : '';
+    return `<trkpt lat="${p[0]}" lon="${p[1]}">${eleTag}</trkpt>`;
+  }).join('');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n`+
+    `<gpx version="1.1" creator="CendurOFF" xmlns="http://www.topografix.com/GPX/1/1">\n`+
+    `<trk><name>${escapeHtml(name||'trasa')}</name><trkseg>${trkpts}</trkseg></trk>\n`+
+    `</gpx>`;
+}
+function downloadGPX(points, name){
+  const blob = new Blob([pointsToGPX(points, name)], { type:'application/gpx+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (name || 'trasa').trim().replace(/[^a-z0-9_\-]+/gi,'_') + '.gpx';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmtDate(iso){ try{ return new Date(iso).toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'}); }catch(e){ return ''; } }
 
@@ -330,6 +352,7 @@ async function openDetail(id){
       <div class="stat"><b>${Math.round(route.elev_gain_m)}</b><span>m převýšení</span></div>
       <div class="stat"><b>${route.points.length}</b><span>bodů GPX</span></div>
     </div>
+    <button class="ghost-btn" id="download-gpx-btn" style="width:100%;margin-top:12px;">⬇ Stáhnout GPX</button>
     <div class="elev-profile">
       <h3>Výškový profil</h3>
       ${renderElevationProfile(route.points)}
@@ -343,11 +366,15 @@ async function openDetail(id){
         <input type="file" id="photo-input" accept="image/*" ${photos.length>=3 ? 'disabled' : ''}>
         ${photos.length>=3 ? '<p class="hint">Všechny 3 sloty jsou obsazené.</p>' : ''}
         <button class="ghost-btn" id="edit-route-btn" style="width:100%;margin-top:14px;">Upravit trasu</button>
+        <h3 style="margin-top:18px;">Nahradit GPX soubor</h3>
+        <p class="hint">Nahrajte aktuálnější GPX - nahradí body, vzdálenost i převýšení současné trasy (název a popis zůstanou).</p>
+        <input type="file" id="replace-gpx-input" accept=".gpx">
         <button class="danger-btn" id="delete-route-btn">Smazat trasu</button>
       </div>` : ''}
   `;
 
   document.getElementById('detail-close').addEventListener('click', closeDetail);
+  document.getElementById('download-gpx-btn').addEventListener('click', ()=> downloadGPX(route.points, route.name));
 
   if(isOwner){
     const editForm = document.getElementById('edit-route-form');
@@ -421,6 +448,33 @@ async function openDetail(id){
           toast('Fotka přidána.');
           openDetail(id);
         }catch(e){ toast(e.message || 'Nahrání fotky se nepovedlo.'); }
+      });
+    }
+    const replaceGpxInput = document.getElementById('replace-gpx-input');
+    if(replaceGpxInput){
+      replaceGpxInput.addEventListener('change', async ()=>{
+        const file = replaceGpxInput.files[0];
+        if(!file) return;
+        if(!confirm('Nahradit aktuální trasu tímto GPX souborem? Body, vzdálenost a převýšení se přepíší.')){
+          replaceGpxInput.value = '';
+          return;
+        }
+        try{
+          const text = await file.text();
+          const { points } = parseGPX(text);
+          await api(`/api/routes/${id}`, {
+            method:'PATCH',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ name: route.name, description: route.description || '', points })
+          });
+          toast('GPX soubor byl nahrazen.');
+          await loadRoutes();
+          openDetail(id);
+        }catch(e){
+          toast(e.message || 'GPX soubor se nepodařilo nahradit.');
+        }finally{
+          replaceGpxInput.value = '';
+        }
       });
     }
   }
@@ -501,8 +555,7 @@ const HEADING_FILTER_ALPHA_GPS = 0.35;     // vyhlazení GPS kurzu (0-1, vyšš�
 const HEADING_FILTER_ALPHA_COMPASS = 0.12; // vyhlazení kompasu (nižší = silnější filtr proti "cukání" na motorce)
 const HEADING_UPDATE_THRESHOLD_DEG = 4;    // změny menší než tento úhel se ignorují (potlačení chvění mapy)
 const HEADING_MIN_UPDATE_MS = 120;         // natočení mapy se přepočítá nejvýš cca 8x za sekundu
-const MAP_TILT_DEG = 30;                   // naklopení mapy při navigaci podle směru jízdy
-const MAP_HEADING_SCALE = 1.9;             // zvětšení mapy v nakloněném pohledu (zakrytí okrajů po naklopení)
+const MAP_HEADING_SCALE = 1.6;             // zvětšení mapy v režimu "směr jízdy" (kryje okraje při rotaci)
 
 let smoothedHeading = 0;      // úhel po nízkopásmovém filtru
 let displayedHeading = 0;     // úhel skutečně vykreslený (po prahování/limitu reakce)
@@ -638,12 +691,7 @@ function startOrientation(){
 
 function setMapRotation(on){
   if(on){
-    // Naklopení mapy (pseudo-3D pohled). Otáčení i naklopení musí mít stejný
-    // střed (transform-origin) jako GPS bod (ten je vždy přesně uprostřed
-    // #map, protože map.setView ho tam centruje) - jinak se mapa vizuálně
-    // netočí kolem šipky, ale kolem jiného bodu.
-    mapEl.style.transform =
-      'perspective(1200px) rotateX(' + MAP_TILT_DEG + 'deg) scale(' + MAP_HEADING_SCALE + ') rotate(' + (-displayedHeading) + 'deg)';
+    mapEl.style.transform = 'scale(' + MAP_HEADING_SCALE + ') rotate(' + (-displayedHeading) + 'deg)';
     map.dragging.disable();
     map.touchZoom.disable();
     map.doubleClickZoom.disable();
