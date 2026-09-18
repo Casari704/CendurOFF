@@ -239,14 +239,15 @@ async function loadRoutes(){
 
 const ROUTE_COLOR = '#FF0000';
 const ROUTE_COLOR_SELECTED = '#1E64D6';
+const ROUTE_COLOR_HOVER = '#7EB6FF'; // světlejší modrá než vybraná trasa - pro najetí myší
 
 function drawRoute(route){
   const latlngs = route.points.map(p=>[p[0],p[1]]);
   const line = L.polyline(latlngs, { color:ROUTE_COLOR, weight:4, opacity:0.85 }).addTo(map);
   line.bindTooltip(`<b>${escapeHtml(route.name)}</b><br>${escapeHtml(route.owner_display)} · ${Number(route.distance_km).toFixed(1)} km`,
     { sticky:true, className:'trail-tip' });
-  line.on('mouseover', ()=>{ if(route.id!==activeRouteId) line.setStyle({weight:6, opacity:1}); });
-  line.on('mouseout', ()=>{ if(route.id!==activeRouteId) line.setStyle({weight:4, opacity:0.85}); });
+  line.on('mouseover', ()=>{ if(route.id!==activeRouteId) line.setStyle({color:ROUTE_COLOR_HOVER, weight:6, opacity:1}); });
+  line.on('mouseout', ()=>{ if(route.id!==activeRouteId) line.setStyle({color:ROUTE_COLOR, weight:4, opacity:0.85}); });
   line.on('click', ()=> openDetail(route.id));
   layersById[route.id] = line;
 }
@@ -572,16 +573,11 @@ const mapEl = document.getElementById('map');
 document.getElementById('zoom-in-btn').addEventListener('click', ()=> map.zoomIn());
 document.getElementById('zoom-out-btn').addEventListener('click', ()=> map.zoomOut());
 
-function arrowSvg(){
-  return `<svg viewBox="0 0 24 24">
-    <path d="M12 2 L22 22 L12 16 L2 22 Z" fill="#FF7A1A" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/>
-    <path d="M12 2 L22 22 L12 16 Z" fill="#B8480D"/>
-  </svg>`;
-}
 function ensureGpsMarker(latlng, accuracy){
   if(!gpsMarker){
     const icon = L.divIcon({
-      className:'gps-marker-icon', html:`<div class="gps-heading-icon" id="gps-arrow">${arrowSvg()}</div>`,
+      className:'gps-marker-icon',
+      html:`<div class="gps-heading-icon" id="gps-arrow"><img src="public/img/gps-arrow.png" alt="Směr"></div>`,
       iconSize:[34,34], iconAnchor:[17,17]
     });
     gpsMarker = L.marker(latlng, { icon, zIndexOffset:1000 }).addTo(map);
