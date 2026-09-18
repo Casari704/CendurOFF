@@ -557,6 +557,24 @@ const HEADING_FILTER_ALPHA_COMPASS = 0.12; // vyhlazení kompasu (nižší = sil
 const HEADING_UPDATE_THRESHOLD_DEG = 4;    // změny menší než tento úhel se ignorují (potlačení chvění mapy)
 const HEADING_MIN_UPDATE_MS = 120;         // natočení mapy se přepočítá nejvýš cca 8x za sekundu
 const MAP_HEADING_SCALE = 1.6;             // zvětšení mapy v režimu "směr jízdy" (kryje okraje při rotaci)
+const FOLLOW_MARKER_Y_FRACTION = 2/3;      // poloha šipky na obrazovce při sledování (0=nahoře, 1=dole); 2/3 = "jedna třetina od spodu"
+
+// Vycentruje mapu tak, aby se GPS bod nezobrazil uprostřed obrazovky, ale
+// v dolní třetině (FOLLOW_MARKER_Y_FRACTION) - ať je vidět víc mapy před sebou.
+// Posun se počítá ve směru aktuálního natočení mapy (v režimu "směr jízdy" tedy
+// ve směru jízdy), takže funguje správně i po otočení/zvětšení mapy.
+function setFollowView(latlng, animate){
+  const z = map.getZoom();
+  const size = map.getSize();
+  const scale = (headingMode==='heading') ? MAP_HEADING_SCALE : 1;
+  const theta = (headingMode==='heading') ? displayedHeading * Math.PI/180 : 0;
+  const k = (FOLLOW_MARKER_Y_FRACTION - 0.5) * size.y;
+  const targetPx = map.project(latlng, z);
+  const dx = (Math.sin(theta) * k) / scale;
+  const dy = (Math.cos(theta) * k) / scale;
+  const center = map.unproject(L.point(targetPx.x + dx, targetPx.y - dy), z);
+  map.setView(center, z, { animate: !!animate });
+}
 
 let smoothedHeading = 0;      // úhel po nízkopásmovém filtru
 let displayedHeading = 0;     // úhel skutečně vykreslený (po prahování/limitu reakce)
@@ -639,7 +657,7 @@ function onPosition(pos){
     feedHeading(pos.coords.heading, HEADING_FILTER_ALPHA_GPS);
   }
 
-  if(followMode) map.setView(latlng, map.getZoom(), { animate:true });
+  if(followMode) setFollowView(latlng, true);
 }
 function onPositionError(err){
   toast('Polohu se nepodařilo získat: ' + (err.message || 'neznámá chyba'));
@@ -660,7 +678,7 @@ locateBtn.addEventListener('click', ()=>{
     followMode = true;
     locateBtn.classList.add('active');
     locateBtnLabel.textContent = 'Sleduji polohu';
-    if(lastLatLng) map.setView(lastLatLng, map.getZoom());
+    if(lastLatLng) setFollowView(lastLatLng, false);
   } else {
     followMode = false;
     locateBtn.classList.remove('active');
@@ -725,6 +743,9 @@ headingBtn.addEventListener('click', async ()=>{
     headingBtnLabel.textContent = 'Sever nahoru';
     setMapRotation(false);
   }
+  // Po přepnutí režimu se mění měřítko/rotace mapy, takže dolní-třetinový posun
+  // přepočítáme rovnou, ať šipka neposkočí na chvíli jinam.
+  if(followMode && lastLatLng) setFollowView(lastLatLng, true);
 });
 
 // ---------------------------------------------------------------
