@@ -638,9 +638,10 @@ function startOrientation(){
 
 function setMapRotation(on){
   if(on){
-    // Naklopení mapy (pseudo-3D pohled) - funguje bez zkreslení kliků, protože
-    // v tomto režimu je ovládání mapy (drag/zoom) záměrně vypnuté (viz níže).
-    mapEl.style.transformOrigin = 'center 78%';
+    // Naklopení mapy (pseudo-3D pohled). Otáčení i naklopení musí mít stejný
+    // střed (transform-origin) jako GPS bod (ten je vždy přesně uprostřed
+    // #map, protože map.setView ho tam centruje) - jinak se mapa vizuálně
+    // netočí kolem šipky, ale kolem jiného bodu.
     mapEl.style.transform =
       'perspective(1200px) rotateX(' + MAP_TILT_DEG + 'deg) scale(' + MAP_HEADING_SCALE + ') rotate(' + (-displayedHeading) + 'deg)';
     map.dragging.disable();
@@ -648,7 +649,6 @@ function setMapRotation(on){
     map.doubleClickZoom.disable();
     updateArrowRotation(0);
   } else {
-    mapEl.style.transformOrigin = 'center center';
     mapEl.style.transform = 'none';
     map.dragging.enable();
     map.touchZoom.enable();
@@ -659,13 +659,18 @@ function setMapRotation(on){
 
 headingBtn.addEventListener('click', async ()=>{
   if(headingMode==='north'){
+    // Kompas je jen doplněk pro nízké rychlosti (viz startOrientation) - pokud
+    // není dostupný / nepovolený (typicky PC bez kompasu), režim "směr jízdy"
+    // se přesto zapne a nad 5 km/h normálně jede podle GPS kurzu.
     if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
       try{
         const perm = await DeviceOrientationEvent.requestPermission();
-        if(perm !== 'granted'){ toast('Přístup ke kompasu nebyl povolen.'); return; }
-      }catch(e){ toast('Kompas není na tomto zařízení dostupný.'); return; }
+        if(perm === 'granted') startOrientation();
+        else toast('Kompas nedostupný - pod 5 km/h bude směr méně přesný, nad 5 km/h se použije GPS kurz.');
+      }catch(e){ /* kompas na tomto zařízení není - GPS kurz nad 5 km/h funguje bez něj */ }
+    } else {
+      startOrientation();
     }
-    startOrientation();
     headingMode = 'heading';
     headingBtn.classList.add('active');
     headingBtnLabel.textContent = 'Směr jízdy';

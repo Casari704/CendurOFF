@@ -201,13 +201,24 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
 .map-btn.active{background:var(--moss);color:#fff;border-color:var(--moss);}
 .map-btn:disabled{opacity:0.4;cursor:default;}
 
-.zoom-btn-group{display:flex;flex-direction:column;}
-.zoom-btn-group .map-btn{border-radius:0;}
-.zoom-btn-group .map-btn:first-child{border-radius:14px 14px 0 0;}
-.zoom-btn-group .map-btn:last-child{border-radius:0 0 14px 14px;border-top:none;}
 .map-btn-square{
   width:64px;height:64px;min-width:0;padding:0;justify-content:center;
   font-size:1.9rem;font-weight:700;line-height:1;
+}
+
+/* Mřížka: vlevo "sever nahoru" nad "sleduji polohu" (zkrácené), vpravo + nad -,
+   stejná výška jako oba levé řádky, 5px mezera mezi vším. */
+.nav-grid{
+  display:grid;
+  grid-auto-flow:column;
+  grid-template-rows:64px 64px;
+  gap:5px;
+}
+.nav-grid .nav-btn{
+  width:150px;min-width:0;height:64px;border-radius:14px;
+}
+.nav-grid .nav-zoom{
+  width:64px;height:64px;border-radius:14px;
 }
 
 .gps-heading-icon{
@@ -273,8 +284,11 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
   .map-btn-icon{font-size:1.2rem;}
   .map-btn-label{font-size:0.76rem;}
   .map-btn-square{width:50px;height:50px;font-size:1.4rem;}
-  .zoom-btn-group .map-btn:first-child{border-radius:11px 11px 0 0;}
-  .zoom-btn-group .map-btn:last-child{border-radius:0 0 11px 11px;}
+  /* Sever je v mobilu přesunutý úplně dolů (viz #heading-btn níže), takže mřížka
+     zbyde jen s "sleduji polohu" + zoomem - stačí prostý sloupec. */
+  .nav-grid{display:flex;flex-direction:column;gap:6px;}
+  .nav-grid .nav-btn{width:auto;height:50px;border-radius:11px;}
+  .nav-grid .nav-zoom{width:50px;height:50px;border-radius:11px;align-self:flex-end;}
 
   /* Tlačítko sever/směr jízdy v mobilu přesunuto úplně dolů (jako spodní lišta),
      ať nepřekáží nad mapou vedle tlačítka polohy a zoomu. */
