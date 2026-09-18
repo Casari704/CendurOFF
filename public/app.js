@@ -493,7 +493,22 @@ document.getElementById('confirm-upload').addEventListener('click', async ()=>{
 // GPS poloha, sledování a kompas
 // ---------------------------------------------------------------
 let gpsMarker=null, gpsAccuracyCircle=null, watchId=null;
-let followMode=false, headingMode='north', currentHeading=0, lastLatLng=null, orientationBound=false;
+let followMode=false, headingMode='north', lastLatLng=null, orientationBound=false;
+
+// --- Nastavení směrové navigace (naladěno pro motorku / pomalé technické pasáže) ---
+const HEADING_SPEED_THRESHOLD_KMH = 5;     // nad touto rychlostí bereme směr z GPS kurzu, pod ní z kompasu telefonu
+const HEADING_FILTER_ALPHA_GPS = 0.35;     // vyhlazení GPS kurzu (0-1, vyšší = pružnější reakce)
+const HEADING_FILTER_ALPHA_COMPASS = 0.12; // vyhlazení kompasu (nižší = silnější filtr proti "cukání" na motorce)
+const HEADING_UPDATE_THRESHOLD_DEG = 4;    // změny menší než tento úhel se ignorují (potlačení chvění mapy)
+const HEADING_MIN_UPDATE_MS = 120;         // natočení mapy se přepočítá nejvýš cca 8x za sekundu
+const MAP_TILT_DEG = 30;                   // naklopení mapy při navigaci podle směru jízdy
+const MAP_HEADING_SCALE = 1.9;             // zvětšení mapy v nakloněném pohledu (zakrytí okrajů po naklopení)
+
+let smoothedHeading = 0;      // úhel po nízkopásmovém filtru
+let displayedHeading = 0;     // úhel skutečně vykreslený (po prahování/limitu reakce)
+let headingInitialized = false;
+let lastHeadingUpdateTs = 0;
+let currentSpeedKmh = 0;
 
 const locateBtn = document.getElementById('locate-btn');
 const headingBtn = document.getElementById('heading-btn');
@@ -529,14 +544,52 @@ function updateArrowRotation(deg){
   if(el) el.style.transform = 'rotate('+deg+'deg)';
 }
 
+// Rozdíl dvou úhlů v rozsahu -180..180 (ošetřuje přechod přes 0°/360°)
+function angleDiff(a, b){
+  return ((a - b + 540) % 360) - 180;
+}
+
+// Nízkopásmový (exponenciální) filtr úhlu, počítá se přes nejkratší rozdíl
+function smoothAngle(prev, target, alpha){
+  return (prev + alpha * angleDiff(target, prev) + 360) % 360;
+}
+
+// Zpracuje nový "syrový" úhel (z GPS kurzu nebo kompasu): vyfiltruje ho a na mapu/šipku
+// ho promítne jen tehdy, když se změnil o víc než HEADING_UPDATE_THRESHOLD_DEG a zároveň
+// uplynul minimální čas od poslední aktualizace - to potlačuje chvění mapy.
+function feedHeading(rawDeg, alpha){
+  if(rawDeg==null || isNaN(rawDeg)) return;
+  if(!headingInitialized){
+    smoothedHeading = rawDeg;
+    displayedHeading = rawDeg;
+    headingInitialized = true;
+  } else {
+    smoothedHeading = smoothAngle(smoothedHeading, rawDeg, alpha);
+  }
+  const now = performance.now();
+  const change = Math.abs(angleDiff(smoothedHeading, displayedHeading));
+  if(change >= HEADING_UPDATE_THRESHOLD_DEG && (now - lastHeadingUpdateTs) >= HEADING_MIN_UPDATE_MS){
+    displayedHeading = smoothedHeading;
+    lastHeadingUpdateTs = now;
+    if(headingMode==='heading') setMapRotation(true); else updateArrowRotation(displayedHeading);
+  }
+}
+
 function onPosition(pos){
   const latlng = [pos.coords.latitude, pos.coords.longitude];
   lastLatLng = latlng;
   ensureGpsMarker(latlng, pos.coords.accuracy);
-  if(pos.coords.heading != null && !isNaN(pos.coords.heading)){
-    currentHeading = pos.coords.heading;
-    if(headingMode==='heading') setMapRotation(true); else updateArrowRotation(currentHeading);
+
+  // rychlost v km/h (GPS coords.speed je v m/s); chybějící/neplatnou hodnotu bereme jako 0
+  currentSpeedKmh = (pos.coords.speed != null && !isNaN(pos.coords.speed)) ? pos.coords.speed * 3.6 : 0;
+
+  // Nad prahovou rychlostí bereme směr z GPS kurzu (na motorce za jízdy stabilnější než kompas).
+  // Pod prahem (stání, pomalá technická pasáž) je GPS kurz nespolehlivý - směr pak dodává kompas
+  // telefonu (viz startOrientation), pokud je uživatel zapnul.
+  if(currentSpeedKmh > HEADING_SPEED_THRESHOLD_KMH && pos.coords.heading != null && !isNaN(pos.coords.heading)){
+    feedHeading(pos.coords.heading, HEADING_FILTER_ALPHA_GPS);
   }
+
   if(followMode) map.setView(latlng, map.getZoom(), { animate:true });
 }
 function onPositionError(err){
@@ -570,12 +623,14 @@ function startOrientation(){
   if(orientationBound) return;
   orientationBound = true;
   const handler = (e)=>{
+    // Kompas telefonu bereme v potaz jen pod rychlostním prahem - nad ním má
+    // přednost GPS kurz, který se zpracovává v onPosition().
+    if(currentSpeedKmh > HEADING_SPEED_THRESHOLD_KMH) return;
     let heading = null;
     if(e.webkitCompassHeading != null) heading = e.webkitCompassHeading;
     else if(e.alpha != null) heading = 360 - e.alpha;
     if(heading==null || isNaN(heading)) return;
-    currentHeading = heading;
-    if(headingMode==='heading') setMapRotation(true); else updateArrowRotation(heading);
+    feedHeading(heading, HEADING_FILTER_ALPHA_COMPASS);
   };
   window.addEventListener('deviceorientationabsolute', handler, true);
   window.addEventListener('deviceorientation', handler, true);
@@ -583,17 +638,22 @@ function startOrientation(){
 
 function setMapRotation(on){
   if(on){
-    mapEl.style.transform = 'scale(1.6) rotate(' + (-currentHeading) + 'deg)';
+    // Naklopení mapy (pseudo-3D pohled) - funguje bez zkreslení kliků, protože
+    // v tomto režimu je ovládání mapy (drag/zoom) záměrně vypnuté (viz níže).
+    mapEl.style.transformOrigin = 'center 78%';
+    mapEl.style.transform =
+      'perspective(1200px) rotateX(' + MAP_TILT_DEG + 'deg) scale(' + MAP_HEADING_SCALE + ') rotate(' + (-displayedHeading) + 'deg)';
     map.dragging.disable();
     map.touchZoom.disable();
     map.doubleClickZoom.disable();
     updateArrowRotation(0);
   } else {
+    mapEl.style.transformOrigin = 'center center';
     mapEl.style.transform = 'none';
     map.dragging.enable();
     map.touchZoom.enable();
     map.doubleClickZoom.enable();
-    updateArrowRotation(currentHeading);
+    updateArrowRotation(displayedHeading);
   }
 }
 
