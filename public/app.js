@@ -709,7 +709,11 @@ function setMapRotation(on){
     map.dragging.disable();
     map.touchZoom.disable();
     map.doubleClickZoom.disable();
-    updateArrowRotation(0);
+    // Šipka je vnořená uvnitř #map, takže zdědí i jeho rotaci (rotace se v CSS sčítají).
+    // Aby vizuálně zůstala pořád "nahoru" (jako ukazatel směru jízdy) a ne přilepená
+    // k severu na otáčející se mapě, musí mít opačnou (kompenzující) rotaci -
+    // tedy přesně +displayedHeading, aby se s rotací mapy (-displayedHeading) vyrušila na 0.
+    updateArrowRotation(displayedHeading);
   } else {
     mapEl.style.transform = 'none';
     map.dragging.enable();
