@@ -553,9 +553,11 @@ let followMode=false, headingMode='north', lastLatLng=null, orientationBound=fal
 // --- Nastavení směrové navigace (naladěno pro motorku / pomalé technické pasáže) ---
 const HEADING_SPEED_THRESHOLD_KMH = 5;     // nad touto rychlostí bereme směr z GPS kurzu, pod ní z kompasu telefonu
 const HEADING_FILTER_ALPHA_GPS = 0.35;     // vyhlazení GPS kurzu (0-1, vyšší = pružnější reakce)
-const HEADING_FILTER_ALPHA_COMPASS = 0.12; // vyhlazení kompasu (nižší = silnější filtr proti "cukání" na motorce)
-const HEADING_UPDATE_THRESHOLD_DEG = 4;    // změny menší než tento úhel se ignorují (potlačení chvění mapy)
-const HEADING_MIN_UPDATE_MS = 120;         // natočení mapy se přepočítá nejvýš cca 8x za sekundu
+const HEADING_FILTER_ALPHA_COMPASS = 0.06; // vyhlazení kompasu (silný filtr - magnetometr je v klidu i za jízdy dost "cukavý")
+const HEADING_UPDATE_THRESHOLD_DEG_GPS = 4;      // GPS kurz: změny menší než toto se ignorují
+const HEADING_UPDATE_THRESHOLD_DEG_COMPASS = 9;  // kompas: vyšší práh, ať drobné chvění v klidu vůbec neprojde
+const HEADING_MIN_UPDATE_MS_GPS = 120;           // GPS: přepočet natočení max ~8x/s
+const HEADING_MIN_UPDATE_MS_COMPASS = 280;       // kompas: přepočet pomalejší, max ~3-4x/s
 const MAP_HEADING_SCALE = 1.6;             // zvětšení mapy v režimu "směr jízdy" (kryje okraje při rotaci)
 const FOLLOW_MARKER_Y_FRACTION = 2/3;      // poloha šipky na obrazovce při sledování (0=nahoře, 1=dole); 2/3 = "jedna třetina od spodu"
 
@@ -622,9 +624,10 @@ function smoothAngle(prev, target, alpha){
 }
 
 // Zpracuje nový "syrový" úhel (z GPS kurzu nebo kompasu): vyfiltruje ho a na mapu/šipku
-// ho promítne jen tehdy, když se změnil o víc než HEADING_UPDATE_THRESHOLD_DEG a zároveň
-// uplynul minimální čas od poslední aktualizace - to potlačuje chvění mapy.
-function feedHeading(rawDeg, alpha){
+// ho promítne jen tehdy, když se změnil o víc než thresholdDeg a zároveň uplynul
+// minUpdateMs od poslední aktualizace - to potlačuje chvění mapy. GPS a kompas mají
+// vlastní (odlišné) hodnoty prahu, protože kompas je výrazně šumnější zdroj.
+function feedHeading(rawDeg, alpha, thresholdDeg, minUpdateMs){
   if(rawDeg==null || isNaN(rawDeg)) return;
   if(!headingInitialized){
     smoothedHeading = rawDeg;
@@ -635,7 +638,7 @@ function feedHeading(rawDeg, alpha){
   }
   const now = performance.now();
   const change = Math.abs(angleDiff(smoothedHeading, displayedHeading));
-  if(change >= HEADING_UPDATE_THRESHOLD_DEG && (now - lastHeadingUpdateTs) >= HEADING_MIN_UPDATE_MS){
+  if(change >= thresholdDeg && (now - lastHeadingUpdateTs) >= minUpdateMs){
     displayedHeading = smoothedHeading;
     lastHeadingUpdateTs = now;
     if(headingMode==='heading') setMapRotation(true); else updateArrowRotation(displayedHeading);
@@ -654,7 +657,7 @@ function onPosition(pos){
   // Pod prahem (stání, pomalá technická pasáž) je GPS kurz nespolehlivý - směr pak dodává kompas
   // telefonu (viz startOrientation), pokud je uživatel zapnul.
   if(currentSpeedKmh > HEADING_SPEED_THRESHOLD_KMH && pos.coords.heading != null && !isNaN(pos.coords.heading)){
-    feedHeading(pos.coords.heading, HEADING_FILTER_ALPHA_GPS);
+    feedHeading(pos.coords.heading, HEADING_FILTER_ALPHA_GPS, HEADING_UPDATE_THRESHOLD_DEG_GPS, HEADING_MIN_UPDATE_MS_GPS);
   }
 
   if(followMode) setFollowView(latlng, true);
@@ -697,7 +700,7 @@ function startOrientation(){
     if(e.webkitCompassHeading != null) heading = e.webkitCompassHeading;
     else if(e.alpha != null) heading = 360 - e.alpha;
     if(heading==null || isNaN(heading)) return;
-    feedHeading(heading, HEADING_FILTER_ALPHA_COMPASS);
+    feedHeading(heading, HEADING_FILTER_ALPHA_COMPASS, HEADING_UPDATE_THRESHOLD_DEG_COMPASS, HEADING_MIN_UPDATE_MS_COMPASS);
   };
   window.addEventListener('deviceorientationabsolute', handler, true);
   window.addEventListener('deviceorientation', handler, true);
