@@ -1,6 +1,41 @@
 (function(){
 
 // ---------------------------------------------------------------
+// Pojistka: prvky, které novější funkce potřebují v index.html. Kdyby na webu
+// zůstal starší index.html (leží mimo složku public/, snadno se přehlédne),
+// skript si je doplní sám, aby kvůli tomu nepřestal fungovat.
+// ---------------------------------------------------------------
+(function ensureMarkup(){
+  if(!document.getElementById('route-tools')){
+    const items = document.getElementById('route-items');
+    if(items) items.insertAdjacentHTML('beforebegin',
+      `<div id="route-tools"><button class="ghost-btn" id="select-mode-btn" type="button">Vybrat více tras</button></div>`);
+  }
+  if(!document.getElementById('selection-bar')){
+    const list = document.getElementById('route-list');
+    if(list) list.insertAdjacentHTML('afterend', `
+      <div id="selection-bar">
+        <span id="selection-count"></span>
+        <div class="selection-actions">
+          <button class="primary-btn" id="selection-open" type="button">↗ Otevřít v aplikaci</button>
+          <button class="ghost-btn" id="selection-download" type="button">⬇ Stáhnout</button>
+          <button class="ghost-btn" id="selection-cancel" type="button">Zrušit</button>
+        </div>
+      </div>`);
+  }
+  if(!document.getElementById('lightbox')){
+    document.body.insertAdjacentHTML('beforeend', `
+      <div id="lightbox" role="dialog" aria-modal="true" aria-label="Prohlížeč fotek">
+        <button class="lightbox-btn" id="lightbox-close" type="button" aria-label="Zavřít">×</button>
+        <button class="lightbox-btn lightbox-nav" id="lightbox-prev" type="button" aria-label="Předchozí fotka">‹</button>
+        <div id="lightbox-stage"><img id="lightbox-img" alt=""></div>
+        <button class="lightbox-btn lightbox-nav" id="lightbox-next" type="button" aria-label="Další fotka">›</button>
+        <div id="lightbox-counter"></div>
+      </div>`);
+  }
+})();
+
+// ---------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------
 function toast(msg, ms){
