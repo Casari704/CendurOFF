@@ -269,6 +269,51 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
 }
 .leaflet-tooltip.trail-tip::before{border-top-color:var(--ink);}
 
+/* hodnocení tras */
+.rating-block{
+  background:var(--page);border-radius:8px;padding:10px 12px;margin-bottom:14px;
+}
+.rating-avg{display:flex;align-items:center;gap:6px;font-size:0.9rem;font-weight:600;}
+.rating-avg-star{color:var(--gold);font-size:1.1rem;line-height:1;}
+.rating-mine{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;}
+.star-row{display:flex;gap:2px;}
+.star-btn{
+  background:none;border:none;padding:2px 3px;font-size:1.75rem;line-height:1;
+  color:#C9C2A6;border-radius:4px;transition:color .1s, transform .1s;
+}
+.star-btn.on{color:var(--gold);}
+.star-btn:active{transform:scale(0.9);}
+@media (hover:hover){
+  /* náhled při najetí: rozsvítí najetou hvězdičku a všechny před ní */
+  .star-row:hover .star-btn{color:var(--gold);}
+  .star-row .star-btn:hover ~ .star-btn{color:#C9C2A6;}
+}
+.rating-hint{font-size:0.75rem;color:var(--ink-soft);}
+
+/* tlačítka GPX v detailu */
+.gpx-actions{display:flex;gap:8px;margin-bottom:16px;}
+.gpx-actions button{flex:1;margin-top:0;padding:11px 8px;font-size:0.88rem;}
+
+/* výběr více tras */
+#route-tools{padding:8px 12px;border-top:1px solid var(--line);}
+#route-list.collapsed #route-tools{display:none;}
+#select-mode-btn{width:100%;padding:7px;font-size:0.8rem;}
+#select-mode-btn.active{background:var(--moss);border-color:var(--moss);color:#fff;}
+#route-list.selecting .route-item-info{cursor:copy;}
+.route-item.picked{background:#DCE7F7;}
+.route-item.picked:hover{background:#D0DFF5;}
+#selection-bar{
+  position:absolute;left:50%;bottom:28px;transform:translateX(-50%);z-index:950;
+  display:none;align-items:center;gap:14px;max-width:calc(100% - 32px);
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  padding:10px 14px;box-shadow:0 4px 18px rgba(20,30,15,0.25);
+}
+#selection-bar.open{display:flex;}
+#selection-count{font-size:0.88rem;font-weight:600;}
+.selection-actions{display:flex;gap:8px;}
+.selection-actions button{margin-top:0;width:auto;padding:9px 14px;font-size:0.85rem;white-space:nowrap;}
+.selection-actions button:disabled{opacity:0.5;cursor:default;}
+
 @media (max-width:760px){
   .login-hero{display:none;}
   .login-side{width:100%;min-width:0;}
@@ -312,4 +357,13 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
   .nav-grid .nav-zoom{
     width:50px;height:50px;border-radius:11px 11px 0 0;
   }
+
+  /* lišta výběru nad spodními ovladači mapy, přes celou šířku */
+  #selection-bar{
+    left:6px;right:6px;bottom:62px;transform:none;max-width:none;
+    flex-direction:column;align-items:stretch;gap:8px;padding:8px 10px;
+  }
+  #selection-count{text-align:center;font-size:0.8rem;}
+  .selection-actions button{flex:1;padding:9px 6px;font-size:0.78rem;}
+  #route-tools{padding:6px 8px;}
 }
