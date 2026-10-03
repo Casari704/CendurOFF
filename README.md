@@ -82,16 +82,22 @@ public/           – frontend (statické soubory, servíruje je stejný server)
 Endpointy navíc: `DELETE /api/routes/:id` (smaže trasu, fotky se smažou automaticky) a
 `DELETE /api/routes/:id/photos/:photoId` (smaže jednu fotku).
 
+## Novinky ve verzi 1.17
+
+- **Prohlížeč fotek** — klik na náhled fotky v detailu trasy ji zvětší přes celou obrazovku.
+  Listuje se šipkami po stranách, klávesami ← → nebo na mobilu tažením prstu; zavírá se
+  křížkem, klávesou Esc nebo klikem mimo fotku.
+- **Datum aktualizace GPX** — po nahrazení GPX souboru se v detailu trasy vedle data přidání
+  ukazuje i „GPX aktualizováno". Nový sloupec `routes.gpx_updated_at` se přidá sám při startu.
+
 ## Novinky ve verzi 1.16
 
 - **Hodnocení tras** — v detailu trasy 1–5 hvězdiček. Každý přihlášený uživatel má na trasu
   jedno hodnocení, dalším klikem ho změní, klikem na stejnou hvězdičku ho zruší. Průměr se
   ukazuje v detailu, v seznamu tras i v bublině na mapě. Nová tabulka `ratings` se vytvoří
   sama při startu serveru.
-- **Otevřít v aplikaci** — tlačítko v detailu předá GPX přes systémové sdílení jiné aplikaci
-  (Mapy.com, OsmAnd, Locus…). Kde prohlížeč sdílení GPX nepovolí, soubor se stáhne.
-- **Výběr více tras** — „Vybrat více tras" v panelu Trasy; klikáním na mapě nebo v seznamu se
-  trasy označují a dají se najednou otevřít / stáhnout jako jeden GPX soubor (každá trasa je
+- **Výběr více tras** — „Stáhnout více tras" v panelu Trasy; klikáním na mapě nebo v seznamu se
+  trasy označují a dají se najednou stáhnout jako jeden GPX soubor (každá trasa je
   v něm samostatná stopa).
 
 Endpointy navíc: `PUT /api/routes/:id/rating` (tělo `{ "stars": 1-5 }`) a
