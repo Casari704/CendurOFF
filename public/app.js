@@ -17,8 +17,7 @@
       <div id="selection-bar">
         <span id="selection-count"></span>
         <div class="selection-actions">
-          <button class="primary-btn" id="selection-open" type="button">↗ Otevřít v aplikaci</button>
-          <button class="ghost-btn" id="selection-download" type="button">⬇ Stáhnout</button>
+          <button class="primary-btn" id="selection-download" type="button">⬇ Stáhnout GPX</button>
           <button class="ghost-btn" id="selection-cancel" type="button">Zrušit</button>
         </div>
       </div>`);
@@ -107,27 +106,6 @@ function downloadTracks(tracks){
 }
 function downloadGPX(points, name){ downloadTracks([{ name, points }]); }
 
-// Předá GPX jiné aplikaci (Mapy.com, OsmAnd, Locus, Garmin…). Web nemůže cizí
-// aplikaci spustit napřímo, takže použije systémové "Sdílet" - tam si uživatel
-// aplikaci vybere. Kde prohlížeč sdílení GPX souborů nepovolí (typicky Chrome),
-// soubor se stáhne a otevře se ze stažených souborů.
-async function openTracksInApp(tracks){
-  if(!tracks.length) return;
-  const fileName = gpxFileName(tracks);
-  let file = null;
-  try{ file = new File([tracksToGPX(tracks)], fileName, { type:'application/gpx+xml' }); }catch(e){}
-  if(file && navigator.canShare && navigator.canShare({ files:[file] })){
-    try{
-      await navigator.share({ files:[file], title: tracks.length===1 ? tracks[0].name : 'Trasy z CendurOFF' });
-      return;
-    }catch(e){
-      if(e && e.name==='AbortError') return; // uživatel sdílení sám zavřel
-      // jiná chyba -> spadneme na stažení
-    }
-  }
-  downloadTracks(tracks);
-  toast('GPX staženo. Otevři ho ze stažených souborů a vyber aplikaci (např. Mapy.com).', 6500);
-}
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmtAvg(avg){ return Number(avg).toFixed(1).replace('.', ','); }
 // krátký text s průměrem do seznamu a bubliny na mapě, např. " · ★ 4,3"
@@ -357,14 +335,13 @@ function highlightRoute(){
 }
 
 // ---------------------------------------------------------------
-// Výběr více tras (hromadné otevření v aplikaci / stažení)
+// Výběr více tras (hromadné stažení do jednoho GPX)
 // ---------------------------------------------------------------
 let selectMode = false;
 const selectedIds = new Set();
 const selectToggleBtn = document.getElementById('select-mode-btn');
 const selectionBar = document.getElementById('selection-bar');
 const selectionCount = document.getElementById('selection-count');
-const selectionOpenBtn = document.getElementById('selection-open');
 const selectionDownloadBtn = document.getElementById('selection-download');
 
 function updateSelectionBar(){
@@ -374,7 +351,6 @@ function updateSelectionBar(){
   selectToggleBtn.textContent = selectMode ? 'Ukončit výběr' : 'Vybrat více tras';
   const n = selectedIds.size;
   selectionCount.textContent = n===0 ? 'Klikej na trasy na mapě nebo v seznamu' : 'Vybráno tras: ' + n;
-  selectionOpenBtn.disabled = n===0;
   selectionDownloadBtn.disabled = n===0;
 }
 function setSelectMode(on){
@@ -408,7 +384,6 @@ function selectedTracks(){
 }
 selectToggleBtn.addEventListener('click', ()=> setSelectMode(!selectMode));
 document.getElementById('selection-cancel').addEventListener('click', ()=> setSelectMode(false));
-selectionOpenBtn.addEventListener('click', ()=> openTracksInApp(selectedTracks()));
 selectionDownloadBtn.addEventListener('click', ()=> downloadTracks(selectedTracks()));
 
 // ---------------------------------------------------------------
@@ -579,7 +554,6 @@ async function openDetail(id){
       <div class="stat"><b>${route.points.length}</b><span>bodů GPX</span></div>
     </div>
     <div class="gpx-actions">
-      <button class="primary-btn" id="open-gpx-btn" type="button">↗ Otevřít v aplikaci</button>
       <button class="ghost-btn" id="download-gpx-btn" type="button">⬇ Stáhnout GPX</button>
     </div>
     <div class="elev-profile">
@@ -603,7 +577,6 @@ async function openDetail(id){
 
   document.getElementById('detail-close').addEventListener('click', closeDetail);
   document.getElementById('download-gpx-btn').addEventListener('click', ()=> downloadGPX(route.points, route.name));
-  document.getElementById('open-gpx-btn').addEventListener('click', ()=> openTracksInApp([{ name:route.name, points:route.points }]));
   bindRating(route);
   inner.querySelectorAll('.photo-thumb').forEach(img=>{
     img.addEventListener('click', ()=> openLightbox(photos.map(p=>p.data_url), Number(img.dataset.index), route.name));
