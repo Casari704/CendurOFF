@@ -513,7 +513,7 @@ async function openDetail(id){
       return `<div class="photo-slot"><span class="empty-plus">·</span></div>`;
     }
     return `<div class="photo-slot">
-        <img src="${p.data_url}" alt="Fotka trasy ${escapeHtml(route.name)}">
+        <img class="photo-thumb" data-index="${i}" src="${p.data_url}" alt="Fotka trasy ${escapeHtml(route.name)}" title="Zvětšit fotku">
         ${p.is_main ? '<span class="main-badge">HLAVNÍ</span>' : ''}
         ${isOwner ? `<button class="delete-photo-btn" data-photo="${p.id}" title="Smazat fotku">×</button>` : ''}
         ${isOwner && !p.is_main ? `<button class="set-main-btn" data-photo="${p.id}">Nastavit jako hlavní</button>` : ''}
@@ -523,7 +523,8 @@ async function openDetail(id){
   inner.innerHTML = `
     <button class="detail-close" id="detail-close">×</button>
     <h2>${escapeHtml(route.name)}</h2>
-    <div class="detail-owner">Přidal(a) ${escapeHtml(route.owner_display)} · ${fmtDate(route.created_at)}</div>
+    <div class="detail-owner">Přidal(a) ${escapeHtml(route.owner_display)} · ${fmtDate(route.created_at)}${route.gpx_updated_at ? `<br>GPX aktualizováno ${fmtDate(route.gpx_updated_at)}` : ''}</div>
+    ${route.description ? `<div class="detail-desc" id="detail-desc-text">${escapeHtml(route.description)}</div>` : ''}
     ${renderRatingBlock(route)}
     ${isOwner ? `
       <div class="edit-route-form" id="edit-route-form" style="display:none;">
@@ -550,7 +551,6 @@ async function openDetail(id){
       <h3>Výškový profil</h3>
       ${renderElevationProfile(route.points)}
     </div>
-    ${route.description ? `<div class="detail-desc" id="detail-desc-text">${escapeHtml(route.description)}</div>` : ''}
     <div class="photo-grid">${photoSlots}</div>
     ${isOwner ? `
       <div class="owner-controls">
@@ -570,6 +570,9 @@ async function openDetail(id){
   document.getElementById('download-gpx-btn').addEventListener('click', ()=> downloadGPX(route.points, route.name));
   document.getElementById('open-gpx-btn').addEventListener('click', ()=> openTracksInApp([{ name:route.name, points:route.points }]));
   bindRating(route);
+  inner.querySelectorAll('.photo-thumb').forEach(img=>{
+    img.addEventListener('click', ()=> openLightbox(photos.map(p=>p.data_url), Number(img.dataset.index), route.name));
+  });
 
   if(isOwner){
     const editForm = document.getElementById('edit-route-form');
@@ -675,7 +678,61 @@ async function openDetail(id){
   }
 }
 
+// ---------------------------------------------------------------
+// Prohlížeč fotek (zvětšení + listování)
+// ---------------------------------------------------------------
+const lightbox = document.getElementById('lightbox');
+const lightboxImg = document.getElementById('lightbox-img');
+const lightboxCounter = document.getElementById('lightbox-counter');
+let lightboxPhotos = [], lightboxIndex = 0;
+
+function showLightboxPhoto(i){
+  const n = lightboxPhotos.length;
+  lightboxIndex = (i + n) % n; // za poslední fotkou se pokračuje zase první
+  lightboxImg.src = lightboxPhotos[lightboxIndex];
+  lightboxCounter.textContent = n > 1 ? (lightboxIndex+1) + ' / ' + n : '';
+}
+function openLightbox(urls, index, routeName){
+  if(!urls.length) return;
+  lightboxPhotos = urls;
+  lightboxImg.alt = 'Fotka trasy ' + (routeName||'');
+  lightbox.classList.toggle('single', urls.length < 2);
+  showLightboxPhoto(index);
+  lightbox.classList.add('open');
+}
+function closeLightbox(){
+  lightbox.classList.remove('open');
+  lightboxImg.removeAttribute('src');
+}
+function lightboxStep(d){ if(lightboxPhotos.length > 1) showLightboxPhoto(lightboxIndex + d); }
+
+document.getElementById('lightbox-prev').addEventListener('click', (e)=>{ e.stopPropagation(); lightboxStep(-1); });
+document.getElementById('lightbox-next').addEventListener('click', (e)=>{ e.stopPropagation(); lightboxStep(1); });
+document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+// klik mimo fotku (do tmavého pozadí) prohlížeč zavře
+lightbox.addEventListener('click', (e)=>{ if(e.target===lightbox || e.target.id==='lightbox-stage') closeLightbox(); });
+document.addEventListener('keydown', (e)=>{
+  if(!lightbox.classList.contains('open')) return;
+  if(e.key==='ArrowLeft'){ e.preventDefault(); lightboxStep(-1); }
+  else if(e.key==='ArrowRight'){ e.preventDefault(); lightboxStep(1); }
+  else if(e.key==='Escape'){ e.preventDefault(); closeLightbox(); }
+});
+// mobil: listování tažením prstu doleva / doprava
+let lbTouchX = null, lbTouchY = null;
+lightbox.addEventListener('touchstart', (e)=>{
+  if(e.touches.length!==1){ lbTouchX = null; return; }
+  lbTouchX = e.touches[0].clientX; lbTouchY = e.touches[0].clientY;
+}, { passive:true });
+lightbox.addEventListener('touchend', (e)=>{
+  if(lbTouchX==null) return;
+  const dx = e.changedTouches[0].clientX - lbTouchX;
+  const dy = e.changedTouches[0].clientY - lbTouchY;
+  lbTouchX = null;
+  if(Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)*1.5) lightboxStep(dx < 0 ? 1 : -1);
+}, { passive:true });
+
 function closeDetail(){
+  closeLightbox();
   document.getElementById('detail-panel').classList.remove('open');
   activeRouteId = null;
   Object.keys(layersById).forEach(applyRouteStyle);

@@ -137,7 +137,7 @@ main.mapwrap{flex:1;position:relative;overflow:hidden;}
 .stat{flex:1;background:var(--page);border-radius:8px;padding:10px 8px;text-align:center;}
 .stat b{display:block;font-size:1.05rem;font-family:'Exo 2';}
 .stat span{font-size:0.72rem;color:var(--ink-soft);}
-.detail-desc{font-size:0.9rem;line-height:1.55;color:var(--ink);margin-bottom:18px;white-space:pre-wrap;}
+.detail-desc{font-size:0.9rem;line-height:1.55;color:var(--ink);margin-bottom:14px;white-space:pre-wrap;}
 .photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;}
 .photo-slot{
   position:relative;aspect-ratio:1/1;border-radius:8px;overflow:hidden;
@@ -314,6 +314,40 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
 .selection-actions button{margin-top:0;width:auto;padding:9px 14px;font-size:0.85rem;white-space:nowrap;}
 .selection-actions button:disabled{opacity:0.5;cursor:default;}
 
+/* prohlížeč fotek */
+.photo-thumb{cursor:zoom-in;}
+#lightbox{
+  position:fixed;inset:0;z-index:2500;display:none;
+  background:rgba(12,18,12,0.93);
+  touch-action:pan-y;user-select:none;-webkit-user-select:none;
+}
+#lightbox.open{display:block;}
+#lightbox-stage{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  padding:56px 84px;
+}
+#lightbox-img{
+  max-width:100%;max-height:100%;object-fit:contain;display:block;
+  border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,0.5);
+  -webkit-user-drag:none;
+}
+.lightbox-btn{
+  position:absolute;z-index:1;border:none;border-radius:50%;
+  width:52px;height:52px;padding:0 0 4px;
+  background:rgba(255,255,255,0.14);color:#fff;font-size:2rem;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+}
+.lightbox-btn:hover{background:rgba(255,255,255,0.28);}
+#lightbox-close{top:calc(12px + env(safe-area-inset-top, 0px));right:12px;width:44px;height:44px;font-size:1.7rem;}
+.lightbox-nav{top:50%;transform:translateY(-50%);font-size:2.4rem;}
+#lightbox-prev{left:16px;}
+#lightbox-next{right:16px;}
+#lightbox.single .lightbox-nav{display:none;}
+#lightbox-counter{
+  position:absolute;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom, 0px));
+  text-align:center;color:#EFEAD8;font-size:0.9rem;font-weight:500;pointer-events:none;
+}
+
 @media (max-width:760px){
   .login-hero{display:none;}
   .login-side{width:100%;min-width:0;}
@@ -366,4 +400,11 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
   #selection-count{text-align:center;font-size:0.8rem;}
   .selection-actions button{flex:1;padding:9px 6px;font-size:0.78rem;}
   #route-tools{padding:6px 8px;}
+
+  /* fotka přes celou šířku displeje, šipky poloprůhledně přes její okraje */
+  #lightbox-stage{padding:60px 0 44px;}
+  #lightbox-img{border-radius:0;}
+  .lightbox-nav{width:44px;height:64px;border-radius:10px;background:rgba(12,18,12,0.5);}
+  #lightbox-prev{left:6px;}
+  #lightbox-next{right:6px;}
 }
