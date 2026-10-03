@@ -248,7 +248,7 @@ aboutOverlay.addEventListener('click', (e)=>{ if(e.target===aboutOverlay) aboutO
 
 function initMap(){
   if(map) return;
-  map = L.map('map', { zoomControl:false }).setView([49.8967, 18.1969], 8);
+  map = L.map('map', { zoomControl:false }).setView([49.8711, 17.8756], 11); // výchozí pohled: Hradec nad Moravicí
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '© OpenStreetMap contributors, CyclOSM'
@@ -844,7 +844,6 @@ const HEADING_UPDATE_THRESHOLD_DEG_GPS = 4;      // GPS kurz: změny menší ne�
 const HEADING_UPDATE_THRESHOLD_DEG_COMPASS = 9;  // kompas: vyšší práh, ať drobné chvění v klidu vůbec neprojde
 const HEADING_MIN_UPDATE_MS_GPS = 120;           // GPS: přepočet natočení max ~8x/s
 const HEADING_MIN_UPDATE_MS_COMPASS = 280;       // kompas: přepočet pomalejší, max ~3-4x/s
-const MAP_HEADING_SCALE = 1.6;             // zvětšení mapy v režimu "směr jízdy" (kryje okraje při rotaci)
 const FOLLOW_MARKER_Y_FRACTION = 2/3;      // poloha šipky na obrazovce při sledování (0=nahoře, 1=dole); 2/3 = "jedna třetina od spodu"
 
 // Vycentruje mapu tak, aby se GPS bod nezobrazil uprostřed obrazovky, ale
@@ -853,13 +852,13 @@ const FOLLOW_MARKER_Y_FRACTION = 2/3;      // poloha šipky na obrazovce při sl
 // ve směru jízdy), takže funguje správně i po otočení/zvětšení mapy.
 function setFollowView(latlng, animate){
   const z = map.getZoom();
-  const size = map.getSize();
-  const scale = (headingMode==='heading') ? MAP_HEADING_SCALE : 1;
+  // výška viditelné části mapy (v režimu "směr jízdy" je samotný #map větší než obrazovka)
+  const visibleH = mapEl.parentElement.clientHeight;
   const theta = (headingMode==='heading') ? displayedHeading * Math.PI/180 : 0;
-  const k = (FOLLOW_MARKER_Y_FRACTION - 0.5) * size.y;
+  const k = (FOLLOW_MARKER_Y_FRACTION - 0.5) * visibleH;
   const targetPx = map.project(latlng, z);
-  const dx = (Math.sin(theta) * k) / scale;
-  const dy = (Math.cos(theta) * k) / scale;
+  const dx = Math.sin(theta) * k;
+  const dy = Math.cos(theta) * k;
   const center = map.unproject(L.point(targetPx.x + dx, targetPx.y - dy), z);
   map.setView(center, z, { animate: !!animate });
 }
@@ -992,9 +991,31 @@ function startOrientation(){
   window.addEventListener('deviceorientation', handler, true);
 }
 
+// V režimu "směr jízdy" se mapa otáčí. Aby při otočení nebyly v rozích vidět prázdné
+// kusy, je #map zvětšený na čtverec o straně úhlopříčky obrazovky a vystředěný -
+// mapa se tedy NEzvětšuje (žádné scale), úroveň přiblížení zůstává, jaká byla.
+function layoutMapForMode(){
+  const wrap = mapEl.parentElement;
+  if(headingMode==='heading'){
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    const d = Math.ceil(Math.hypot(w, h));
+    mapEl.style.inset = 'auto';
+    mapEl.style.left = ((w - d) / 2) + 'px';
+    mapEl.style.top = ((h - d) / 2) + 'px';
+    mapEl.style.width = d + 'px';
+    mapEl.style.height = d + 'px';
+  } else {
+    mapEl.style.inset = '';
+    mapEl.style.left = mapEl.style.top = mapEl.style.width = mapEl.style.height = '';
+  }
+  // Leaflet si přepočítá rozměry; střed mapy i přiblížení přitom zůstanou stejné
+  map.invalidateSize({ animate:false });
+}
+window.addEventListener('resize', ()=>{ if(map && headingMode==='heading') layoutMapForMode(); });
+
 function setMapRotation(on){
   if(on){
-    mapEl.style.transform = 'scale(' + MAP_HEADING_SCALE + ') rotate(' + (-displayedHeading) + 'deg)';
+    mapEl.style.transform = 'rotate(' + (-displayedHeading) + 'deg)';
     map.dragging.disable();
     map.touchZoom.disable();
     map.doubleClickZoom.disable();
@@ -1029,14 +1050,16 @@ headingBtn.addEventListener('click', async ()=>{
     headingMode = 'heading';
     headingBtn.classList.add('active');
     headingBtnLabel.textContent = 'Směr jízdy';
+    layoutMapForMode();
     setMapRotation(true);
   } else {
     headingMode = 'north';
     headingBtn.classList.remove('active');
     headingBtnLabel.textContent = 'Sever nahoru';
+    layoutMapForMode();
     setMapRotation(false);
   }
-  // Po přepnutí režimu se mění měřítko/rotace mapy, takže dolní-třetinový posun
+  // Po přepnutí režimu se mění rotace mapy, takže dolní-třetinový posun
   // přepočítáme rovnou, ať šipka neposkočí na chvíli jinam.
   if(followMode && lastLatLng) setFollowView(lastLatLng, true);
 });
