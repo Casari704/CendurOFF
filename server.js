@@ -52,6 +52,14 @@ CREATE TABLE IF NOT EXISTS photos (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS ratings (
+  route_id INTEGER NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  stars SMALLINT NOT NULL CHECK (stars BETWEEN 1 AND 5),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (route_id, user_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_routes_owner ON routes(owner_id);
 CREATE INDEX IF NOT EXISTS idx_photos_route ON photos(route_id);
 `;
@@ -137,6 +145,29 @@ function requireAuth(req, res, next) {
   }
 }
 
+// Jako requireAuth, ale nepřihlášeného nevyhodí - jen nevyplní req.user.
+function optionalAuth(req, res, next) {
+  const token = req.cookies && req.cookies.token;
+  if (token) {
+    try { req.user = jwt.verify(token, JWT_SECRET); } catch (e) { /* neplatný token = jako nepřihlášený */ }
+  }
+  next();
+}
+
+// Průměr a počet hodnocení trasy + hodnocení konkrétního uživatele (nebo null).
+async function ratingSummary(routeId, userId) {
+  const agg = await pool.query(
+    'SELECT AVG(stars)::float AS rating_avg, COUNT(*)::int AS rating_count FROM ratings WHERE route_id = $1',
+    [routeId]
+  );
+  let myRating = null;
+  if (userId != null) {
+    const mine = await pool.query('SELECT stars FROM ratings WHERE route_id = $1 AND user_id = $2', [routeId, userId]);
+    if (mine.rows[0]) myRating = mine.rows[0].stars;
+  }
+  return { rating_avg: agg.rows[0].rating_avg, rating_count: agg.rows[0].rating_count, my_rating: myRating };
+}
+
 // ---------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------
@@ -212,8 +243,13 @@ app.get('/api/routes', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT r.id, r.name, r.description, r.points, r.distance_km, r.elev_gain_m, r.created_at,
-              u.id AS owner_id, u.display_name AS owner_display
+              u.id AS owner_id, u.display_name AS owner_display,
+              rt.rating_avg, COALESCE(rt.rating_count, 0) AS rating_count
        FROM routes r JOIN users u ON u.id = r.owner_id
+       LEFT JOIN (
+         SELECT route_id, AVG(stars)::float AS rating_avg, COUNT(*)::int AS rating_count
+         FROM ratings GROUP BY route_id
+       ) rt ON rt.route_id = r.id
        ORDER BY r.created_at DESC`
     );
     res.json(result.rows);
@@ -223,7 +259,7 @@ app.get('/api/routes', async (req, res) => {
   }
 });
 
-app.get('/api/routes/:id', async (req, res) => {
+app.get('/api/routes/:id', optionalAuth, async (req, res) => {
   try {
     const routeResult = await pool.query(
       `SELECT r.id, r.name, r.description, r.points, r.distance_km, r.elev_gain_m, r.created_at,
@@ -238,6 +274,7 @@ app.get('/api/routes/:id', async (req, res) => {
       'SELECT id, data_url, is_main FROM photos WHERE route_id = $1 ORDER BY created_at ASC',
       [req.params.id]
     );
+    Object.assign(route, await ratingSummary(route.id, req.user ? req.user.id : null));
     res.json({ route, photos: photosResult.rows });
   } catch (e) {
     console.error(e);
@@ -310,6 +347,44 @@ app.patch('/api/routes/:id', requireAuth, async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Trasu se nepodařilo upravit.' });
+  }
+});
+
+// ---------------------------------------------------------------
+// Hodnocení tras (1-5 hvězdiček, jedno hodnocení na uživatele a trasu)
+// ---------------------------------------------------------------
+app.put('/api/routes/:id/rating', requireAuth, async (req, res) => {
+  try {
+    const routeId = Number(req.params.id);
+    const stars = Number(req.body.stars);
+    if (!Number.isInteger(routeId)) return res.status(404).json({ error: 'Trasa nenalezena.' });
+    if (!Number.isInteger(stars) || stars < 1 || stars > 5) {
+      return res.status(400).json({ error: 'Hodnocení musí být 1 až 5 hvězdiček.' });
+    }
+    const routeResult = await pool.query('SELECT id FROM routes WHERE id = $1', [routeId]);
+    if (!routeResult.rows[0]) return res.status(404).json({ error: 'Trasa nenalezena.' });
+    // vložit, nebo přepsat dosavadní hodnocení téhož uživatele
+    await pool.query(
+      `INSERT INTO ratings (route_id, user_id, stars) VALUES ($1,$2,$3)
+       ON CONFLICT (route_id, user_id) DO UPDATE SET stars = EXCLUDED.stars, updated_at = now()`,
+      [routeId, req.user.id, stars]
+    );
+    res.json(await ratingSummary(routeId, req.user.id));
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Hodnocení se nepodařilo uložit.' });
+  }
+});
+
+app.delete('/api/routes/:id/rating', requireAuth, async (req, res) => {
+  try {
+    const routeId = Number(req.params.id);
+    if (!Number.isInteger(routeId)) return res.status(404).json({ error: 'Trasa nenalezena.' });
+    await pool.query('DELETE FROM ratings WHERE route_id = $1 AND user_id = $2', [routeId, req.user.id]);
+    res.json(await ratingSummary(routeId, req.user.id));
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Hodnocení se nepodařilo odebrat.' });
   }
 });
 
