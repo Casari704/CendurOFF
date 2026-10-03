@@ -255,6 +255,8 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
 .about-logo{width:110px;height:auto;margin:0 auto 14px;display:block;}
 .about-modal h2{margin-bottom:10px;}
 .about-modal .sub{text-align:left;}
+.about-modal a{color:var(--rust-dark);font-weight:600;overflow-wrap:anywhere;}
+.about-modal a:hover{color:var(--rust);}
 .about-soon{border-top:1px solid var(--line);padding-top:12px;margin-top:14px !important;font-style:italic;}
 
 .toast{

@@ -9,7 +9,7 @@
   if(!document.getElementById('route-tools')){
     const items = document.getElementById('route-items');
     if(items) items.insertAdjacentHTML('beforebegin',
-      `<div id="route-tools"><button class="ghost-btn" id="select-mode-btn" type="button">Vybrat více tras</button></div>`);
+      `<div id="route-tools"><button class="ghost-btn" id="select-mode-btn" type="button">Stáhnout více tras</button></div>`);
   }
   if(!document.getElementById('selection-bar')){
     const list = document.getElementById('route-list');
@@ -348,7 +348,7 @@ function updateSelectionBar(){
   selectionBar.classList.toggle('open', selectMode);
   routeListEl.classList.toggle('selecting', selectMode);
   selectToggleBtn.classList.toggle('active', selectMode);
-  selectToggleBtn.textContent = selectMode ? 'Ukončit výběr' : 'Vybrat více tras';
+  selectToggleBtn.textContent = selectMode ? 'Ukončit výběr' : 'Stáhnout více tras';
   const n = selectedIds.size;
   selectionCount.textContent = n===0 ? 'Klikej na trasy na mapě nebo v seznamu' : 'Vybráno tras: ' + n;
   selectionDownloadBtn.disabled = n===0;
