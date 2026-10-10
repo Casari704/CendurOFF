@@ -41,7 +41,9 @@ CREATE TABLE IF NOT EXISTS routes (
   points JSONB NOT NULL,
   distance_km REAL NOT NULL,
   elev_gain_m REAL NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  gpx_updated_at TIMESTAMPTZ,
+  route_type TEXT NOT NULL DEFAULT 'offroad'
 );
 
 CREATE TABLE IF NOT EXISTS photos (
@@ -78,6 +80,13 @@ async function initDb() {
     await pool.query(`UPDATE users SET is_approved = true`);
     console.log('Migrace: sloupec is_approved přidán, stávající účty byly automaticky schváleny.');
   }
+
+  // Datum posledního nahrazení GPX souboru (NULL = GPX se od nahrání trasy neměnilo).
+  await pool.query('ALTER TABLE routes ADD COLUMN IF NOT EXISTS gpx_updated_at TIMESTAMPTZ');
+
+  // Typ trasy: transport / cenduro / offroad. Dosavadní trasy dostanou 'offroad'
+  // (na mapě byly doteď všechny červené, takže se pro ně nic nezmění).
+  await pool.query(`ALTER TABLE routes ADD COLUMN IF NOT EXISTS route_type TEXT NOT NULL DEFAULT 'offroad'`);
 
   console.log('Databázové schéma je připravené.');
 }
@@ -119,6 +128,8 @@ function computeStats(points) {
   }
   return { distanceKm: dist / 1000, elevGainM: gain };
 }
+
+const ROUTE_TYPES = ['transport', 'cenduro', 'offroad'];
 
 function signToken(user) {
   return jwt.sign({ id: user.id, username: user.username, displayName: user.display_name }, JWT_SECRET, { expiresIn: '30d' });
@@ -242,7 +253,7 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
 app.get('/api/routes', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT r.id, r.name, r.description, r.points, r.distance_km, r.elev_gain_m, r.created_at,
+      `SELECT r.id, r.name, r.description, r.points, r.distance_km, r.elev_gain_m, r.created_at, r.gpx_updated_at, r.route_type,
               u.id AS owner_id, u.display_name AS owner_display,
               rt.rating_avg, COALESCE(rt.rating_count, 0) AS rating_count
        FROM routes r JOIN users u ON u.id = r.owner_id
@@ -262,7 +273,7 @@ app.get('/api/routes', async (req, res) => {
 app.get('/api/routes/:id', optionalAuth, async (req, res) => {
   try {
     const routeResult = await pool.query(
-      `SELECT r.id, r.name, r.description, r.points, r.distance_km, r.elev_gain_m, r.created_at,
+      `SELECT r.id, r.name, r.description, r.points, r.distance_km, r.elev_gain_m, r.created_at, r.gpx_updated_at, r.route_type,
               u.id AS owner_id, u.display_name AS owner_display
        FROM routes r JOIN users u ON u.id = r.owner_id
        WHERE r.id = $1`,
@@ -289,15 +300,17 @@ app.post('/api/routes', requireAuth, async (req, res) => {
     const points = Array.isArray(req.body.points) ? req.body.points : [];
     if (!name) return res.status(400).json({ error: 'Zadejte název trasy.' });
     if (points.length < 2) return res.status(400).json({ error: 'GPX soubor neobsahuje použitelnou trasu.' });
+    const routeType = req.body.routeType == null ? 'offroad' : String(req.body.routeType);
+    if (!ROUTE_TYPES.includes(routeType)) return res.status(400).json({ error: 'Neznámý typ trasy.' });
     const clean = points
       .map(p => [Number(p[0]), Number(p[1]), p[2] == null ? null : Number(p[2])])
       .filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
     const stats = computeStats(clean);
     const result = await pool.query(
-      `INSERT INTO routes (owner_id, name, description, points, distance_km, elev_gain_m)
-       VALUES ($1,$2,$3,$4,$5,$6)
-       RETURNING id, name, description, points, distance_km, elev_gain_m, created_at`,
-      [req.user.id, name, description, JSON.stringify(clean), stats.distanceKm, stats.elevGainM]
+      `INSERT INTO routes (owner_id, name, description, points, distance_km, elev_gain_m, route_type)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       RETURNING id, name, description, points, distance_km, elev_gain_m, created_at, gpx_updated_at, route_type`,
+      [req.user.id, name, description, JSON.stringify(clean), stats.distanceKm, stats.elevGainM, routeType]
     );
     const route = result.rows[0];
     route.owner_id = req.user.id;
@@ -322,6 +335,9 @@ app.patch('/api/routes/:id', requireAuth, async (req, res) => {
     const name = String(req.body.name || '').trim();
     const description = String(req.body.description || '').trim();
     if (!name) return res.status(400).json({ error: 'Zadejte název trasy.' });
+    // typ trasy je nepovinný - když nepřijde (např. při nahrazení GPX), zůstane dosavadní
+    const routeType = req.body.routeType == null ? null : String(req.body.routeType);
+    if (routeType !== null && !ROUTE_TYPES.includes(routeType)) return res.status(400).json({ error: 'Neznámý typ trasy.' });
 
     // volitelné: pokud přijde i nová sada bodů (znovu nahraná GPX), přepočítat i statistiky
     if (Array.isArray(req.body.points) && req.body.points.length >= 2) {
@@ -330,18 +346,19 @@ app.patch('/api/routes/:id', requireAuth, async (req, res) => {
         .filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
       const stats = computeStats(clean);
       const result = await pool.query(
-        `UPDATE routes SET name=$1, description=$2, points=$3, distance_km=$4, elev_gain_m=$5
+        `UPDATE routes SET name=$1, description=$2, points=$3, distance_km=$4, elev_gain_m=$5, gpx_updated_at=now(),
+           route_type=COALESCE($7, route_type)
          WHERE id=$6
-         RETURNING id, name, description, points, distance_km, elev_gain_m, created_at`,
-        [name, description, JSON.stringify(clean), stats.distanceKm, stats.elevGainM, req.params.id]
+         RETURNING id, name, description, points, distance_km, elev_gain_m, created_at, gpx_updated_at, route_type`,
+        [name, description, JSON.stringify(clean), stats.distanceKm, stats.elevGainM, req.params.id, routeType]
       );
       return res.json(result.rows[0]);
     }
 
     const result = await pool.query(
-      `UPDATE routes SET name=$1, description=$2 WHERE id=$3
-       RETURNING id, name, description, points, distance_km, elev_gain_m, created_at`,
-      [name, description, req.params.id]
+      `UPDATE routes SET name=$1, description=$2, route_type=COALESCE($4, route_type) WHERE id=$3
+       RETURNING id, name, description, points, distance_km, elev_gain_m, created_at, gpx_updated_at, route_type`,
+      [name, description, req.params.id, routeType]
     );
     res.json(result.rows[0]);
   } catch (e) {

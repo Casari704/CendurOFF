@@ -70,6 +70,7 @@
       </h2>
       <div id="route-tools">
         <button class="ghost-btn" id="select-mode-btn" type="button">Stáhnout více tras</button>
+        <div id="route-legend"></div>
       </div>
       <div id="route-items"></div>
     </div>
@@ -115,6 +116,13 @@
     <input type="text" id="route-name" placeholder="např. Okruh kolem Landeku">
     <label for="route-desc">Popis (nepovinné)</label>
     <textarea id="route-desc" placeholder="Pár slov o trase, terénu, náročnosti…"></textarea>
+    <label for="route-type">Typ trasy</label>
+    <select id="route-type">
+      <option value="">— vyberte typ trasy —</option>
+      <option value="transport">Transportní</option>
+      <option value="cenduro">Cenduro</option>
+      <option value="offroad">Offroad</option>
+    </select>
     <div class="form-msg" id="upload-msg"></div>
     <div class="actions">
       <button class="ghost-btn" id="cancel-upload" type="button">Zrušit</button>
