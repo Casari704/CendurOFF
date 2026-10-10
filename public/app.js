@@ -22,6 +22,19 @@
         </div>
       </div>`);
   }
+  if(!document.getElementById('route-type')){
+    const desc = document.getElementById('route-desc');
+    if(desc) desc.insertAdjacentHTML('afterend', `
+      <label for="route-type">Typ trasy</label>
+      <select id="route-type">
+        <option value="">— vyberte typ trasy —</option>
+        <option value="transport">Transportní</option><option value="cenduro">Cenduro</option><option value="offroad">Offroad</option>
+      </select>`);
+  }
+  if(!document.getElementById('route-legend')){
+    const tools = document.getElementById('route-tools');
+    if(tools) tools.insertAdjacentHTML('beforeend', `<div id="route-legend"></div>`);
+  }
   if(!document.getElementById('lightbox')){
     document.body.insertAdjacentHTML('beforeend', `
       <div id="lightbox" role="dialog" aria-modal="true" aria-label="Prohlížeč fotek">
@@ -114,6 +127,58 @@ function ratingSuffix(route){
 }
 function routeMetaText(route){
   return `${route.owner_display} · ${Number(route.distance_km).toFixed(1)} km${ratingSuffix(route)}`;
+}
+// ---------------------------------------------------------------
+// Typy tras: barva na mapě + pořadí vrstev (vyšší z = kreslí se nad ostatními)
+// ---------------------------------------------------------------
+const ROUTE_TYPES = {
+  transport: { label:'Transportní', color:'#1E9A45', z:430 },
+  cenduro:   { label:'Cenduro',     color:'#E9851C', z:420 },
+  offroad:   { label:'Offroad',     color:'#E0241B', z:410 }
+};
+const ROUTE_TYPE_ORDER = ['transport','cenduro','offroad'];
+const SELECTED_PANE = 'route-selected';
+// trasy bez typu (starší backend / starší data) se berou jako offroad
+function typeOf(route){ return (route && ROUTE_TYPES[route.route_type]) ? route.route_type : 'offroad'; }
+function typeInfo(route){ return ROUTE_TYPES[typeOf(route)]; }
+function typeDot(type){ return `<span class="type-dot" style="background:${ROUTE_TYPES[type].color}"></span>`; }
+
+// ---------------------------------------------------------------
+// Odkaz na detail trasy (…/?trasa=12)
+// ---------------------------------------------------------------
+function routeIdFromUrl(){
+  const n = Number(new URLSearchParams(location.search).get('trasa'));
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+function routeShareUrl(id){
+  const u = new URL(location.href);
+  u.search = ''; u.hash = '';
+  u.searchParams.set('trasa', id);
+  return u.toString();
+}
+// drží adresu v prohlížeči v souladu s otevřenou trasou (jde ji tak i rovnou zkopírovat z řádku)
+function setUrlRoute(id){
+  try{
+    const u = new URL(location.href);
+    if(id) u.searchParams.set('trasa', id); else u.searchParams.delete('trasa');
+    history.replaceState(null, '', u);
+  }catch(e){}
+}
+let pendingLinkId = routeIdFromUrl(); // trasa z odkazu, otevře se po přihlášení
+async function shareRoute(route){
+  const url = routeShareUrl(route.id);
+  // na telefonu systémové "Sdílet" (Messenger, WhatsApp…), na počítači zkopírování do schránky
+  const isTouch = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
+  if(isTouch && navigator.share){
+    try{ await navigator.share({ title:'CendurOFF – ' + route.name, url }); return; }
+    catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  try{
+    await navigator.clipboard.writeText(url);
+    toast('Odkaz na trasu zkopírován do schránky.');
+  }catch(e){
+    window.prompt('Zkopíruj odkaz na trasu:', url);
+  }
 }
 function fmtDate(iso){ try{ return new Date(iso).toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'}); }catch(e){ return ''; } }
 
@@ -231,6 +296,12 @@ function initMap(){
     maxZoom: 19,
     attribution: '© OpenStreetMap contributors, CyclOSM'
   }).addTo(map);
+  // samostatná vrstva pro každý typ trasy: offroad dole, cenduro nad ním, transportní
+  // nahoře; úplně navrch právě vybraná (modrá) trasa
+  ROUTE_TYPE_ORDER.forEach(t=>{ map.createPane('route-' + t).style.zIndex = ROUTE_TYPES[t].z; });
+  map.createPane(SELECTED_PANE).style.zIndex = 440;
+  const legend = document.getElementById('route-legend');
+  if(legend) legend.innerHTML = ROUTE_TYPE_ORDER.map(t=>`<span>${typeDot(t)}${ROUTE_TYPES[t].label}</span>`).join('');
 }
 
 async function loadRoutes(){
@@ -265,7 +336,7 @@ async function loadRoutes(){
         <span class="visibility-box"></span>
       </label>
       <div class="route-item-info">
-        <div class="r-name">${escapeHtml(route.name)}</div>
+        <div class="r-name">${typeDot(typeOf(route))}${escapeHtml(route.name)}</div>
         <div class="r-meta">${escapeHtml(routeMetaText(route))}</div>
       </div>`;
     item.querySelector('.route-item-info').addEventListener('click', ()=>{
@@ -295,31 +366,46 @@ async function loadRoutes(){
   updateSelectionBar();
 }
 
-const ROUTE_COLOR = '#FF0000';
 const ROUTE_COLOR_SELECTED = '#1E64D6';
 const ROUTE_COLOR_HOVER = '#7EB6FF'; // světlejší modrá než vybraná trasa - pro najetí myší
 
-const STYLE_NORMAL = { color:ROUTE_COLOR, weight:4, opacity:0.85 };
 const STYLE_SELECTED = { color:ROUTE_COLOR_SELECTED, weight:6, opacity:1 };
 const STYLE_HOVER = { color:ROUTE_COLOR_HOVER, weight:6, opacity:1 };
+function normalStyle(id){
+  return { color: typeInfo(routesCache[id]).color, weight:4, opacity:0.9 };
+}
 
 // Je trasa "modrá"? Buď je otevřená v detailu, nebo je zaškrtnutá ve výběru více tras.
 function isRouteMarked(id){
   return selectMode ? selectedIds.has(Number(id)) : Number(id)===Number(activeRouteId);
 }
+// Přesune čáru do jiné vrstvy mapy (Leaflet to umí jen přes odebrání a opětovné přidání).
+function setLayerPane(layer, pane){
+  if(layer.options.pane === pane) return;
+  const onMap = map.hasLayer(layer);
+  if(onMap) map.removeLayer(layer);
+  layer.options.pane = pane;
+  if(onMap) layer.addTo(map);
+}
 function applyRouteStyle(id){
   const layer = layersById[id];
   if(!layer) return;
-  if(isRouteMarked(id)){ layer.setStyle(STYLE_SELECTED); layer.bringToFront(); }
-  else layer.setStyle(STYLE_NORMAL);
+  if(isRouteMarked(id)){
+    setLayerPane(layer, SELECTED_PANE);
+    layer.setStyle(STYLE_SELECTED);
+    layer.bringToFront();
+  } else {
+    setLayerPane(layer, 'route-' + typeOf(routesCache[id]));
+    layer.setStyle(normalStyle(id));
+  }
 }
 function routeTipHtml(route){
-  return `<b>${escapeHtml(route.name)}</b><br>${escapeHtml(routeMetaText(route))}`;
+  return `<b>${escapeHtml(route.name)}</b><br>${typeInfo(route).label} · ${escapeHtml(routeMetaText(route))}`;
 }
 
 function drawRoute(route){
   const latlngs = route.points.map(p=>[p[0],p[1]]);
-  const line = L.polyline(latlngs, STYLE_NORMAL).addTo(map);
+  const line = L.polyline(latlngs, Object.assign({ pane:'route-' + typeOf(route) }, normalStyle(route.id))).addTo(map);
   line.bindTooltip(routeTipHtml(route), { sticky:true, className:'trail-tip' });
   line.on('mouseover', ()=>{ if(!isRouteMarked(route.id)) line.setStyle(STYLE_HOVER); });
   line.on('mouseout', ()=> applyRouteStyle(route.id));
@@ -498,6 +584,7 @@ function renderElevationProfile(points){
 async function openDetail(id){
   if(selectMode) setSelectMode(false);
   activeRouteId = id;
+  setUrlRoute(id);
   highlightRoute(id);
   const panel = document.getElementById('detail-panel');
   const inner = document.getElementById('detail-inner');
@@ -533,6 +620,7 @@ async function openDetail(id){
   inner.innerHTML = `
     <button class="detail-close" id="detail-close">×</button>
     <h2>${escapeHtml(route.name)}</h2>
+    <div class="type-chip">${typeDot(typeOf(route))}${typeInfo(route).label} trasa</div>
     <div class="detail-owner">Přidal(a) ${escapeHtml(route.owner_display)} · ${fmtDate(route.created_at)}${route.gpx_updated_at ? `<br>GPX aktualizováno ${fmtDate(route.gpx_updated_at)}` : ''}</div>
     ${route.description ? `<div class="detail-desc" id="detail-desc-text">${escapeHtml(route.description)}</div>` : ''}
     ${renderRatingBlock(route)}
@@ -542,6 +630,10 @@ async function openDetail(id){
         <input type="text" id="edit-route-name" value="${escapeHtml(route.name)}">
         <label for="edit-route-desc">Popis</label>
         <textarea id="edit-route-desc">${escapeHtml(route.description||'')}</textarea>
+        <label for="edit-route-type">Typ trasy</label>
+        <select id="edit-route-type">
+          ${ROUTE_TYPE_ORDER.map(t=>`<option value="${t}"${t===typeOf(route) ? ' selected' : ''}>${ROUTE_TYPES[t].label}</option>`).join('')}
+        </select>
         <div class="form-msg" id="edit-route-msg"></div>
         <div class="actions">
           <button class="ghost-btn" id="cancel-edit-route" type="button">Zrušit</button>
@@ -555,6 +647,7 @@ async function openDetail(id){
     </div>
     <div class="gpx-actions">
       <button class="ghost-btn" id="download-gpx-btn" type="button">⬇ Stáhnout GPX</button>
+      <button class="ghost-btn" id="share-route-btn" type="button">🔗 Sdílet odkaz</button>
     </div>
     <div class="elev-profile">
       <h3>Výškový profil</h3>
@@ -567,7 +660,7 @@ async function openDetail(id){
         <p class="hint">Jako vlastník trasy můžete nahrát až 3 fotky a vybrat, která bude hlavní (max 3 MB na fotku).</p>
         <input type="file" id="photo-input" accept="image/*" ${photos.length>=3 ? 'disabled' : ''}>
         ${photos.length>=3 ? '<p class="hint">Všechny 3 sloty jsou obsazené.</p>' : ''}
-        <button class="ghost-btn" id="edit-route-btn" style="width:100%;margin-top:14px;">Upravit trasu</button>
+        <button class="ghost-btn" id="edit-route-btn" style="width:100%;margin-top:14px;">Upravit trasu (název, popis, typ)</button>
         <h3 style="margin-top:18px;">Nahradit GPX soubor</h3>
         <p class="hint">Nahrajte aktuálnější GPX - nahradí body, vzdálenost i převýšení současné trasy (název a popis zůstanou).</p>
         <input type="file" id="replace-gpx-input" accept=".gpx">
@@ -577,6 +670,7 @@ async function openDetail(id){
 
   document.getElementById('detail-close').addEventListener('click', closeDetail);
   document.getElementById('download-gpx-btn').addEventListener('click', ()=> downloadGPX(route.points, route.name));
+  document.getElementById('share-route-btn').addEventListener('click', ()=> shareRoute(route));
   bindRating(route);
   inner.querySelectorAll('.photo-thumb').forEach(img=>{
     img.addEventListener('click', ()=> openLightbox(photos.map(p=>p.data_url), Number(img.dataset.index), route.name));
@@ -602,7 +696,7 @@ async function openDetail(id){
         await api(`/api/routes/${id}`, {
           method:'PATCH',
           headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ name:newName, description:newDesc })
+          body: JSON.stringify({ name:newName, description:newDesc, routeType: document.getElementById('edit-route-type').value })
         });
         toast('Trasa byla upravena.');
         await loadRoutes();
@@ -741,6 +835,7 @@ lightbox.addEventListener('touchend', (e)=>{
 
 function closeDetail(){
   closeLightbox();
+  setUrlRoute(null);
   document.getElementById('detail-panel').classList.remove('open');
   activeRouteId = null;
   Object.keys(layersById).forEach(applyRouteStyle);
@@ -754,6 +849,7 @@ document.getElementById('open-upload').addEventListener('click', ()=>{
   document.getElementById('gpx-file').value='';
   document.getElementById('route-name').value='';
   document.getElementById('route-desc').value='';
+  document.getElementById('route-type').value='';
   document.getElementById('upload-msg').textContent='';
   overlay.classList.add('open');
 });
@@ -784,13 +880,15 @@ document.getElementById('confirm-upload').addEventListener('click', async ()=>{
   const desc = document.getElementById('route-desc').value.trim();
   if(!fileInput.files[0]){ msg.textContent='Vyberte GPX soubor.'; return; }
   if(!name){ msg.textContent='Zadejte název trasy.'; return; }
+  const routeType = document.getElementById('route-type').value;
+  if(!routeType){ msg.textContent='Vyberte typ trasy.'; return; }
   if(!pendingPoints){ msg.textContent='GPX soubor se ještě nepodařilo přečíst, zkuste ho vybrat znovu.'; return; }
   msg.textContent='Nahrávám…';
   try{
     const route = await api('/api/routes', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ name, description: desc, points: pendingPoints })
+      body: JSON.stringify({ name, description: desc, points: pendingPoints, routeType })
     });
     overlay.classList.remove('open');
     toast('Trasa byla nahrána.');
@@ -1084,6 +1182,18 @@ async function enterApp(){
   setTimeout(()=>map.invalidateSize(), 50);
   await loadRoutes();
   requestWakeLock();
+  if(pendingLinkId){
+    const linked = pendingLinkId;
+    pendingLinkId = null;
+    if(routesCache[linked]){
+      const layer = layersById[linked];
+      if(layer) map.fitBounds(layer.getBounds(), {maxZoom:14});
+      openDetail(linked);
+    } else {
+      setUrlRoute(null);
+      toast('Trasa z odkazu už neexistuje.', 5000);
+    }
+  }
 }
 
 (async function boot(){

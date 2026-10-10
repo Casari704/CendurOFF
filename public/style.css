@@ -271,6 +271,28 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
 }
 .leaflet-tooltip.trail-tip::before{border-top-color:var(--ink);}
 
+/* typy tras */
+select{
+  width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:6px;
+  background:#fff;font-family:inherit;font-size:0.95rem;color:var(--ink);
+}
+select:focus{outline:2px solid var(--moss);outline-offset:1px;}
+.type-dot{
+  display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;
+  margin-right:6px;vertical-align:baseline;
+}
+.type-chip{
+  display:inline-flex;align-items:center;margin:2px 0 8px;padding:3px 10px 3px 8px;
+  background:var(--page);border-radius:999px;font-size:0.78rem;font-weight:600;color:var(--ink);
+}
+.type-chip .type-dot{margin-right:6px;}
+#route-legend{
+  display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px;
+  font-size:0.72rem;color:var(--ink-soft);
+}
+#route-legend span{display:inline-flex;align-items:center;white-space:nowrap;}
+#route-legend .type-dot{width:9px;height:9px;margin-right:4px;}
+
 /* hodnocení tras */
 .rating-block{
   background:var(--page);border-radius:8px;padding:10px 12px;margin-bottom:14px;
@@ -294,7 +316,7 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
 
 /* tlačítka GPX v detailu */
 .gpx-actions{display:flex;gap:8px;margin-bottom:16px;}
-.gpx-actions button{flex:1;margin-top:0;padding:11px 8px;font-size:0.88rem;}
+.gpx-actions button{flex:1;margin-top:0;padding:11px 6px;font-size:0.85rem;white-space:nowrap;}
 
 /* výběr více tras */
 #route-tools{padding:8px 12px;border-top:1px solid var(--line);}
