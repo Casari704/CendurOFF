@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS routes (
   points JSONB NOT NULL,
   distance_km REAL NOT NULL,
   elev_gain_m REAL NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  gpx_updated_at TIMESTAMPTZ,
+  route_type TEXT NOT NULL DEFAULT 'offroad'
 );
 
 CREATE TABLE IF NOT EXISTS photos (
