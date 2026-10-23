@@ -1188,6 +1188,24 @@ const mapEl = document.getElementById('map');
 document.getElementById('zoom-in-btn').addEventListener('click', ()=> map.zoomIn());
 document.getElementById('zoom-out-btn').addEventListener('click', ()=> map.zoomOut());
 
+// Fullscreen + satelitní tlačítko jsou (kvůli overflow:hidden na main.mapwrap)
+// mimo mapu, přímo v #app-screen - jejich "top" proto dopočítáváme podle reálné
+// výšky hlavičky (ta se na mobilu může zalomit na 2 řádky a mění výšku podle
+// obsahu), ať tlačítka nikdy nepřekrývají tlačítka v hlavičce.
+function positionFloatingMapButtons(){
+  const header = document.querySelector('header.topbar');
+  const sat = document.getElementById('satellite-btn');
+  const full = document.getElementById('fullscreen-btn');
+  if(!header || !sat || !full) return;
+  const top = Math.round(header.getBoundingClientRect().bottom) + 8;
+  sat.style.top = top + 'px';
+  full.style.top = top + 'px';
+}
+window.addEventListener('resize', positionFloatingMapButtons);
+window.addEventListener('load', positionFloatingMapButtons);
+positionFloatingMapButtons();
+setTimeout(positionFloatingMapButtons, 300);
+
 const satelliteBtn = document.getElementById('satellite-btn');
 satelliteBtn.addEventListener('click', ()=>{
   if(!map) return;
@@ -1428,6 +1446,8 @@ async function enterApp(){
   document.getElementById('user-chip').textContent = currentUser.displayName;
   initMap();
   setTimeout(()=>map.invalidateSize(), 50);
+  positionFloatingMapButtons();
+  setTimeout(positionFloatingMapButtons, 100);
   await loadRoutes();
   requestWakeLock();
   if(pendingLinkId){
