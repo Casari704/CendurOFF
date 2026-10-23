@@ -86,8 +86,6 @@
     </div>
 
     <div id="locate-controls">
-      <button class="map-btn map-btn-square" id="satellite-btn" title="Přepnout satelitní mapu">🛰</button>
-      <button class="map-btn map-btn-square" id="fullscreen-btn" title="Celá obrazovka">⛶</button>
       <div class="nav-grid">
         <button class="map-btn nav-btn" id="heading-btn" title="Přepnout sever nahoru / směr jízdy nahoru" disabled>
           <span class="map-btn-icon"><img src="public/img/icon-north.png" alt=""></span>
@@ -109,6 +107,10 @@
       <div class="detail-inner" id="detail-inner"></div>
     </div>
   </main>
+
+  <!-- mimo main.mapwrap (ten má overflow:hidden), ať se tlačítka na mobilu neoříznou nad hlavičkou -->
+  <button class="map-btn map-btn-square" id="satellite-btn" title="Přepnout satelitní mapu">🛰</button>
+  <button class="map-btn map-btn-square" id="fullscreen-btn" title="Celá obrazovka">⛶</button>
 </div>
 
 <!-- ============ UPLOAD MODAL ============ -->
