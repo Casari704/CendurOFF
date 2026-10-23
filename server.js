@@ -62,8 +62,20 @@ CREATE TABLE IF NOT EXISTS ratings (
   PRIMARY KEY (route_id, user_id)
 );
 
+-- Textové recenze: jedna recenze na uživatele a trasu (opakované uložení = úprava té stávající).
+CREATE TABLE IF NOT EXISTS reviews (
+  id SERIAL PRIMARY KEY,
+  route_id INTEGER NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (route_id, user_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_routes_owner ON routes(owner_id);
 CREATE INDEX IF NOT EXISTS idx_photos_route ON photos(route_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_route ON reviews(route_id);
 `;
 
 async function initDb() {
@@ -179,6 +191,25 @@ async function ratingSummary(routeId, userId) {
   return { rating_avg: agg.rows[0].rating_avg, rating_count: agg.rows[0].rating_count, my_rating: myRating };
 }
 
+// Počet slov - stejné pravidlo jako na frontendu (oddělovač = libovolný bílý znak).
+function countWords(text) {
+  return String(text || '').trim().split(/\s+/).filter(Boolean).length;
+}
+const MAX_REVIEW_WORDS = 200;
+const MAX_REVIEW_CHARS = 4000; // bezpečnostní pojistka na délku i při "slovech" bez mezer
+
+// Všechny recenze k trase (nejnovější/naposledy upravené první) + jméno autora.
+async function reviewsForRoute(routeId) {
+  const result = await pool.query(
+    `SELECT rv.id, rv.user_id, rv.text, rv.created_at, rv.updated_at, u.display_name AS author_display
+     FROM reviews rv JOIN users u ON u.id = rv.user_id
+     WHERE rv.route_id = $1
+     ORDER BY rv.updated_at DESC`,
+    [routeId]
+  );
+  return result.rows;
+}
+
 // ---------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------
@@ -247,6 +278,26 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   res.json({ id: req.user.id, username: req.user.username, displayName: req.user.displayName });
 });
 
+app.post('/api/auth/change-password', requireAuth, async (req, res) => {
+  try {
+    const currentPassword = String(req.body.currentPassword || '');
+    const newPassword = String(req.body.newPassword || '');
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Vyplňte současné i nové heslo.' });
+    if (newPassword.length < 4) return res.status(400).json({ error: 'Nové heslo musí mít alespoň 4 znaky.' });
+    const result = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    const user = result.rows[0];
+    if (!user) return res.status(404).json({ error: 'Účet nenalezen.' });
+    const ok = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!ok) return res.status(401).json({ error: 'Současné heslo není správně.' });
+    const hash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Heslo se nepodařilo změnit.' });
+  }
+});
+
 // ---------------------------------------------------------------
 // Trasy
 // ---------------------------------------------------------------
@@ -286,7 +337,8 @@ app.get('/api/routes/:id', optionalAuth, async (req, res) => {
       [req.params.id]
     );
     Object.assign(route, await ratingSummary(route.id, req.user ? req.user.id : null));
-    res.json({ route, photos: photosResult.rows });
+    const reviews = await reviewsForRoute(route.id);
+    res.json({ route, photos: photosResult.rows, reviews });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Trasu se nepodařilo načíst.' });
@@ -402,6 +454,47 @@ app.delete('/api/routes/:id/rating', requireAuth, async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Hodnocení se nepodařilo odebrat.' });
+  }
+});
+
+// ---------------------------------------------------------------
+// Recenze tras (text, max 200 slov, jedna recenze na uživatele a trasu)
+// ---------------------------------------------------------------
+app.put('/api/routes/:id/review', requireAuth, async (req, res) => {
+  try {
+    const routeId = Number(req.params.id);
+    if (!Number.isInteger(routeId)) return res.status(404).json({ error: 'Trasa nenalezena.' });
+    const text = String(req.body.text || '').trim();
+    if (!text) return res.status(400).json({ error: 'Napište text recenze.' });
+    if (text.length > MAX_REVIEW_CHARS) return res.status(400).json({ error: 'Recenze je příliš dlouhá.' });
+    const words = countWords(text);
+    if (words > MAX_REVIEW_WORDS) {
+      return res.status(400).json({ error: `Recenze může mít nejvýš ${MAX_REVIEW_WORDS} slov (teď ${words}).` });
+    }
+    const routeResult = await pool.query('SELECT id FROM routes WHERE id = $1', [routeId]);
+    if (!routeResult.rows[0]) return res.status(404).json({ error: 'Trasa nenalezena.' });
+    // vložit, nebo přepsat dosavadní recenzi téhož uživatele k téže trase
+    await pool.query(
+      `INSERT INTO reviews (route_id, user_id, text) VALUES ($1,$2,$3)
+       ON CONFLICT (route_id, user_id) DO UPDATE SET text = EXCLUDED.text, updated_at = now()`,
+      [routeId, req.user.id, text]
+    );
+    res.json({ reviews: await reviewsForRoute(routeId) });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Recenzi se nepodařilo uložit.' });
+  }
+});
+
+app.delete('/api/routes/:id/review', requireAuth, async (req, res) => {
+  try {
+    const routeId = Number(req.params.id);
+    if (!Number.isInteger(routeId)) return res.status(404).json({ error: 'Trasa nenalezena.' });
+    await pool.query('DELETE FROM reviews WHERE route_id = $1 AND user_id = $2', [routeId, req.user.id]);
+    res.json({ reviews: await reviewsForRoute(routeId) });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Recenzi se nepodařilo smazat.' });
   }
 });
 

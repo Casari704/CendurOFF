@@ -57,16 +57,18 @@
     <div class="brand">CendurOFF</div>
     <button class="btn solid" id="open-upload">+ Nahrát trasu</button>
     <button class="btn" id="open-about">O projektu</button>
-    <span class="user-chip" id="user-chip"></span>
+    <button class="btn" id="user-chip" type="button"></button>
     <button class="btn" id="logout-btn">Odhlásit se</button>
   </header>
   <main class="mapwrap">
     <div id="map"></div>
 
     <div id="route-list">
+      <button class="panel-tab" id="route-list-tab" type="button" title="Skrýt/zobrazit seznam tras" aria-label="Skrýt/zobrazit seznam tras">
+        <span class="tab-arrow">‹</span>
+      </button>
       <h2 id="route-list-toggle">
         <span>Trasy <span class="count" id="route-count"></span></span>
-        <span class="collapse-arrow">▾</span>
       </h2>
       <div id="route-tools">
         <button class="ghost-btn" id="select-mode-btn" type="button">Stáhnout více tras</button>
@@ -84,6 +86,7 @@
     </div>
 
     <div id="locate-controls">
+      <button class="map-btn map-btn-square" id="satellite-btn" title="Přepnout satelitní mapu">🛰</button>
       <button class="map-btn map-btn-square" id="fullscreen-btn" title="Celá obrazovka">⛶</button>
       <div class="nav-grid">
         <button class="map-btn nav-btn" id="heading-btn" title="Přepnout sever nahoru / směr jízdy nahoru" disabled>
@@ -100,6 +103,9 @@
     </div>
 
     <div id="detail-panel">
+      <button class="panel-tab" id="detail-panel-tab" type="button" title="Zavřít detail trasy" aria-label="Zavřít detail trasy">
+        <span class="tab-arrow">‹</span>
+      </button>
       <div class="detail-inner" id="detail-inner"></div>
     </div>
   </main>
@@ -147,6 +153,28 @@
       nebo na e-mailu <a href="mailto:petrol.machine@gmail.com">petrol.machine@gmail.com</a>.</p>
     <p class="sub about-soon">Brzy: možnost koupit si nálepku CendurOFF a podpořit
       tak provoz projektu.</p>
+  </div>
+</div>
+
+<!-- ============ MŮJ ÚČET MODAL (změna hesla) ============ -->
+<div class="modal-overlay" id="account-overlay">
+  <div class="modal">
+    <button class="detail-close" id="account-close">×</button>
+    <h2>Můj účet</h2>
+    <p class="sub" id="account-username-label"></p>
+    <form id="change-password-form">
+      <label for="cp-current">Současné heslo</label>
+      <input type="password" id="cp-current" autocomplete="current-password" required minlength="4">
+      <label for="cp-new">Nové heslo</label>
+      <input type="password" id="cp-new" autocomplete="new-password" required minlength="4">
+      <label for="cp-confirm">Nové heslo znovu</label>
+      <input type="password" id="cp-confirm" autocomplete="new-password" required minlength="4">
+      <div class="form-msg" id="cp-msg"></div>
+      <div class="actions">
+        <button class="ghost-btn" id="cp-cancel" type="button">Zrušit</button>
+        <button class="primary-btn" type="submit" style="margin-top:0;">Změnit heslo</button>
+      </div>
+    </form>
   </div>
 </div>
 
