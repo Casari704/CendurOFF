@@ -208,6 +208,16 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
   position:absolute;right:16px;bottom:28px;z-index:900;
   display:flex;flex-direction:column;gap:12px;align-items:flex-end;
 }
+
+/* Fullscreen + satelit: mimo main.mapwrap (ten má overflow:hidden, viz výš v HTML),
+   takže tlačítka nejde umístit přes #locate-controls - mají vlastní position:fixed
+   navázanou na #app-screen (plná obrazovka, bez oříznutí). "top" dopočítává JS podle
+   skutečné výšky hlavičky (ta se na mobilu může zalomit na 2 řádky), tahle hodnota
+   je jen záložní, než se JS spustí. */
+#satellite-btn, #fullscreen-btn{
+  position:fixed;top:76px;right:16px;z-index:950;
+}
+#fullscreen-btn{ right:70px; }
 .map-btn{
   height:64px;min-width:210px;border-radius:14px;border:1px solid var(--line);
   background:var(--surface);box-shadow:0 4px 14px rgba(20,30,15,0.22);
@@ -453,15 +463,19 @@ select:focus{outline:2px solid var(--moss);outline-offset:1px;}
   .map-btn-label{font-size:0.72rem;white-space:normal;line-height:1.05;}
   .map-btn-square{width:50px;height:50px;font-size:1.4rem;}
 
-  /* Fullscreen tlačítko pryč ze spodní lišty (viz mockup) - na stejné úrovni
-     jako panel "Trasy" (top:8px), ať ho hlavička nepřekrývá. */
+  /* Fullscreen + satelit na mobilu: menší, vpravo nahoře, pod hlavičkou
+     (přesné "top" dopočítává JS podle reálné výšky hlavičky - viz
+     positionFloatingMapButtons v app.js - hlavička se tu může zalomit na
+     2 řádky, takže pevná hodnota by je čas od času překryla).
+     z-index musí být nad hlavičkou (ta má 1200), jinak by tlačítko sice
+     existovalo, ale hlavička by ho překryla. */
   #fullscreen-btn{
-    position:fixed;top:8px;right:8px;bottom:auto;z-index:950;
+    position:fixed;right:8px;bottom:auto;z-index:1250;
     width:42px;height:42px;font-size:1.2rem;border-radius:11px;
   }
   /* satelitní tlačítko sedí vedle fullscreenu, stejná řada nahoře */
   #satellite-btn{
-    position:fixed;top:8px;right:58px;bottom:auto;z-index:950;
+    position:fixed;right:58px;bottom:auto;z-index:1250;
     width:42px;height:42px;font-size:1.2rem;border-radius:11px;
   }
 
