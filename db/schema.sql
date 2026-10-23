@@ -35,5 +35,17 @@ CREATE TABLE IF NOT EXISTS ratings (
   PRIMARY KEY (route_id, user_id)
 );
 
+-- Textové recenze: jedna recenze na uživatele a trasu (opakované uložení = úprava té stávající).
+CREATE TABLE IF NOT EXISTS reviews (
+  id SERIAL PRIMARY KEY,
+  route_id INTEGER NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (route_id, user_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_routes_owner ON routes(owner_id);
 CREATE INDEX IF NOT EXISTS idx_photos_route ON photos(route_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_route ON reviews(route_id);
