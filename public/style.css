@@ -82,27 +82,45 @@ header.topbar .brand{font-size:1.35rem;font-weight:600;margin-right:auto;letter-
 .btn:hover{background:rgba(255,255,255,0.08);}
 .btn.solid{background:var(--rust);border-color:var(--rust);color:#fff;font-weight:600;}
 .btn.solid:hover{background:var(--rust-dark);}
-.user-chip{font-size:0.86rem;color:#D9D3BC;white-space:nowrap;}
 
 main.mapwrap{flex:1;position:relative;overflow:hidden;}
 #map{position:absolute;inset:0;transform-origin:center center;transition:transform .15s linear;touch-action:none;}
 
-/* route list panel */
+/* route list panel - plnou výškou přisazený k levému okraji, jako detail trasy */
 #route-list{
-  position:absolute;top:16px;left:16px;width:270px;max-height:calc(100% - 32px);
-  background:var(--surface);border:1px solid var(--line);border-radius:10px;
-  box-shadow:0 4px 18px rgba(20,30,15,0.18);z-index:800;overflow:hidden;
+  position:absolute;top:0;left:0;width:340px;height:100%;
+  background:var(--surface);border-right:1px solid var(--line);border-radius:0;
+  box-shadow:6px 0 20px rgba(20,30,15,0.18);z-index:800;overflow:visible;
   display:flex;flex-direction:column;
+  transform:translateX(0);transition:transform .25s ease;
 }
+#route-list.collapsed{transform:translateX(-100%);}
 #route-list h2{
-  font-size:1.02rem;margin:0;padding:14px 16px;font-weight:600;
-  display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;
+  font-size:1.05rem;margin:0;padding:16px 18px;font-weight:600;
+  display:flex;align-items:center;
 }
 #route-list .count{font-family:'Roboto';font-size:0.78rem;color:var(--ink-soft);font-weight:400;}
-.collapse-arrow{font-size:0.75rem;color:var(--ink-soft);transition:transform .15s;}
-#route-list.collapsed .collapse-arrow{transform:rotate(-90deg);}
-#route-list.collapsed #route-items{display:none;}
-#route-items{overflow-y:auto;border-top:1px solid var(--line);}
+#route-items{flex:1;min-height:0;overflow-y:auto;border-top:1px solid var(--line);}
+
+/* vysouvací "jazýček" se šipkou na hraně panelu - nahrazuje dřívější křížek/klik na hlavičku */
+.panel-tab{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:30px;height:72px;z-index:1;
+  background:var(--surface);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 14px rgba(20,30,15,0.22);
+  color:var(--ink-soft);font-size:1.25rem;
+}
+.panel-tab:hover{background:#F3EEDC;color:var(--ink);}
+.tab-arrow{display:inline-block;line-height:1;}
+
+#route-list-tab{right:-30px;border-left:none;border-radius:0 12px 12px 0;}
+#route-list.collapsed #route-list-tab .tab-arrow{transform:scaleX(-1);}
+
+#detail-panel-tab{left:-30px;border-right:none;border-radius:12px 0 0 12px;}
+/* dokud není vybraná žádná trasa, není co zavírat - jazýček se neukazuje */
+#detail-panel:not(.open) #detail-panel-tab{display:none;}
+#detail-panel.open #detail-panel-tab .tab-arrow{transform:scaleX(-1);}
 .route-item{
   padding:8px 12px;border-bottom:1px solid var(--line);
   display:flex;align-items:center;gap:10px;
@@ -121,15 +139,16 @@ main.mapwrap{flex:1;position:relative;overflow:hidden;}
 .visibility-toggle input:checked + .visibility-box::after{content:'✓';color:#fff;font-size:18px;font-weight:700;line-height:1;}
 .empty-note{padding:16px;font-size:0.85rem;color:var(--ink-soft);line-height:1.5;}
 
-/* detail panel */
+/* detail panel - plnou výškou přisazený k pravému okraji */
 #detail-panel{
-  position:absolute;top:0;right:-400px;width:380px;height:100%;
+  position:absolute;top:0;right:0;width:420px;height:100%;
   background:var(--surface);border-left:1px solid var(--line);
   box-shadow:-6px 0 20px rgba(20,30,15,0.15);z-index:1000;
-  transition:right .25s ease;overflow-y:auto;
+  overflow:visible;
+  transform:translateX(100%);transition:transform .25s ease;
 }
-#detail-panel.open{right:0;}
-.detail-inner{padding:22px;}
+#detail-panel.open{transform:translateX(0);}
+.detail-inner{padding:22px;height:100%;overflow-y:auto;}
 .detail-close{float:right;background:none;border:none;font-size:1.3rem;color:var(--ink-soft);line-height:1;}
 .detail-inner h2{margin:6px 0 4px;font-size:1.35rem;}
 .detail-owner{font-size:0.86rem;color:var(--ink-soft);margin-bottom:14px;}
@@ -314,13 +333,43 @@ select:focus{outline:2px solid var(--moss);outline-offset:1px;}
 }
 .rating-hint{font-size:0.75rem;color:var(--ink-soft);}
 
+/* recenze tras - sbalovací panel, ať při běžném prohlížení trasy nepřekáží */
+.reviews-block{
+  background:var(--page);border-radius:8px;padding:0 12px 12px;margin-bottom:16px;
+}
+.reviews-block summary{
+  cursor:pointer;list-style:none;padding:10px 0;font-weight:600;font-size:0.9rem;
+  display:flex;align-items:center;gap:6px;color:var(--ink);
+}
+.reviews-block summary::-webkit-details-marker{display:none;}
+.reviews-block summary::before{
+  content:'▸';display:inline-block;transition:transform .15s;color:var(--ink-soft);font-size:0.8rem;
+}
+.reviews-block[open] summary::before{transform:rotate(90deg);}
+.reviews-block summary .count{font-weight:400;color:var(--ink-soft);font-size:0.82rem;}
+.reviews-inner{padding-top:2px;}
+.review-item{padding:10px 0;border-top:1px solid var(--line);}
+.reviews-inner > .review-item:first-child{border-top:none;}
+.review-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:0.85rem;margin-bottom:4px;}
+.review-head span{font-size:0.74rem;color:var(--ink-soft);white-space:nowrap;}
+.review-text{font-size:0.86rem;line-height:1.5;white-space:pre-wrap;color:var(--ink);}
+.review-mine{background:#EDE6CF;border-radius:6px;padding:10px;border-top:none;margin-bottom:6px;}
+.review-mine-actions{display:flex;gap:8px;margin-top:8px;}
+.review-mine-actions button{margin-top:0;padding:6px 10px;font-size:0.76rem;}
+.review-form{margin-top:10px;border-top:1px solid var(--line);padding-top:10px;}
+.review-form textarea{min-height:80px;}
+.review-form-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap;}
+.review-counter{font-size:0.74rem;color:var(--ink-soft);}
+.review-counter.over{color:var(--rust-dark);font-weight:700;}
+.review-form-actions{display:flex;gap:8px;}
+.review-form-actions button{margin-top:0;padding:9px 14px;font-size:0.82rem;}
+
 /* tlačítka GPX v detailu */
 .gpx-actions{display:flex;gap:8px;margin-bottom:16px;}
 .gpx-actions button{flex:1;margin-top:0;padding:11px 6px;font-size:0.85rem;white-space:nowrap;}
 
 /* výběr více tras */
 #route-tools{padding:8px 12px;border-top:1px solid var(--line);}
-#route-list.collapsed #route-tools{display:none;}
 #select-mode-btn{width:100%;padding:7px;font-size:0.8rem;}
 #select-mode-btn.active{background:var(--moss);border-color:var(--moss);color:#fff;}
 #route-list.selecting .route-item-info{cursor:copy;}
@@ -375,17 +424,24 @@ select:focus{outline:2px solid var(--moss);outline-offset:1px;}
 @media (max-width:760px){
   .login-hero{display:none;}
   .login-side{width:100%;min-width:0;}
-  #detail-panel{width:88vw;right:-90vw;}
+
+  /* na mobilu oba panely skoro přes celou šířku - proto jsou na sobě navzájem
+     závislé (viz app.js): otevření jednoho automaticky zavře ten druhý, ať se
+     nikdy nepřekrývají jejich vysouvací jazýčky ani obsah. */
+  #route-list{width:86vw;max-width:360px;}
+  #detail-panel{width:92vw;max-width:420px;}
 
   header.topbar{padding:6px 10px;gap:6px;min-height:48px;}
   header.topbar .brand{font-size:1.05rem;}
   header.topbar .brand-logo{height:26px;}
   .btn{padding:6px 10px;font-size:0.78rem;}
-  .user-chip{display:none;}
 
-  #route-list{top:8px;left:8px;width:180px;max-height:calc(100% - 16px);}
-  #route-list h2{padding:10px 12px;font-size:0.9rem;}
+  #route-list h2{padding:12px 14px;font-size:0.92rem;}
   .visibility-toggle{width:24px;height:24px;}
+
+  .panel-tab{width:26px;height:60px;font-size:1.05rem;}
+  #route-list-tab{right:-26px;}
+  #detail-panel-tab{left:-26px;}
 
   #locate-controls{
     position:fixed;left:0;right:0;bottom:0;top:auto;
@@ -401,6 +457,11 @@ select:focus{outline:2px solid var(--moss);outline-offset:1px;}
      jako panel "Trasy" (top:8px), ať ho hlavička nepřekrývá. */
   #fullscreen-btn{
     position:fixed;top:8px;right:8px;bottom:auto;z-index:950;
+    width:42px;height:42px;font-size:1.2rem;border-radius:11px;
+  }
+  /* satelitní tlačítko sedí vedle fullscreenu, stejná řada nahoře */
+  #satellite-btn{
+    position:fixed;top:8px;right:58px;bottom:auto;z-index:950;
     width:42px;height:42px;font-size:1.2rem;border-radius:11px;
   }
 

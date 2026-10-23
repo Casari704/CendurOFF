@@ -35,6 +35,16 @@
     const tools = document.getElementById('route-tools');
     if(tools) tools.insertAdjacentHTML('beforeend', `<div id="route-legend"></div>`);
   }
+  if(!document.getElementById('route-list-tab')){
+    const list = document.getElementById('route-list');
+    if(list) list.insertAdjacentHTML('afterbegin',
+      `<button class="panel-tab" id="route-list-tab" type="button" title="Skrýt/zobrazit seznam tras" aria-label="Skrýt/zobrazit seznam tras"><span class="tab-arrow">‹</span></button>`);
+  }
+  if(!document.getElementById('detail-panel-tab')){
+    const panel = document.getElementById('detail-panel');
+    if(panel) panel.insertAdjacentHTML('afterbegin',
+      `<button class="panel-tab" id="detail-panel-tab" type="button" title="Zavřít detail trasy" aria-label="Zavřít detail trasy"><span class="tab-arrow">‹</span></button>`);
+  }
   if(!document.getElementById('lightbox')){
     document.body.insertAdjacentHTML('beforeend', `
       <div id="lightbox" role="dialog" aria-modal="true" aria-label="Prohlížeč fotek">
@@ -120,6 +130,46 @@ function downloadTracks(tracks){
 function downloadGPX(points, name){ downloadTracks([{ name, points }]); }
 
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ---------------------------------------------------------------
+// Komprese fotek před nahráním (šetří data) - zmenší rozlišení a překóduje
+// do JPEG s postupně nižší kvalitou, dokud se vejde pod cílovou velikost.
+// ---------------------------------------------------------------
+function loadImageFromFile(file){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{ URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('Obrázek se nepodařilo načíst.')); };
+    img.src = url;
+  });
+}
+async function compressImage(file, opts){
+  const o = Object.assign({ maxDim:1920, maxBytes:1024*1024, startQuality:0.85, minQuality:0.4 }, opts);
+  if(!/^image\//.test(file.type)) return file; // ne-obrázek (nemělo by nastat) - necháme beze změny
+  let img;
+  try{ img = await loadImageFromFile(file); }
+  catch(e){ return file; } // např. formát, co prohlížeč neumí dekódovat - zkusíme nahrát originál
+  let { width, height } = img;
+  if(width > o.maxDim || height > o.maxDim){
+    const scale = o.maxDim / Math.max(width, height);
+    width = Math.round(width*scale);
+    height = Math.round(height*scale);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0, width, height);
+  let quality = o.startQuality;
+  let blob = await new Promise(res=>canvas.toBlob(res, 'image/jpeg', quality));
+  while(blob && blob.size > o.maxBytes && quality > o.minQuality){
+    quality -= 0.1;
+    blob = await new Promise(res=>canvas.toBlob(res, 'image/jpeg', quality));
+  }
+  if(!blob || blob.size >= file.size) return file; // komprese nepomohla - raději originál
+  const newName = (file.name||'foto').replace(/\.\w+$/, '') + '.jpg';
+  return new File([blob], newName, { type:'image/jpeg' });
+}
 function fmtAvg(avg){ return Number(avg).toFixed(1).replace('.', ','); }
 // krátký text s průměrem do seznamu a bubliny na mapě, např. " · ★ 4,3"
 function ratingSuffix(route){
@@ -181,6 +231,14 @@ async function shareRoute(route){
   }
 }
 function fmtDate(iso){ try{ return new Date(iso).toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'}); }catch(e){ return ''; } }
+// krátký numerický formát dd.m.rrrr (např. 21.10.2026) - pro datum aktualizace GPX a recenze
+function fmtDateShort(iso){
+  try{
+    const d = new Date(iso);
+    return d.getDate() + '.' + (d.getMonth()+1) + '.' + d.getFullYear();
+  }catch(e){ return ''; }
+}
+function countWords(text){ return String(text||'').trim().split(/\s+/).filter(Boolean).length; }
 
 
  // Vlož tvou URL adresu z Railway bez lomítka na konci
@@ -273,15 +331,31 @@ document.getElementById('logout-btn').addEventListener('click', async ()=>{
 let map, activeRouteId=null;
 const layersById = {};
 let routesCache = {};
+let streetLayer, satelliteLayer, satelliteOn=false;
 
-// sbalitelný seznam tras
+// sbalitelný seznam tras - vysouvá se stranou pomocí jazýčku se šipkou na hraně panelu
+function isMobileViewport(){ return window.matchMedia('(max-width:760px)').matches; }
 const routeListEl = document.getElementById('route-list');
-const routeListToggle = document.getElementById('route-list-toggle');
+const routeListTab = document.getElementById('route-list-tab');
+const detailPanelEl = document.getElementById('detail-panel');
+// Na mobilu jsou oba panely skoro přes celou šířku, takže jejich jazýčky by se u
+// okraje překrývaly. Dokud je na mobilu otevřený detail trasy, jazýček seznamu
+// (který by stejně jen otevíral panel schovaný pod detailem) raději úplně schováme.
+function syncMobilePanelTabs(){
+  routeListTab.style.display = (isMobileViewport() && detailPanelEl.classList.contains('open')) ? 'none' : '';
+}
 if(localStorage.getItem('routeListCollapsed') === '1') routeListEl.classList.add('collapsed');
-routeListToggle.addEventListener('click', ()=>{
+routeListTab.addEventListener('click', ()=>{
+  const opening = routeListEl.classList.contains('collapsed');
   routeListEl.classList.toggle('collapsed');
   localStorage.setItem('routeListCollapsed', routeListEl.classList.contains('collapsed') ? '1' : '0');
+  // na mobilu se oba panely (seznam tras × detail trasy) kvůli šířce nevejdou vedle sebe,
+  // proto se navzájem vylučují - otevření jednoho zavře ten druhý
+  if(opening && isMobileViewport() && detailPanelEl.classList.contains('open')) closeDetail();
 });
+// detail trasy se zavírá jazýčkem se šipkou (nahrazuje dřívější křížek)
+document.getElementById('detail-panel-tab').addEventListener('click', closeDetail);
+window.addEventListener('resize', syncMobilePanelTabs);
 
 // modal "O projektu"
 const aboutOverlay = document.getElementById('about-overlay');
@@ -289,13 +363,56 @@ document.getElementById('open-about').addEventListener('click', ()=> aboutOverla
 document.getElementById('about-close').addEventListener('click', ()=> aboutOverlay.classList.remove('open'));
 aboutOverlay.addEventListener('click', (e)=>{ if(e.target===aboutOverlay) aboutOverlay.classList.remove('open'); });
 
+// modal "Můj účet" (jméno v headeru) - změna hesla
+const accountOverlay = document.getElementById('account-overlay');
+const changePasswordForm = document.getElementById('change-password-form');
+document.getElementById('user-chip').addEventListener('click', ()=>{
+  if(!currentUser) return;
+  document.getElementById('account-username-label').textContent = 'Přihlášen(a) jako ' + currentUser.displayName;
+  changePasswordForm.reset();
+  document.getElementById('cp-msg').textContent = '';
+  accountOverlay.classList.add('open');
+});
+document.getElementById('account-close').addEventListener('click', ()=> accountOverlay.classList.remove('open'));
+document.getElementById('cp-cancel').addEventListener('click', ()=> accountOverlay.classList.remove('open'));
+accountOverlay.addEventListener('click', (e)=>{ if(e.target===accountOverlay) accountOverlay.classList.remove('open'); });
+changePasswordForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const msg = document.getElementById('cp-msg');
+  const cur = document.getElementById('cp-current').value;
+  const next = document.getElementById('cp-new').value;
+  const confirmVal = document.getElementById('cp-confirm').value;
+  msg.style.color = '';
+  if(next.length < 4){ msg.textContent = 'Nové heslo musí mít alespoň 4 znaky.'; return; }
+  if(next !== confirmVal){ msg.textContent = 'Nová hesla se neshodují.'; return; }
+  msg.textContent = 'Ukládám…';
+  try{
+    await api('/api/auth/change-password', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ currentPassword: cur, newPassword: next })
+    });
+    msg.style.color = 'var(--moss-dark)';
+    msg.textContent = 'Heslo bylo změněno.';
+    toast('Heslo bylo změněno.');
+    setTimeout(()=> accountOverlay.classList.remove('open'), 900);
+  }catch(err){
+    msg.textContent = err.message || 'Heslo se nepodařilo změnit.';
+  }
+});
+
 function initMap(){
   if(map) return;
   map = L.map('map', { zoomControl:false }).setView([49.8711, 17.8756], 11); // výchozí pohled: Hradec nad Moravicí
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '© OpenStreetMap contributors, CyclOSM'
   }).addTo(map);
+  // satelitní podklad (Esri World Imagery, bez API klíče) - přepíná se tlačítkem 🛰
+  satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19,
+    attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics'
+  });
   // samostatná vrstva pro každý typ trasy: offroad dole, cenduro nad ním, transportní
   // nahoře; úplně navrch právě vybraná (modrá) trasa
   ROUTE_TYPE_ORDER.forEach(t=>{ map.createPane('route-' + t).style.zIndex = ROUTE_TYPES[t].z; });
@@ -547,6 +664,119 @@ function bindRating(route){
 }
 
 // ---------------------------------------------------------------
+// Recenze tras (text, max 200 slov, jedna recenze na uživatele a trasu)
+// - celý panel je <details>, sbalený ve výchozím stavu, ať při běžném
+//   prohlížení trasy nepřekáží a nezatěžuje pohled.
+// ---------------------------------------------------------------
+function reviewItemHtml(r, isMine){
+  return `
+    <div class="review-item${isMine ? ' review-mine' : ''}">
+      <div class="review-head"><b>${escapeHtml(r.author_display)}${isMine ? ' (ty)' : ''}</b><span>${fmtDateShort(r.updated_at)}</span></div>
+      <div class="review-text">${escapeHtml(r.text)}</div>
+      ${isMine ? `<div class="review-mine-actions">
+        <button class="ghost-btn" id="edit-review-btn" type="button">Upravit</button>
+        <button class="ghost-btn" id="delete-review-btn" type="button">Smazat</button>
+      </div>` : ''}
+    </div>`;
+}
+function reviewFormHtml(mine){
+  return `
+    <div class="review-form" id="review-form"${mine ? ' style="display:none;"' : ''}>
+      <textarea id="review-text" maxlength="4000" placeholder="Napiš svou zkušenost s trasou (max. 200 slov)…">${mine ? escapeHtml(mine.text) : ''}</textarea>
+      <div class="review-form-foot">
+        <span class="review-counter" id="review-counter">0 / 200 slov</span>
+        <div class="review-form-actions">
+          ${mine ? `<button class="ghost-btn" id="cancel-review-edit" type="button">Zrušit</button>` : ''}
+          <button class="primary-btn" id="save-review-btn" type="button" style="margin-top:0;">${mine ? 'Uložit změnu' : 'Přidat recenzi'}</button>
+        </div>
+      </div>
+      <div class="form-msg" id="review-msg"></div>
+    </div>`;
+}
+function renderReviewsBlock(reviews){
+  const mine = currentUser ? reviews.find(r => r.user_id === currentUser.id) : null;
+  const others = reviews.filter(r => !mine || r.id !== mine.id);
+  const listHtml = others.map(r=>reviewItemHtml(r,false)).join('');
+  const emptyHtml = (!mine && others.length===0) ? '<p class="hint">Zatím tu není žádná recenze. Buď první.</p>' : '';
+  const mineHtml = mine ? reviewItemHtml(mine, true) : '';
+  const formHtml = currentUser ? reviewFormHtml(mine) : '<p class="hint">Pro napsání recenze se musíš přihlásit.</p>';
+  return `
+    <details class="reviews-block" id="reviews-block">
+      <summary>Recenze <span class="count">(${reviews.length})</span></summary>
+      <div class="reviews-inner">
+        ${mineHtml}
+        ${emptyHtml}
+        ${listHtml}
+        ${formHtml}
+      </div>
+    </details>`;
+}
+function bindReviews(routeId, reviews){
+  const block = document.getElementById('reviews-block');
+  if(!block) return;
+  const textEl = document.getElementById('review-text');
+  const counterEl = document.getElementById('review-counter');
+  const saveBtn = document.getElementById('save-review-btn');
+  const msgEl = document.getElementById('review-msg');
+  const editBtn = document.getElementById('edit-review-btn');
+  const deleteBtn = document.getElementById('delete-review-btn');
+  const cancelBtn = document.getElementById('cancel-review-edit');
+  const formEl = document.getElementById('review-form');
+
+  function updateCounter(){
+    if(!textEl || !counterEl) return;
+    const words = countWords(textEl.value);
+    counterEl.textContent = words + ' / 200 slov';
+    counterEl.classList.toggle('over', words > 200);
+  }
+  if(textEl){ textEl.addEventListener('input', updateCounter); updateCounter(); }
+  if(editBtn) editBtn.addEventListener('click', ()=>{
+    formEl.style.display = 'block';
+    formEl.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    if(textEl) textEl.focus();
+  });
+  if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ formEl.style.display = 'none'; });
+  if(deleteBtn) deleteBtn.addEventListener('click', async ()=>{
+    if(!confirm('Smazat svou recenzi?')) return;
+    try{
+      const result = await api(`/api/routes/${routeId}/review`, { method:'DELETE' });
+      toast('Recenze smazána.');
+      refreshReviewsBlock(routeId, result.reviews);
+    }catch(e){ toast(e.message || 'Recenzi se nepodařilo smazat.'); }
+  });
+  if(saveBtn) saveBtn.addEventListener('click', async ()=>{
+    const text = (textEl.value||'').trim();
+    const words = countWords(text);
+    if(!text){ msgEl.textContent = 'Napiš text recenze.'; return; }
+    if(words > 200){ msgEl.textContent = `Recenze může mít nejvýš 200 slov (teď ${words}).`; return; }
+    msgEl.textContent = 'Ukládám…';
+    saveBtn.disabled = true;
+    try{
+      const result = await api(`/api/routes/${routeId}/review`, {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ text })
+      });
+      toast('Recenze uložena.');
+      refreshReviewsBlock(routeId, result.reviews);
+    }catch(e){
+      msgEl.textContent = e.message || 'Recenzi se nepodařilo uložit.';
+    }finally{
+      saveBtn.disabled = false;
+    }
+  });
+}
+// znovu vykreslí panel recenzí po uložení/smazání a nechá ho otevřený, ať je výsledek vidět
+function refreshReviewsBlock(routeId, reviews){
+  const old = document.getElementById('reviews-block');
+  if(!old) return;
+  old.outerHTML = renderReviewsBlock(reviews);
+  const now = document.getElementById('reviews-block');
+  if(now) now.open = true;
+  bindReviews(routeId, reviews);
+}
+
+// ---------------------------------------------------------------
 // Výškový profil
 // ---------------------------------------------------------------
 function renderElevationProfile(points){
@@ -590,15 +820,18 @@ async function openDetail(id){
   const inner = document.getElementById('detail-inner');
   inner.innerHTML = '<div class="empty-note">Načítání…</div>';
   panel.classList.add('open');
+  // na mobilu se detail a seznam tras kvůli šířce nevejdou vedle sebe - seznam se schová
+  if(isMobileViewport()) routeListEl.classList.add('collapsed');
+  syncMobilePanelTabs();
 
-  let route, photos = [];
+  let route, photos = [], reviews = [];
   try{
     const data = await api('/api/routes/'+id);
     route = data.route;
     photos = data.photos;
+    reviews = data.reviews || [];
   }catch(e){
-    inner.innerHTML = '<button class="detail-close" id="detail-close">×</button><div class="empty-note">Trasu se nepodařilo načíst.</div>';
-    document.getElementById('detail-close').addEventListener('click', closeDetail);
+    inner.innerHTML = '<div class="empty-note">Trasu se nepodařilo načíst.</div>';
     return;
   }
 
@@ -618,12 +851,12 @@ async function openDetail(id){
   }).join('');
 
   inner.innerHTML = `
-    <button class="detail-close" id="detail-close">×</button>
     <h2>${escapeHtml(route.name)}</h2>
     <div class="type-chip">${typeDot(typeOf(route))}${typeInfo(route).label} trasa</div>
-    <div class="detail-owner">Přidal(a) ${escapeHtml(route.owner_display)} · ${fmtDate(route.created_at)}${route.gpx_updated_at ? `<br>GPX aktualizováno ${fmtDate(route.gpx_updated_at)}` : ''}</div>
+    <div class="detail-owner">Přidal(a) ${escapeHtml(route.owner_display)} · ${fmtDate(route.created_at)}${route.gpx_updated_at ? `<br>GPX aktualizováno dne: ${fmtDateShort(route.gpx_updated_at)}` : ''}</div>
     ${route.description ? `<div class="detail-desc" id="detail-desc-text">${escapeHtml(route.description)}</div>` : ''}
     ${renderRatingBlock(route)}
+    ${renderReviewsBlock(reviews)}
     ${isOwner ? `
       <div class="edit-route-form" id="edit-route-form" style="display:none;">
         <label for="edit-route-name">Název trasy</label>
@@ -668,10 +901,10 @@ async function openDetail(id){
       </div>` : ''}
   `;
 
-  document.getElementById('detail-close').addEventListener('click', closeDetail);
   document.getElementById('download-gpx-btn').addEventListener('click', ()=> downloadGPX(route.points, route.name));
   document.getElementById('share-route-btn').addEventListener('click', ()=> shareRoute(route));
   bindRating(route);
+  bindReviews(route.id, reviews);
   inner.querySelectorAll('.photo-thumb').forEach(img=>{
     img.addEventListener('click', ()=> openLightbox(photos.map(p=>p.data_url), Number(img.dataset.index), route.name));
   });
@@ -740,10 +973,15 @@ async function openDetail(id){
       photoInput.addEventListener('change', async ()=>{
         const file = photoInput.files[0];
         if(!file) return;
-        if(file.size > 3*1024*1024){ toast('Obrázek je příliš velký (max 3 MB).'); return; }
+        // velký vstupní soubor odmítneme ještě před kompresí (ochrana proti extrémně velkým souborům)
+        if(file.size > 20*1024*1024){ toast('Obrázek je příliš velký (max 20 MB).'); return; }
+        toast('Zmenšuji fotku…', 1500);
+        let toUpload = file;
+        try{ toUpload = await compressImage(file); }catch(e){ /* komprese selhala - zkusíme originál */ }
+        if(toUpload.size > 3*1024*1024){ toast('Obrázek je příliš velký i po zmenšení (max 3 MB).'); return; }
         try{
           const fd = new FormData();
-          fd.append('photo', file);
+          fd.append('photo', toUpload);
           await api(`/api/routes/${id}/photos`, { method:'POST', body: fd });
           toast('Fotka přidána.');
           openDetail(id);
@@ -839,6 +1077,7 @@ function closeDetail(){
   document.getElementById('detail-panel').classList.remove('open');
   activeRouteId = null;
   Object.keys(layersById).forEach(applyRouteStyle);
+  syncMobilePanelTabs();
 }
 
 // ---------------------------------------------------------------
@@ -948,6 +1187,15 @@ const mapEl = document.getElementById('map');
 
 document.getElementById('zoom-in-btn').addEventListener('click', ()=> map.zoomIn());
 document.getElementById('zoom-out-btn').addEventListener('click', ()=> map.zoomOut());
+
+const satelliteBtn = document.getElementById('satellite-btn');
+satelliteBtn.addEventListener('click', ()=>{
+  if(!map) return;
+  satelliteOn = !satelliteOn;
+  if(satelliteOn){ map.removeLayer(streetLayer); satelliteLayer.addTo(map); }
+  else { map.removeLayer(satelliteLayer); streetLayer.addTo(map); }
+  satelliteBtn.classList.toggle('active', satelliteOn);
+});
 
 function ensureGpsMarker(latlng, accuracy){
   if(!gpsMarker){
