@@ -217,7 +217,8 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
 #satellite-btn, #fullscreen-btn{
   position:fixed;top:76px;right:16px;z-index:950;
 }
-#fullscreen-btn{ right:70px; }
+/* 64px šířka tlačítka + 12px mezera (stejná jako gap u #locate-controls) */
+#fullscreen-btn{ right:calc(16px + 64px + 12px); }
 .map-btn{
   height:64px;min-width:210px;border-radius:14px;border:1px solid var(--line);
   background:var(--surface);box-shadow:0 4px 14px rgba(20,30,15,0.22);
