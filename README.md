@@ -82,6 +82,35 @@ public/           – frontend (statické soubory, servíruje je stejný server)
 Endpointy navíc: `DELETE /api/routes/:id` (smaže trasu, fotky se smažou automaticky) a
 `DELETE /api/routes/:id/photos/:photoId` (smaže jednu fotku).
 
+## Novinky ve verzi 1.27
+
+- **Záznam jízdy** (hlavní stránka) — tlačítko „Záznam jízdy“ u ovládání mapy. Nahrává polohu z GPS,
+  stopa se kreslí fialově a všechny ostatní trasy zůstávají na mapě, takže jde zároveň jet podle
+  některé z nich. Pauza / Pokračovat / Stop, čas, km a rychlost v panelu nahoře (na mobilu dole).
+  Body se průběžně ukládají v telefonu (localStorage) — po obnovení stránky nebo pádu prohlížeče
+  se záznam obnoví jako pozastavený. Po Stop jde jízdu **uložit do CendurOFF**, stáhnout jako GPX
+  (i s časy) nebo poslat do plánovače k úpravě.
+  Omezení webu: se zhasnutým displejem / v jiné aplikaci prohlížeč polohu nedostává, proto stránka
+  drží displej zapnutý (Wake Lock).
+- **Plánovač tras** (`planovac.html`, tlačítko „✏️ Plánovač“ v hlavičce) — samostatná stránka:
+  - režim **Po cestách** vede trasu přes [BRouter](https://brouter.de) (zdarma, data OpenStreetMap)
+    s vlastním profilem pro endura: preferuje lesní a polní cesty, volitelně i pěšiny; preference
+    Terén / Mix / Spíš silnice,
+  - režim **Rovně** kreslí úsek přímou čarou nezávisle na mapě; oba režimy jde v trase střídat,
+  - body se dají táhnout, klik na čáru vloží nový bod, klik na bod ho smaže nebo přepne úsek,
+    Zpět/Znovu (Ctrl+Z / Ctrl+Y), otočení směru,
+  - **úprava existujících tras**: otevře trasu z CendurOFF (tlačítko v detailu trasy nebo výběr
+    v plánovači) nebo libovolné GPX; vlastník může uložit změny (přepíše trasu), ostatní uloží
+    upravenou trasu jako novou,
+  - podkladové mapy: základní, turistická (OpenTopoMap), cesty a povrchy (CyclOSM), satelit,
+  - rozpracovaná trasa se pamatuje v prohlížeči.
+- **public/config.js** — adresa backendu je teď na jednom místě pro obě stránky.
+
+Backend (server.js) se v této verzi **neměnil** — plánovač i záznam používají stávající
+`POST /api/routes` a `PATCH /api/routes/:id`. Na web stačí nahrát nové/změněné soubory:
+`index.html`, `planovac.html`, `public/app.js`, `public/style.css`, `public/config.js`,
+`public/planner.js`, `public/planner.css`, `public/planner-profile.js`.
+
 ## Novinky ve verzi 1.17
 
 - **Prohlížeč fotek** — klik na náhled fotky v detailu trasy ji zvětší přes celou obrazovku.

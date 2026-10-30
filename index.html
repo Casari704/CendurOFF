@@ -56,6 +56,7 @@
     <img class="brand-logo" src="public/img/pms-logo.png" alt="Petrol Machine Silesia">
     <div class="brand">CendurOFF</div>
     <button class="btn solid" id="open-upload">+ Nahrát trasu</button>
+    <a class="btn" id="open-planner" href="planovac.html">✏️ Plánovač</a>
     <button class="btn" id="open-about">O projektu</button>
     <button class="btn" id="user-chip" type="button"></button>
     <button class="btn" id="logout-btn">Odhlásit se</button>
@@ -86,6 +87,10 @@
     </div>
 
     <div id="locate-controls">
+      <button class="map-btn rec-btn" id="rec-btn" type="button" title="Nahrávat projetou trasu">
+        <span class="map-btn-icon"><span class="rec-icon"></span></span>
+        <span class="map-btn-label" id="rec-btn-label">Záznam jízdy</span>
+      </button>
       <div class="nav-grid">
         <button class="map-btn nav-btn" id="heading-btn" title="Přepnout sever nahoru / směr jízdy nahoru" disabled>
           <span class="map-btn-icon"><img src="public/img/icon-north.png" alt=""></span>
@@ -97,6 +102,20 @@
         </button>
         <button class="map-btn map-btn-square nav-zoom" id="zoom-in-btn" title="Přiblížit">+</button>
         <button class="map-btn map-btn-square nav-zoom" id="zoom-out-btn" title="Oddálit">−</button>
+      </div>
+    </div>
+
+    <!-- panel běžícího záznamu jízdy -->
+    <div id="rec-panel">
+      <div class="rec-status"><span class="rec-dot"></span><span id="rec-state">Nahrávám</span></div>
+      <div class="rec-stats">
+        <div><b id="rec-time">0:00:00</b><span>čas</span></div>
+        <div><b id="rec-dist">0,0</b><span>km</span></div>
+        <div><b id="rec-speed">–</b><span>km/h</span></div>
+      </div>
+      <div class="rec-actions">
+        <button class="ghost-btn" id="rec-pause" type="button">Pauza</button>
+        <button class="primary-btn" id="rec-stop" type="button">Stop</button>
       </div>
     </div>
 
@@ -135,6 +154,39 @@
     <div class="actions">
       <button class="ghost-btn" id="cancel-upload" type="button">Zrušit</button>
       <button class="primary-btn" id="confirm-upload" type="button" style="margin-top:0;">Nahrát</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ULOŽENÍ ZÁZNAMU JÍZDY ============ -->
+<div class="modal-overlay" id="ride-overlay">
+  <div class="modal ride-modal">
+    <h2>Záznam jízdy</h2>
+    <div class="detail-stats ride-stats">
+      <div class="stat"><b id="ride-dist">0</b><span>km</span></div>
+      <div class="stat"><b id="ride-time">0:00</b><span>čas jízdy</span></div>
+      <div class="stat"><b id="ride-gain">0</b><span>m převýšení</span></div>
+    </div>
+    <label for="ride-name">Název trasy</label>
+    <input type="text" id="ride-name">
+    <label for="ride-desc">Popis (nepovinné)</label>
+    <textarea id="ride-desc" placeholder="Pár slov o trase, terénu, náročnosti…"></textarea>
+    <label for="ride-type">Typ trasy</label>
+    <select id="ride-type">
+      <option value="">— vyberte typ trasy —</option>
+      <option value="transport">Transportní</option>
+      <option value="cenduro">Cenduro</option>
+      <option value="offroad">Offroad</option>
+    </select>
+    <div class="form-msg" id="ride-msg"></div>
+    <button class="primary-btn" id="ride-save" type="button">Uložit do CendurOFF</button>
+    <div class="ride-row">
+      <button class="ghost-btn" id="ride-download" type="button">⬇ Stáhnout GPX</button>
+      <button class="ghost-btn" id="ride-planner" type="button">✏️ Upravit v plánovači</button>
+    </div>
+    <div class="ride-row">
+      <button class="ghost-btn" id="ride-resume" type="button">Pokračovat v záznamu</button>
+      <button class="ghost-btn ride-discard" id="ride-discard" type="button">Zahodit záznam</button>
     </div>
   </div>
 </div>
@@ -192,6 +244,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="public/config.js"></script>
 <script src="public/app.js"></script>
 </body>
 </html>

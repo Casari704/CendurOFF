@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plánovač tras — CendurOFF</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700&family=Roboto:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="public/style.css">
+<link rel="stylesheet" href="public/planner.css">
+</head>
+<body class="planner-page">
+
+<div id="app-screen" style="display:flex;">
+  <header class="topbar">
+    <img class="brand-logo" src="public/img/pms-logo.png" alt="Petrol Machine Silesia">
+    <div class="brand">CendurOFF <span class="brand-sub">Plánovač</span></div>
+    <a class="btn" id="back-link" href="index.html">← Zpět na mapu</a>
+    <span class="btn user-tag" id="pl-user"></span>
+  </header>
+
+  <main class="mapwrap">
+    <div id="map"></div>
+
+    <!-- souhrn trasy nahoře uprostřed -->
+    <div id="pl-chip">
+      <span id="pl-chip-text">Klikni do mapy a přidej start trasy</span>
+      <span id="pl-busy" class="pl-busy" hidden>hledám cestu…</span>
+    </div>
+
+    <!-- boční panel s nastavením -->
+    <aside id="pl-panel">
+      <button class="panel-tab" id="pl-panel-tab" type="button" title="Skrýt/zobrazit panel" aria-label="Skrýt/zobrazit panel">
+        <span class="tab-arrow">‹</span>
+      </button>
+      <div class="pl-scroll">
+        <section class="pl-section" id="pl-editing-box" hidden>
+          <div class="pl-editing">Upravuješ: <b id="pl-editing-name"></b></div>
+          <a class="pl-small-link" id="pl-editing-link" href="#">Zobrazit na mapě</a>
+        </section>
+
+        <section class="pl-section">
+          <h3>Kudy vést trasu</h3>
+          <label for="pl-pref">Preference cest (pro režim „Po cestách“)</label>
+          <select id="pl-pref">
+            <option value="teren">Terén – co nejvíc nezpevněných cest</option>
+            <option value="mix">Mix – terén i silnice</option>
+            <option value="silnice">Spíš silnice</option>
+          </select>
+          <label class="pl-check"><input type="checkbox" id="pl-paths" checked> Povolit pěšiny (path, chodníky)</label>
+          <p class="hint">Plánovač vede jen po cestách zakreslených v OpenStreetMap. Kde cesta v mapě chybí,
+            přepni dole na <b>Rovně</b> a úsek nakresli bod po bodu.</p>
+        </section>
+
+        <section class="pl-section">
+          <h3>Úpravy</h3>
+          <div class="pl-btn-row">
+            <button class="ghost-btn" id="pl-undo" type="button" title="Zpět (Ctrl+Z)">↶ Zpět</button>
+            <button class="ghost-btn" id="pl-redo" type="button" title="Znovu (Ctrl+Y)">↷ Znovu</button>
+          </div>
+          <div class="pl-btn-row">
+            <button class="ghost-btn" id="pl-reverse" type="button">⇄ Otočit směr</button>
+            <button class="ghost-btn" id="pl-clear" type="button">🗑 Vymazat</button>
+          </div>
+          <ul class="pl-help">
+            <li><b>Klik do mapy</b> přidá další bod na konec trasy.</li>
+            <li><b>Bod chyť a táhni</b> – trasa se přepočítá.</li>
+            <li><b>Klik na čáru trasy</b> vloží nový bod, který pak můžeš přetáhnout.</li>
+            <li><b>Klik na bod</b> – smazání bodu nebo přepnutí úseku na rovně / po cestách.</li>
+          </ul>
+        </section>
+
+        <section class="pl-section">
+          <h3>Otevřít trasu</h3>
+          <label for="pl-route-select">Trasa z CendurOFF</label>
+          <select id="pl-route-select"><option value="">Načítám trasy…</option></select>
+          <button class="ghost-btn pl-full" id="pl-open-route" type="button">Otevřít k úpravě</button>
+          <label for="pl-gpx-file">Nebo GPX soubor z počítače / telefonu</label>
+          <input type="file" id="pl-gpx-file" accept=".gpx">
+          <label class="pl-check"><input type="checkbox" id="pl-show-routes" checked> Zobrazit ostatní trasy na mapě</label>
+        </section>
+
+        <section class="pl-section">
+          <h3>Trasa</h3>
+          <div class="detail-stats">
+            <div class="stat"><b id="pl-dist">0</b><span>km</span></div>
+            <div class="stat"><b id="pl-gain">0</b><span>m převýšení</span></div>
+            <div class="stat"><b id="pl-wps">0</b><span>bodů</span></div>
+          </div>
+          <div class="elev-profile" id="pl-elev"></div>
+          <div class="pl-legend">
+            <span><i class="lg lg-route"></i>Po cestách</span>
+            <span><i class="lg lg-straight"></i>Rovně</span>
+            <span><i class="lg lg-raw"></i>Původní GPX</span>
+            <span><i class="lg lg-error"></i>Cestu nešlo najít</span>
+          </div>
+        </section>
+
+        <section class="pl-section">
+          <button class="primary-btn" id="pl-save" type="button" style="margin-top:0;">💾 Uložit trasu</button>
+          <button class="ghost-btn pl-full" id="pl-download" type="button">⬇ Stáhnout GPX</button>
+        </section>
+      </div>
+    </aside>
+
+    <!-- spodní lišta: režim kreslení + nejčastější akce -->
+    <div id="pl-quickbar">
+      <div class="pl-seg" role="group" aria-label="Režim kreslení">
+        <button type="button" id="mode-route" class="active">🛣 Po cestách</button>
+        <button type="button" id="mode-straight">📏 Rovně</button>
+      </div>
+      <button class="map-btn map-btn-square pl-qb" id="pl-undo-qb" type="button" title="Zpět">↶</button>
+      <button class="map-btn map-btn-square pl-qb" id="pl-locate" type="button" title="Moje poloha">📍</button>
+      <button class="map-btn pl-qb pl-qb-save" id="pl-save-qb" type="button">💾 Uložit</button>
+    </div>
+  </main>
+</div>
+
+<!-- ============ ULOŽENÍ ============ -->
+<div class="modal-overlay" id="pl-save-overlay">
+  <div class="modal">
+    <button class="detail-close" id="pl-save-close">×</button>
+    <h2>Uložit trasu</h2>
+    <p class="sub" id="pl-save-sub"></p>
+    <label for="pl-name">Název trasy</label>
+    <input type="text" id="pl-name" placeholder="např. Okruh kolem Landeku">
+    <label for="pl-desc">Popis (nepovinné)</label>
+    <textarea id="pl-desc" placeholder="Pár slov o trase, terénu, náročnosti…"></textarea>
+    <label for="pl-type">Typ trasy</label>
+    <select id="pl-type">
+      <option value="">— vyberte typ trasy —</option>
+      <option value="transport">Transportní</option>
+      <option value="cenduro">Cenduro</option>
+      <option value="offroad">Offroad</option>
+    </select>
+    <div class="form-msg" id="pl-save-msg"></div>
+    <button class="primary-btn" id="pl-save-overwrite" type="button">Uložit změny (přepíše trasu)</button>
+    <button class="primary-btn" id="pl-save-new" type="button">Uložit jako novou trasu</button>
+    <button class="ghost-btn pl-full" id="pl-save-download" type="button">⬇ Jen stáhnout GPX</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="public/config.js"></script>
+<script src="public/planner-profile.js"></script>
+<script src="public/planner.js"></script>
+</body>
+</html>
