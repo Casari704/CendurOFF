@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
   display_name TEXT NOT NULL,
+  is_approved BOOLEAN NOT NULL DEFAULT false,
+  role TEXT NOT NULL DEFAULT 'user',   -- 'user' nebo 'admin'
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
