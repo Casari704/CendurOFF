@@ -508,3 +508,60 @@ select:focus{outline:2px solid var(--moss);outline-offset:1px;}
   #lightbox-prev{left:6px;}
   #lightbox-next{right:6px;}
 }
+
+/* ---------- odkaz na plánovač, záznam jízdy (v1.27) ---------- */
+a.btn{text-decoration:none;}
+.gpx-actions{flex-wrap:wrap;}
+.gpx-actions a.planner-link{flex:1 1 100%;text-decoration:none;display:flex;align-items:center;justify-content:center;font-size:0.85rem;padding:11px 6px;}
+
+.rec-btn{min-width:0;width:219px;}
+.rec-icon{width:20px;height:20px;border-radius:50%;background:#D32F2F;box-shadow:0 0 0 3px rgba(211,47,47,0.18);display:block;}
+.rec-btn.rec-on{background:#D32F2F;border-color:#D32F2F;color:#fff;}
+.rec-btn.rec-on .rec-icon{background:#fff;border-radius:4px;width:16px;height:16px;animation:rec-pulse 1.4s ease-in-out infinite;}
+.rec-btn.rec-paused{background:#FCE4E4;border-color:#E9A3A3;}
+@keyframes rec-pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+
+#rec-panel{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:960;
+  display:none;align-items:center;gap:16px;
+  background:var(--surface);border:2px solid #D32F2F;border-radius:14px;
+  padding:8px 12px 8px 14px;box-shadow:0 6px 20px rgba(20,30,15,0.28);
+}
+#rec-panel.open{display:flex;}
+#rec-panel.paused{border-color:var(--line);}
+.rec-status{display:flex;align-items:center;gap:7px;font-weight:700;font-size:0.85rem;color:#B71C1C;white-space:nowrap;}
+#rec-panel.paused .rec-status{color:var(--ink-soft);}
+.rec-dot{width:11px;height:11px;border-radius:50%;background:#D32F2F;animation:rec-pulse 1.4s ease-in-out infinite;}
+#rec-panel.paused .rec-dot{animation:none;background:var(--ink-soft);}
+.rec-stats{display:flex;gap:14px;}
+.rec-stats div{text-align:center;min-width:46px;}
+.rec-stats b{display:block;font-family:'Exo 2',sans-serif;font-size:1.15rem;line-height:1.1;}
+.rec-stats span{font-size:0.68rem;color:var(--ink-soft);}
+.rec-actions{display:flex;gap:6px;}
+.rec-actions button{margin-top:0;width:auto;padding:9px 14px;font-size:0.88rem;}
+#rec-stop{background:#D32F2F;}
+#rec-stop:hover{background:#B71C1C;}
+
+.ride-modal{max-height:92vh;overflow-y:auto;}
+.ride-stats{margin:10px 0 2px;}
+.ride-modal .primary-btn{margin-top:16px;}
+.ride-row{display:flex;gap:8px;margin-top:8px;}
+.ride-row button{flex:1;font-size:0.85rem;padding:10px 6px;}
+.ride-discard{color:var(--rust-dark);}
+
+@media (max-width:760px){
+  .rec-btn{width:50px;height:50px;padding:0;justify-content:center;border-radius:11px 11px 0 0;flex:none;}
+  .rec-btn .map-btn-label{display:none;}
+  .rec-icon{width:18px;height:18px;}
+  #rec-panel{
+    top:auto;bottom:62px;left:6px;right:6px;transform:none;
+    gap:8px;padding:7px 8px;justify-content:space-between;
+  }
+  .rec-status{font-size:0.72rem;}
+  .rec-status #rec-state{display:none;}
+  .rec-stats{gap:8px;}
+  .rec-stats div{min-width:0;}
+  .rec-stats b{font-size:1rem;}
+  .rec-actions button{padding:9px 10px;font-size:0.8rem;}
+  body.recording #selection-bar{bottom:124px;}
+}

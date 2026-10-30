@@ -45,6 +45,67 @@
     if(panel) panel.insertAdjacentHTML('afterbegin',
       `<button class="panel-tab" id="detail-panel-tab" type="button" title="Zavřít detail trasy" aria-label="Zavřít detail trasy"><span class="tab-arrow">‹</span></button>`);
   }
+  // záznam jízdy + odkaz na plánovač (verze 1.27)
+  if(!document.getElementById('open-planner')){
+    const up = document.getElementById('open-upload');
+    if(up) up.insertAdjacentHTML('afterend', `<a class="btn" id="open-planner" href="planovac.html">✏️ Plánovač</a>`);
+  }
+  if(!document.getElementById('rec-btn')){
+    const lc = document.getElementById('locate-controls');
+    if(lc) lc.insertAdjacentHTML('afterbegin', `
+      <button class="map-btn rec-btn" id="rec-btn" type="button" title="Nahrávat projetou trasu">
+        <span class="map-btn-icon"><span class="rec-icon"></span></span>
+        <span class="map-btn-label" id="rec-btn-label">Záznam jízdy</span>
+      </button>`);
+  }
+  if(!document.getElementById('rec-panel')){
+    const dp = document.getElementById('detail-panel');
+    if(dp) dp.insertAdjacentHTML('beforebegin', `
+      <div id="rec-panel">
+        <div class="rec-status"><span class="rec-dot"></span><span id="rec-state">Nahrávám</span></div>
+        <div class="rec-stats">
+          <div><b id="rec-time">0:00:00</b><span>čas</span></div>
+          <div><b id="rec-dist">0,0</b><span>km</span></div>
+          <div><b id="rec-speed">–</b><span>km/h</span></div>
+        </div>
+        <div class="rec-actions">
+          <button class="ghost-btn" id="rec-pause" type="button">Pauza</button>
+          <button class="primary-btn" id="rec-stop" type="button">Stop</button>
+        </div>
+      </div>`);
+  }
+  if(!document.getElementById('ride-overlay')){
+    document.body.insertAdjacentHTML('beforeend', `
+      <div class="modal-overlay" id="ride-overlay">
+        <div class="modal ride-modal">
+          <h2>Záznam jízdy</h2>
+          <div class="detail-stats ride-stats">
+            <div class="stat"><b id="ride-dist">0</b><span>km</span></div>
+            <div class="stat"><b id="ride-time">0:00</b><span>čas jízdy</span></div>
+            <div class="stat"><b id="ride-gain">0</b><span>m převýšení</span></div>
+          </div>
+          <label for="ride-name">Název trasy</label>
+          <input type="text" id="ride-name">
+          <label for="ride-desc">Popis (nepovinné)</label>
+          <textarea id="ride-desc" placeholder="Pár slov o trase, terénu, náročnosti…"></textarea>
+          <label for="ride-type">Typ trasy</label>
+          <select id="ride-type">
+            <option value="">— vyberte typ trasy —</option>
+            <option value="transport">Transportní</option><option value="cenduro">Cenduro</option><option value="offroad">Offroad</option>
+          </select>
+          <div class="form-msg" id="ride-msg"></div>
+          <button class="primary-btn" id="ride-save" type="button">Uložit do CendurOFF</button>
+          <div class="ride-row">
+            <button class="ghost-btn" id="ride-download" type="button">⬇ Stáhnout GPX</button>
+            <button class="ghost-btn" id="ride-planner" type="button">✏️ Upravit v plánovači</button>
+          </div>
+          <div class="ride-row">
+            <button class="ghost-btn" id="ride-resume" type="button">Pokračovat v záznamu</button>
+            <button class="ghost-btn ride-discard" id="ride-discard" type="button">Zahodit záznam</button>
+          </div>
+        </div>
+      </div>`);
+  }
   if(!document.getElementById('lightbox')){
     document.body.insertAdjacentHTML('beforeend', `
       <div id="lightbox" role="dialog" aria-modal="true" aria-label="Prohlížeč fotek">
@@ -104,7 +165,9 @@ function tracksToGPX(tracks){
     const trkpts = t.points.map(p=>{
       const ele = p[2];
       const eleTag = (ele!=null && !isNaN(ele)) ? `<ele>${ele}</ele>` : '';
-      return `<trkpt lat="${p[0]}" lon="${p[1]}">${eleTag}</trkpt>`;
+      // 4. položka bodu = čas (ms) - mají ho jen body ze záznamu jízdy
+      const timeTag = p[3] ? `<time>${new Date(p[3]).toISOString()}</time>` : '';
+      return `<trkpt lat="${p[0]}" lon="${p[1]}">${eleTag}${timeTag}</trkpt>`;
     }).join('');
     return `<trk><name>${escapeHtml(t.name||'trasa')}</name><trkseg>${trkpts}</trkseg></trk>`;
   }).join('\n');
@@ -241,8 +304,9 @@ function fmtDateShort(iso){
 function countWords(text){ return String(text||'').trim().split(/\s+/).filter(Boolean).length; }
 
 
- // Vlož tvou URL adresu z Railway bez lomítka na konci
-const API_URL = 'https://cenduroff-web.up.railway.app';
+ // Adresa backendu z Railway (bez lomítka na konci) - nastavuje se v public/config.js,
+ // tady je jen záloha pro případ, že by config.js na webu chyběl.
+const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
 
 async function api(url, options){
   // Automaticky připojí adresu backendu z Railway ke všem voláním
@@ -881,6 +945,7 @@ async function openDetail(id){
     <div class="gpx-actions">
       <button class="ghost-btn" id="download-gpx-btn" type="button">⬇ Stáhnout GPX</button>
       <button class="ghost-btn" id="share-route-btn" type="button">🔗 Sdílet odkaz</button>
+      <a class="ghost-btn planner-link" href="planovac.html?trasa=${route.id}">✏️ ${isOwner ? 'Upravit v plánovači' : 'Otevřít v plánovači'}</a>
     </div>
     <div class="elev-profile">
       <h3>Výškový profil</h3>
@@ -1283,22 +1348,43 @@ function onPosition(pos){
   }
 
   if(followMode) setFollowView(latlng, true);
+  recOnPosition(pos);
 }
 function onPositionError(err){
+  // vypršení času / dočasně nedostupná poloha (slabý signál v lese) není důvod vypínat
+  // sledování ani záznam - watchPosition běží dál a polohu pošle, až ji zase bude mít
+  if(err && (err.code === 2 || err.code === 3) && watchId != null){
+    if(!lastLatLng) toast('Čekám na GPS signál…');
+    return;
+  }
+  // zamítnuté oprávnění: odběr zrušíme, ať další klik na tlačítko polohy požádá znovu
+  if(err && err.code === 1 && watchId != null){
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
   toast('Polohu se nepodařilo získat: ' + (err.message || 'neznámá chyba'));
   followMode = false;
   locateBtn.classList.remove('active');
   locateBtnLabel.textContent = 'Nesleduji polohu';
 }
 
+// Zapne odběr GPS (pokud ještě neběží) a režim "sleduji polohu".
+// Volá ho tlačítko polohy i spuštění záznamu jízdy.
+function startGpsWatch(){
+  if(!navigator.geolocation){ toast('Prohlížeč nepodporuje GPS polohu.'); return false; }
+  if(watchId!=null) return true;
+  followMode = true;
+  locateBtn.classList.add('active');
+  locateBtnLabel.textContent = 'Sleduji polohu';
+  headingBtn.disabled = false;
+  watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, { enableHighAccuracy:true, maximumAge:2000, timeout:15000 });
+  return true;
+}
+
 locateBtn.addEventListener('click', ()=>{
   if(!navigator.geolocation){ toast('Prohlížeč nepodporuje GPS polohu.'); return; }
   if(watchId==null){
-    followMode = true;
-    locateBtn.classList.add('active');
-    locateBtnLabel.textContent = 'Sleduji polohu';
-    headingBtn.disabled = false;
-    watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, { enableHighAccuracy:true, maximumAge:2000, timeout:15000 });
+    startGpsWatch();
   } else if(!followMode){
     followMode = true;
     locateBtn.classList.add('active');
@@ -1438,6 +1524,322 @@ document.addEventListener('fullscreenchange', ()=>{
 });
 
 // ---------------------------------------------------------------
+// Záznam jízdy
+// - nahrává polohu z GPS (stejný odběr jako tlačítko polohy), ostatní trasy
+//   zůstávají na mapě, takže jde zároveň jet podle některé z nich
+// - body se průběžně ukládají v telefonu (localStorage), takže záznam
+//   nezmizí ani po pádu/obnovení stránky
+// - po Stop jde jízdu uložit do CendurOFF, stáhnout jako GPX nebo poslat
+//   do plánovače k úpravě
+// ---------------------------------------------------------------
+const REC_STORAGE_KEY = 'cenduroff.recording';
+const PLANNER_IMPORT_KEY = 'cenduroff.planner.import';
+const REC_MIN_STEP_M = 5;          // nový bod nejdřív po tolika metrech (potlačí "chvění" na místě)
+const REC_MAX_ACCURACY_M = 40;     // body s horší přesností zahodíme…
+const REC_MAX_ACCURACY_LOOSE_M = 80; // …ale když dlouho nic nepřišlo, vezmeme i horší
+const REC_LOOSE_AFTER_MS = 20000;
+const REC_COLOR = '#9C27B0';
+
+const rec = {
+  state: 'idle',      // idle | recording | paused
+  points: [],         // [lat, lon, ele|null, time(ms)]
+  startedAt: null,
+  elapsedMs: 0,       // čas z předchozích (už ukončených) úseků nahrávání
+  runStart: null,     // kdy začal aktuální úsek nahrávání
+  distM: 0,
+  lastAcceptTs: 0
+};
+let recLine = null, recTimer = null, recSaveTimer = null, recHiddenAt = null, recPanelHidden = false;
+
+const recBtn = document.getElementById('rec-btn');
+const recBtnLabel = document.getElementById('rec-btn-label');
+const recPanel = document.getElementById('rec-panel');
+const rideOverlay = document.getElementById('ride-overlay');
+
+function fmtDuration(ms){
+  const t = Math.max(0, Math.floor(ms/1000));
+  const h = Math.floor(t/3600), m = Math.floor((t%3600)/60), sec = t%60;
+  return h + ':' + String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+}
+function recElapsed(){
+  return rec.elapsedMs + (rec.state==='recording' && rec.runStart ? Date.now() - rec.runStart : 0);
+}
+function recPersist(){
+  try{
+    if(rec.state==='idle' && rec.points.length===0){ localStorage.removeItem(REC_STORAGE_KEY); return; }
+    localStorage.setItem(REC_STORAGE_KEY, JSON.stringify({
+      state: rec.state, points: rec.points, startedAt: rec.startedAt,
+      elapsedMs: recElapsed(), distM: rec.distM
+    }));
+  }catch(e){ /* plné úložiště - záznam pořád běží v paměti */ }
+}
+// ukládání průběžně, ale ne při každém bodu (šetří baterii)
+function recPersistSoon(){
+  if(recSaveTimer) return;
+  recSaveTimer = setTimeout(()=>{ recSaveTimer = null; recPersist(); }, 5000);
+}
+function ensureRecLine(){
+  if(!map) return;
+  if(!map.getPane('rec-track')) map.createPane('rec-track').style.zIndex = 445;
+  if(!recLine){
+    recLine = L.polyline(rec.points.map(p=>[p[0],p[1]]), { pane:'rec-track', color:REC_COLOR, weight:5, opacity:0.95, interactive:false }).addTo(map);
+  }
+}
+function updateRecUi(){
+  const active = rec.state !== 'idle';
+  document.body.classList.toggle('recording', active);
+  if(recBtn){
+    recBtn.classList.toggle('rec-on', rec.state==='recording');
+    recBtn.classList.toggle('rec-paused', rec.state==='paused');
+  }
+  if(recBtnLabel) recBtnLabel.textContent = rec.state==='recording' ? 'Nahrávám…' : rec.state==='paused' ? 'Pozastaveno' : 'Záznam jízdy';
+  if(recPanel){
+    recPanel.classList.toggle('open', active && !recPanelHidden);
+    recPanel.classList.toggle('paused', rec.state==='paused');
+  }
+  const st = document.getElementById('rec-state');
+  if(st) st.textContent = rec.state==='paused' ? 'Pozastaveno' : 'Nahrávám';
+  const pauseBtn = document.getElementById('rec-pause');
+  if(pauseBtn) pauseBtn.textContent = rec.state==='paused' ? 'Pokračovat' : 'Pauza';
+  updateRecStats();
+}
+function updateRecStats(){
+  const t = document.getElementById('rec-time');
+  const d = document.getElementById('rec-dist');
+  if(t) t.textContent = fmtDuration(recElapsed());
+  if(d) d.textContent = (rec.distM/1000).toFixed(1).replace('.', ',');
+}
+function startRecTimer(){
+  stopRecTimer();
+  recTimer = setInterval(updateRecStats, 1000);
+}
+function stopRecTimer(){ if(recTimer){ clearInterval(recTimer); recTimer = null; } }
+
+function recStart(){
+  if(!startGpsWatch()) return;
+  rec.state = 'recording';
+  rec.points = [];
+  rec.startedAt = Date.now();
+  rec.elapsedMs = 0;
+  rec.runStart = Date.now();
+  rec.distM = 0;
+  rec.lastAcceptTs = Date.now();
+  recPanelHidden = false;
+  if(recLine){ map.removeLayer(recLine); recLine = null; }
+  ensureRecLine();
+  requestWakeLock();
+  startRecTimer();
+  recPersist();
+  updateRecUi();
+  toast('Záznam spuštěn. Nech displej zapnutý – se zhasnutým displejem prohlížeč polohu nedostává.', 5000);
+}
+function recPause(){
+  if(rec.state!=='recording') return;
+  rec.elapsedMs = recElapsed();
+  rec.runStart = null;
+  rec.state = 'paused';
+  stopRecTimer();
+  recPersist();
+  updateRecUi();
+}
+function recResume(){
+  if(rec.state!=='paused') return;
+  if(!startGpsWatch()) return;
+  rec.state = 'recording';
+  rec.runStart = Date.now();
+  rec.lastAcceptTs = Date.now();
+  ensureRecLine();
+  requestWakeLock();
+  startRecTimer();
+  recPersist();
+  updateRecUi();
+}
+function recClear(){
+  rec.state = 'idle';
+  rec.points = [];
+  rec.startedAt = null;
+  rec.elapsedMs = 0;
+  rec.runStart = null;
+  rec.distM = 0;
+  stopRecTimer();
+  if(recLine && map){ map.removeLayer(recLine); }
+  recLine = null;
+  try{ localStorage.removeItem(REC_STORAGE_KEY); }catch(e){}
+  updateRecUi();
+}
+
+// voláno z onPosition() při každé nové GPS poloze
+function recOnPosition(pos){
+  const speedEl = document.getElementById('rec-speed');
+  if(speedEl && rec.state!=='idle'){
+    speedEl.textContent = (pos.coords.speed != null && !isNaN(pos.coords.speed)) ? Math.round(pos.coords.speed*3.6) : '–';
+  }
+  if(rec.state!=='recording') return;
+  const now = pos.timestamp || Date.now();
+  const acc = pos.coords.accuracy || 0;
+  const loose = (now - rec.lastAcceptTs) > REC_LOOSE_AFTER_MS;
+  if(acc > (loose ? REC_MAX_ACCURACY_LOOSE_M : REC_MAX_ACCURACY_M)) return;
+  const alt = pos.coords.altitude;
+  const pt = [
+    Math.round(pos.coords.latitude*1e6)/1e6,
+    Math.round(pos.coords.longitude*1e6)/1e6,
+    (alt != null && !isNaN(alt)) ? Math.round(alt*10)/10 : null,
+    now
+  ];
+  const last = rec.points[rec.points.length-1];
+  if(last){
+    const d = haversine(last, pt);
+    if(d < REC_MIN_STEP_M) return;
+    rec.distM += d;
+  }
+  rec.points.push(pt);
+  rec.lastAcceptTs = now;
+  ensureRecLine();
+  if(recLine) recLine.addLatLng([pt[0], pt[1]]);
+  updateRecStats();
+  recPersistSoon();
+}
+
+function rideGainM(points){
+  // převýšení z GPS výšky je "zubaté" - počítáme jen změny nad 3 m (jednoduchá hystereze)
+  let gain = 0, ref = null;
+  points.forEach(p=>{
+    if(p[2]==null) return;
+    if(ref==null){ ref = p[2]; return; }
+    if(p[2] - ref >= 3){ gain += p[2]-ref; ref = p[2]; }
+    else if(ref - p[2] >= 3){ ref = p[2]; }
+  });
+  return gain;
+}
+function defaultRideName(){
+  const d = new Date(rec.startedAt || Date.now());
+  return 'Jízda ' + d.getDate() + '.' + (d.getMonth()+1) + '.' + d.getFullYear() + ' ' +
+    d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+function openRideDialog(){
+  recPause();
+  document.getElementById('ride-dist').textContent = (rec.distM/1000).toFixed(1).replace('.', ',');
+  document.getElementById('ride-time').textContent = fmtDuration(recElapsed());
+  document.getElementById('ride-gain').textContent = Math.round(rideGainM(rec.points));
+  const nameEl = document.getElementById('ride-name');
+  if(!nameEl.value) nameEl.value = defaultRideName();
+  document.getElementById('ride-msg').textContent = rec.points.length < 2
+    ? 'Záznam zatím nemá dost bodů (GPS ještě nezachytila pohyb).' : '';
+  rideOverlay.classList.add('open');
+}
+function closeRideDialog(){ rideOverlay.classList.remove('open'); }
+function resetRideForm(){
+  document.getElementById('ride-name').value = '';
+  document.getElementById('ride-desc').value = '';
+  document.getElementById('ride-type').value = '';
+  document.getElementById('ride-msg').textContent = '';
+}
+
+if(recBtn){
+  recBtn.addEventListener('click', ()=>{
+    if(rec.state==='idle'){ recStart(); return; }
+    // během záznamu tlačítko jen schovává/ukazuje panel záznamu (ať nepřekáží mapě)
+    recPanelHidden = !recPanelHidden;
+    updateRecUi();
+  });
+  document.getElementById('rec-pause').addEventListener('click', ()=>{
+    if(rec.state==='recording') recPause(); else recResume();
+  });
+  document.getElementById('rec-stop').addEventListener('click', openRideDialog);
+  document.getElementById('ride-resume').addEventListener('click', ()=>{ closeRideDialog(); recResume(); });
+  document.getElementById('ride-discard').addEventListener('click', ()=>{
+    if(!confirm('Opravdu záznam jízdy zahodit? Tuto akci nejde vrátit zpět.')) return;
+    closeRideDialog();
+    resetRideForm();
+    recClear();
+    toast('Záznam zahozen.');
+  });
+  document.getElementById('ride-download').addEventListener('click', ()=>{
+    if(rec.points.length < 2){ toast('Záznam zatím nemá dost bodů.'); return; }
+    const name = document.getElementById('ride-name').value.trim() || defaultRideName();
+    downloadGPX(rec.points, name);
+  });
+  document.getElementById('ride-planner').addEventListener('click', ()=>{
+    if(rec.points.length < 2){ toast('Záznam zatím nemá dost bodů.'); return; }
+    try{
+      localStorage.setItem(PLANNER_IMPORT_KEY, JSON.stringify({
+        name: document.getElementById('ride-name').value.trim() || defaultRideName(),
+        description: document.getElementById('ride-desc').value.trim(),
+        routeType: document.getElementById('ride-type').value || '',
+        points: rec.points.map(p=>[p[0],p[1],p[2]])
+      }));
+    }catch(e){ toast('Záznam se nepodařilo předat plánovači (plné úložiště prohlížeče).'); return; }
+    recClear();
+    location.href = 'planovac.html?import=1';
+  });
+  document.getElementById('ride-save').addEventListener('click', async ()=>{
+    const msg = document.getElementById('ride-msg');
+    const name = document.getElementById('ride-name').value.trim();
+    const description = document.getElementById('ride-desc').value.trim();
+    const routeType = document.getElementById('ride-type').value;
+    if(rec.points.length < 2){ msg.textContent = 'Záznam zatím nemá dost bodů.'; return; }
+    if(!name){ msg.textContent = 'Zadejte název trasy.'; return; }
+    if(!routeType){ msg.textContent = 'Vyberte typ trasy.'; return; }
+    msg.textContent = 'Ukládám…';
+    const btn = document.getElementById('ride-save');
+    btn.disabled = true;
+    try{
+      const route = await api('/api/routes', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name, description, routeType, points: rec.points.map(p=>[p[0],p[1],p[2]]) })
+      });
+      closeRideDialog();
+      resetRideForm();
+      recClear();
+      toast('Jízda byla uložena do CendurOFF.');
+      await loadRoutes();
+      openDetail(route.id);
+    }catch(e){
+      // záznam zůstává uložený v telefonu - jde to zkusit znovu (např. až bude signál)
+      msg.textContent = (e.message || 'Trasu se nepodařilo uložit.') + ' Záznam zůstává v telefonu, zkus to znovu.';
+    }finally{
+      btn.disabled = false;
+    }
+  });
+}
+
+// obnoví nedokončený záznam (po obnovení stránky, pádu prohlížeče…) - vždy jako pozastavený,
+// ať se nic nenahrává bez vědomí jezdce
+function restoreRecording(){
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(REC_STORAGE_KEY) || 'null'); }catch(e){}
+  if(!saved || !Array.isArray(saved.points) || (saved.state==='idle' && !saved.points.length)) return;
+  rec.points = saved.points;
+  rec.startedAt = saved.startedAt || Date.now();
+  rec.elapsedMs = saved.elapsedMs || 0;
+  rec.distM = saved.distM || 0;
+  rec.runStart = null;
+  rec.state = 'paused';
+  ensureRecLine();
+  recPersist();
+  updateRecUi();
+  toast('Máš nedokončený záznam jízdy – můžeš pokračovat, nebo ho uložit tlačítkem Stop.', 6000);
+}
+
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'hidden'){
+    recHiddenAt = Date.now();
+    if(rec.state!=='idle') recPersist();
+  } else if(rec.state==='recording' && recHiddenAt && Date.now() - recHiddenAt > 20000){
+    toast('Pozor: se zhasnutým displejem nebo v jiné aplikaci se poloha nemusela zaznamenávat.', 5000);
+  }
+});
+window.addEventListener('pagehide', ()=>{ if(rec.state!=='idle') recPersist(); });
+window.addEventListener('beforeunload', (e)=>{
+  if(rec.state==='recording'){
+    recPersist();
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// ---------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------
 async function enterApp(){
@@ -1450,6 +1852,7 @@ async function enterApp(){
   setTimeout(positionFloatingMapButtons, 100);
   await loadRoutes();
   requestWakeLock();
+  if(rec.state==='idle') restoreRecording();
   if(pendingLinkId){
     const linked = pendingLinkId;
     pendingLinkId = null;
