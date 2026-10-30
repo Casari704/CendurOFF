@@ -106,6 +106,13 @@
         </div>
       </div>`);
   }
+  // benzínky + název stránky u loga (verze 1.28)
+  if(!document.getElementById('fuel-btn')){
+    const sat = document.getElementById('satellite-btn');
+    if(sat) sat.insertAdjacentHTML('beforebegin', `<button class="map-btn map-btn-square" id="fuel-btn" title="Zobrazit / skrýt čerpací stanice">⛽</button>`);
+  }
+  const brandEl = document.querySelector('header.topbar .brand');
+  if(brandEl && !brandEl.querySelector('.brand-sub')) brandEl.insertAdjacentHTML('beforeend', ` <span class="brand-sub">Atlas</span>`);
   if(!document.getElementById('lightbox')){
     document.body.insertAdjacentHTML('beforeend', `
       <div id="lightbox" role="dialog" aria-modal="true" aria-label="Prohlížeč fotek">
@@ -329,7 +336,8 @@ function colorFor(id){
 // ---------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------
-let currentUser = null; // {id, username, displayName}
+let currentUser = null; // {id, username, displayName, role}
+function isAdminUser(){ return !!(currentUser && currentUser.role === 'admin'); }
 let mode = 'login';
 
 const tabLogin = document.getElementById('tab-login');
@@ -733,6 +741,8 @@ function bindRating(route){
 //   prohlížení trasy nepřekáží a nezatěžuje pohled.
 // ---------------------------------------------------------------
 function reviewItemHtml(r, isMine){
+  const adminDel = (!isMine && isAdminUser())
+    ? `<div class="review-mine-actions"><button class="ghost-btn admin-del-review" data-user="${r.user_id}" type="button">Smazat (admin)</button></div>` : '';
   return `
     <div class="review-item${isMine ? ' review-mine' : ''}">
       <div class="review-head"><b>${escapeHtml(r.author_display)}${isMine ? ' (ty)' : ''}</b><span>${fmtDateShort(r.updated_at)}</span></div>
@@ -740,7 +750,7 @@ function reviewItemHtml(r, isMine){
       ${isMine ? `<div class="review-mine-actions">
         <button class="ghost-btn" id="edit-review-btn" type="button">Upravit</button>
         <button class="ghost-btn" id="delete-review-btn" type="button">Smazat</button>
-      </div>` : ''}
+      </div>` : adminDel}
     </div>`;
 }
 function reviewFormHtml(mine){
@@ -800,6 +810,16 @@ function bindReviews(routeId, reviews){
     if(textEl) textEl.focus();
   });
   if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ formEl.style.display = 'none'; });
+  block.querySelectorAll('.admin-del-review').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(!confirm('Smazat tuto recenzi jako admin?')) return;
+      try{
+        const result = await api(`/api/routes/${routeId}/review?userId=${encodeURIComponent(btn.dataset.user)}`, { method:'DELETE' });
+        toast('Recenze smazána.');
+        refreshReviewsBlock(routeId, result.reviews);
+      }catch(e){ toast(e.message || 'Recenzi se nepodařilo smazat.'); }
+    });
+  });
   if(deleteBtn) deleteBtn.addEventListener('click', async ()=>{
     if(!confirm('Smazat svou recenzi?')) return;
     try{
@@ -899,7 +919,9 @@ async function openDetail(id){
     return;
   }
 
-  const isOwner = currentUser && currentUser.id === route.owner_id;
+  // upravovat smí vlastník trasy, nebo admin (ten může upravovat trasy všech)
+  const isRealOwner = !!(currentUser && currentUser.id === route.owner_id);
+  const isOwner = isRealOwner || isAdminUser();
 
   const photoSlots = [0,1,2].map(i=>{
     const p = photos[i];
@@ -945,7 +967,7 @@ async function openDetail(id){
     <div class="gpx-actions">
       <button class="ghost-btn" id="download-gpx-btn" type="button">⬇ Stáhnout GPX</button>
       <button class="ghost-btn" id="share-route-btn" type="button">🔗 Sdílet odkaz</button>
-      <a class="ghost-btn planner-link" href="planovac.html?trasa=${route.id}">✏️ ${isOwner ? 'Upravit v plánovači' : 'Otevřít v plánovači'}</a>
+      ${isOwner ? `<a class="ghost-btn planner-link" href="planovac.html?trasa=${route.id}">✏️ Upravit v plánovači</a>` : ''}
     </div>
     <div class="elev-profile">
       <h3>Výškový profil</h3>
@@ -955,6 +977,7 @@ async function openDetail(id){
     ${isOwner ? `
       <div class="owner-controls">
         <h3>Fotky trasy</h3>
+        ${isRealOwner ? '' : '<p class="hint admin-note">Upravuješ jako admin – trasa patří uživateli ' + escapeHtml(route.owner_display) + '.</p>'}
         <p class="hint">Jako vlastník trasy můžete nahrát až 3 fotky a vybrat, která bude hlavní (max 3 MB na fotku).</p>
         <input type="file" id="photo-input" accept="image/*" ${photos.length>=3 ? 'disabled' : ''}>
         ${photos.length>=3 ? '<p class="hint">Všechny 3 sloty jsou obsazené.</p>' : ''}
@@ -1261,10 +1284,12 @@ function positionFloatingMapButtons(){
   const header = document.querySelector('header.topbar');
   const sat = document.getElementById('satellite-btn');
   const full = document.getElementById('fullscreen-btn');
+  const fuel = document.getElementById('fuel-btn');
   if(!header || !sat || !full) return;
   const top = Math.round(header.getBoundingClientRect().bottom) + 8;
   sat.style.top = top + 'px';
   full.style.top = top + 'px';
+  if(fuel) fuel.style.top = top + 'px';
 }
 window.addEventListener('resize', positionFloatingMapButtons);
 window.addEventListener('load', positionFloatingMapButtons);
@@ -1439,6 +1464,8 @@ window.addEventListener('resize', ()=>{ if(map && headingMode==='heading') layou
 function setMapRotation(on){
   if(on){
     mapEl.style.transform = 'rotate(' + (-displayedHeading) + 'deg)';
+    // ikonky benzínek se otáčejí zpět, ať zůstávají "rovně" i na otočené mapě
+    mapEl.style.setProperty('--map-rot', displayedHeading + 'deg');
     map.dragging.disable();
     map.touchZoom.disable();
     map.doubleClickZoom.disable();
@@ -1449,6 +1476,7 @@ function setMapRotation(on){
     updateArrowRotation(displayedHeading);
   } else {
     mapEl.style.transform = 'none';
+    mapEl.style.setProperty('--map-rot', '0deg');
     map.dragging.enable();
     map.touchZoom.enable();
     map.doubleClickZoom.enable();
@@ -1523,6 +1551,144 @@ document.addEventListener('fullscreenchange', ()=>{
   fullscreenBtn.title = document.fullscreenElement ? 'Ukončit celou obrazovku' : 'Celá obrazovka';
 });
 
+
+// ---------------------------------------------------------------
+// Čerpací stanice (benzínky) na mapě - data z OpenStreetMap přes Overpass API
+// - načítají se po dlaždicích podle výřezu mapy (od přiblížení FUEL_MIN_ZOOM),
+//   výsledky se pamatují v prohlížeči na týden, ať se nestahují pořád dokola
+// - zapíná/vypíná je tlačítko ⛽ (stav se pamatuje)
+// ---------------------------------------------------------------
+const FUEL_MIN_ZOOM = 10;
+const FUEL_TILE_DEG = 0.25;
+const FUEL_CACHE_DAYS = 7;
+const FUEL_CACHE_PREFIX = 'cenduroff.fuel.';
+const OVERPASS_URLS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
+const FUEL_SVG = '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M4 3h9a1 1 0 0 1 1 1v8h1.5a2.5 2.5 0 0 1 2.5 2.5V18a1 1 0 0 0 2 0v-6.6l-2.7-2.7a1 1 0 1 1 1.4-1.4l3 3a1 1 0 0 1 .3.7V18a3 3 0 0 1-6 0v-3.5a.5.5 0 0 0-.5-.5H14v7h1a1 1 0 1 1 0 2H2a1 1 0 1 1 0-2h1V4a1 1 0 0 1 1-1zm1.5 2v5h6V5h-6z"/></svg>';
+
+let fuelOn = localStorage.getItem('fuelOn') !== '0';
+let fuelLayer = null, fuelHintShown = false, fuelErrorShown = false;
+const fuelTiles = {};          // klíč dlaždice -> 'loading' | 'done'
+const fuelSeen = new Set();    // id stanic už přidaných na mapu
+const fuelQueue = [];
+let fuelBusy = false;
+const fuelBtn = document.getElementById('fuel-btn');
+
+function fuelIcon(){
+  return L.divIcon({ className:'fuel-marker', html:`<div class="fuel-ico">${FUEL_SVG}</div>`, iconSize:[22,22], iconAnchor:[11,11], popupAnchor:[0,-10] });
+}
+function fuelTileKey(x, y){ return x + '_' + y; }
+function addFuelStations(items){
+  if(!fuelLayer) return;
+  items.forEach(st=>{
+    if(fuelSeen.has(st.id)) return;
+    fuelSeen.add(st.id);
+    const title = st.name || st.brand || 'Čerpací stanice';
+    const extra = [st.brand && st.brand !== title ? st.brand : '', st.hours ? 'Otevřeno: ' + st.hours : ''].filter(Boolean);
+    const m = L.marker([st.lat, st.lon], { icon:fuelIcon(), keyboard:false, zIndexOffset:-500 });
+    m.bindTooltip(escapeHtml(title), { direction:'top', offset:[0,-10], className:'trail-tip' });
+    m.bindPopup(`<div class="fuel-popup"><b>⛽ ${escapeHtml(title)}</b>${extra.map(e=>`<div>${escapeHtml(e)}</div>`).join('')}</div>`);
+    m.addTo(fuelLayer);
+  });
+}
+function readFuelCache(key){
+  try{
+    const c = JSON.parse(localStorage.getItem(FUEL_CACHE_PREFIX + key) || 'null');
+    if(c && Date.now() - c.t < FUEL_CACHE_DAYS*86400000) return c.items;
+  }catch(e){}
+  return null;
+}
+function writeFuelCache(key, items){
+  try{ localStorage.setItem(FUEL_CACHE_PREFIX + key, JSON.stringify({ t:Date.now(), items })); }
+  catch(e){
+    // plné úložiště - smažeme staré dlaždice benzínek a zkusíme to znovu
+    try{
+      Object.keys(localStorage).filter(k=>k.startsWith(FUEL_CACHE_PREFIX)).forEach(k=>localStorage.removeItem(k));
+      localStorage.setItem(FUEL_CACHE_PREFIX + key, JSON.stringify({ t:Date.now(), items }));
+    }catch(e2){}
+  }
+}
+// jeden dotaz na obdélník dlaždic x0..x1 × y0..y1
+async function fetchFuelBox(x0, y0, x1, y1){
+  const s = y0*FUEL_TILE_DEG, w = x0*FUEL_TILE_DEG, n = (y1+1)*FUEL_TILE_DEG, e = (x1+1)*FUEL_TILE_DEG;
+  const bbox = `${s.toFixed(4)},${w.toFixed(4)},${n.toFixed(4)},${e.toFixed(4)}`;
+  const q = `[out:json][timeout:25];(node["amenity"="fuel"](${bbox});way["amenity"="fuel"](${bbox}););out center tags;`;
+  let lastErr = null;
+  for(const url of OVERPASS_URLS){
+    try{
+      const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded' }, body:'data=' + encodeURIComponent(q) });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      return (data.elements || []).map(el=>{
+        const t = el.tags || {};
+        const lat = el.lat != null ? el.lat : (el.center && el.center.lat);
+        const lon = el.lon != null ? el.lon : (el.center && el.center.lon);
+        return { id: el.type + el.id, lat, lon, name: t.name || '', brand: t.brand || t.operator || '', hours: t.opening_hours || '' };
+      }).filter(st=>st.lat != null && st.lon != null);
+    }catch(err){ lastErr = err; }
+  }
+  throw lastErr || new Error('Overpass nedostupný');
+}
+async function pumpFuelQueue(){
+  if(fuelBusy) return;
+  fuelBusy = true;
+  while(fuelQueue.length){
+    // všechny čekající dlaždice najednou jedním dotazem (méně zátěže pro Overpass)
+    const tiles = fuelQueue.splice(0, fuelQueue.length);
+    const xs = tiles.map(t=>t[0]), ys = tiles.map(t=>t[1]);
+    try{
+      const items = await fetchFuelBox(Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys));
+      const byTile = {};
+      tiles.forEach(([x,y])=>{ byTile[fuelTileKey(x,y)] = []; });
+      items.forEach(st=>{
+        const k = fuelTileKey(Math.floor(st.lon/FUEL_TILE_DEG), Math.floor(st.lat/FUEL_TILE_DEG));
+        if(byTile[k]) byTile[k].push(st);
+      });
+      Object.keys(byTile).forEach(k=>{ fuelTiles[k] = 'done'; writeFuelCache(k, byTile[k]); });
+      if(fuelOn) addFuelStations(items);
+    }catch(e){
+      tiles.forEach(([x,y])=>{ delete fuelTiles[fuelTileKey(x,y)]; }); // zkusí se znovu při dalším posunu mapy
+      if(!fuelErrorShown){ fuelErrorShown = true; toast('Benzínky se teď nepodařilo načíst (služba OpenStreetMap je přetížená nebo chybí signál).', 4500); }
+    }
+  }
+  fuelBusy = false;
+}
+function updateFuel(){
+  if(!map) return;
+  if(!fuelLayer) fuelLayer = L.layerGroup();
+  const visible = fuelOn && map.getZoom() >= FUEL_MIN_ZOOM;
+  if(visible && !map.hasLayer(fuelLayer)) fuelLayer.addTo(map);
+  if(!visible && map.hasLayer(fuelLayer)) map.removeLayer(fuelLayer);
+  if(!visible) return;
+  const b = map.getBounds();
+  const x0 = Math.floor(b.getWest()/FUEL_TILE_DEG), x1 = Math.floor(b.getEast()/FUEL_TILE_DEG);
+  const y0 = Math.floor(b.getSouth()/FUEL_TILE_DEG), y1 = Math.floor(b.getNorth()/FUEL_TILE_DEG);
+  if((x1-x0+1)*(y1-y0+1) > 30) return; // pojistka (velmi široká obrazovka)
+  for(let x=x0;x<=x1;x++) for(let y=y0;y<=y1;y++){
+    const key = fuelTileKey(x, y);
+    if(fuelTiles[key]) continue;
+    const cached = readFuelCache(key);
+    if(cached){ fuelTiles[key] = 'done'; addFuelStations(cached); continue; }
+    fuelTiles[key] = 'loading';
+    fuelQueue.push([x, y]);
+  }
+  pumpFuelQueue();
+}
+function syncFuelBtn(){ if(fuelBtn) fuelBtn.classList.toggle('active', fuelOn); }
+if(fuelBtn){
+  syncFuelBtn();
+  fuelBtn.addEventListener('click', ()=>{
+    fuelOn = !fuelOn;
+    try{ localStorage.setItem('fuelOn', fuelOn ? '1' : '0'); }catch(e){}
+    syncFuelBtn();
+    updateFuel();
+    if(fuelOn && map && map.getZoom() < FUEL_MIN_ZOOM && !fuelHintShown){
+      fuelHintShown = true;
+      toast('Benzínky se ukážou po přiblížení mapy.');
+    } else {
+      toast(fuelOn ? 'Benzínky zobrazeny.' : 'Benzínky skryty.', 1800);
+    }
+  });
+}
 // ---------------------------------------------------------------
 // Záznam jízdy
 // - nahrává polohu z GPS (stejný odběr jako tlačítko polohy), ostatní trasy
@@ -1845,9 +2011,14 @@ window.addEventListener('beforeunload', (e)=>{
 async function enterApp(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app-screen').style.display='flex';
-  document.getElementById('user-chip').textContent = currentUser.displayName;
+  document.getElementById('user-chip').textContent = currentUser.displayName + (isAdminUser() ? ' · admin' : '');
   initMap();
   setTimeout(()=>map.invalidateSize(), 50);
+  if(!enterApp._fuelBound){
+    enterApp._fuelBound = true;
+    map.on('moveend', updateFuel);
+    setTimeout(updateFuel, 400);
+  }
   positionFloatingMapButtons();
   setTimeout(positionFloatingMapButtons, 100);
   await loadRoutes();

@@ -1,6 +1,4 @@
 /* ---------- Plánovač tras (planovac.html) ---------- */
-.brand-sub{font-family:'Roboto',sans-serif;font-size:0.8rem;font-weight:500;color:var(--gold);
-  text-transform:uppercase;letter-spacing:0.6px;margin-left:6px;}
 .user-tag{cursor:default;}
 .user-tag.muted{opacity:0.7;}
 .planner-page #map{cursor:crosshair;}
@@ -89,7 +87,6 @@
 .leaflet-top.leaflet-right{margin-top:4px;}
 
 @media (max-width:760px){
-  .brand-sub{display:none;}
   #pl-panel{width:88vw;max-width:360px;}
   #pl-panel-tab{right:-26px;}
   .pl-scroll{padding-bottom:90px;}
@@ -108,4 +105,7 @@
 #pl-chip{z-index:790;}
 @media (max-width:760px){
   .planner-page .toast{bottom:66px;}
+}
+@media (max-width:760px){
+  .planner-page .user-tag{display:none;}  /* ať se hlavička vejde na jeden řádek */
 }

@@ -159,6 +159,9 @@ let wps = [];        // [{ lat, lng, ele, small }]
 let segs = [];       // [{ mode, pts:[[lat,lng,ele]] | null, error, loading, req }]
 let editing = null;  // upravovaná trasa z CendurOFF: { id, name, description, route_type, owner_id }
 let currentUser = null;
+function isAdminUser(){ return !!(currentUser && currentUser.role === 'admin'); }
+// upravovat (otevřít v plánovači a přepsat) smí jen vlastník trasy nebo admin
+function canEditRoute(ownerId){ return !!currentUser && (Number(ownerId) === Number(currentUser.id) || isAdminUser()); }
 const settings = Object.assign({ drawMode:'route', pref:'teren', allowPaths:true, showRoutes:true, base:'osm' }, lsGet(SETTINGS_KEY, {}));
 function saveSettings(){ lsSet(SETTINGS_KEY, settings); }
 
@@ -744,12 +747,20 @@ async function loadRouteList(){
     sel.innerHTML = '<option value="">Trasy se nepodařilo načíst</option>';
     return;
   }
+  // k úpravě se nabízejí jen vlastní trasy; admin vidí i trasy ostatních
   const mine = currentUser ? allRoutes.filter(r=>r.owner_id===currentUser.id) : [];
-  const others = allRoutes.filter(r=>!currentUser || r.owner_id!==currentUser.id);
+  const others = isAdminUser() ? allRoutes.filter(r=>r.owner_id!==currentUser.id) : [];
   const opt = r=>`<option value="${r.id}">${escapeHtml(r.name)} (${Number(r.distance_km).toFixed(1)} km)</option>`;
-  sel.innerHTML = '<option value="">— vyber trasu —</option>' +
-    (mine.length ? `<optgroup label="Moje trasy">${mine.map(opt).join('')}</optgroup>` : '') +
-    (others.length ? `<optgroup label="${currentUser ? 'Ostatní trasy' : 'Trasy'}">${others.map(opt).join('')}</optgroup>` : '');
+  const optOther = r=>`<option value="${r.id}">${escapeHtml(r.name)} – ${escapeHtml(r.owner_display || '')} (${Number(r.distance_km).toFixed(1)} km)</option>`;
+  if(!currentUser){
+    sel.innerHTML = '<option value="">Pro úpravu tras se přihlas v Atlasu</option>';
+  } else if(!mine.length && !others.length){
+    sel.innerHTML = '<option value="">Zatím nemáš žádnou vlastní trasu</option>';
+  } else {
+    sel.innerHTML = '<option value="">— vyber svou trasu —</option>' +
+      (mine.length ? `<optgroup label="Moje trasy">${mine.map(opt).join('')}</optgroup>` : '') +
+      (others.length ? `<optgroup label="Trasy ostatních (admin)">${others.map(optOther).join('')}</optgroup>` : '');
+  }
   drawOthers();
 }
 function drawOthers(){
@@ -775,13 +786,17 @@ async function openRouteById(id, askFirst){
   try{ data = await api('/api/routes/' + id); }
   catch(e){ toast('Trasu se nepodařilo načíst: ' + e.message, 5000); return false; }
   const r = data.route;
+  if(!canEditRoute(r.owner_id)){
+    toast(currentUser ? 'Upravovat v plánovači můžeš jen trasy, které jsi nahrál(a) ty.' : 'Pro úpravu svých tras se nejdřív přihlas v Atlasu.', 5000);
+    return false;
+  }
   if(askFirst && !confirmReplace('trasou „' + r.name + '“')) return false;
   try{
-    loadPoints(r.points, { id:r.id, name:r.name, description:r.description || '', route_type:r.route_type, owner_id:r.owner_id });
+    loadPoints(r.points, { id:r.id, name:r.name, description:r.description || '', route_type:r.route_type, owner_id:r.owner_id, owner_display:r.owner_display });
   }catch(e){ toast(e.message); return false; }
   drawOthers();
   const own = currentUser && currentUser.id === r.owner_id;
-  toast(own ? 'Trasa otevřena – můžeš ji upravit a uložit změny.' : 'Trasa otevřena – není tvoje, upravenou si ji můžeš uložit jako novou.', 5000);
+  toast(own ? 'Trasa otevřena – můžeš ji upravit a uložit změny.' : 'Trasa otevřena jako admin (patří uživateli ' + (r.owner_display || '?') + ').', 5000);
   return true;
 }
 document.getElementById('pl-open-route').addEventListener('click', ()=>{
@@ -807,7 +822,7 @@ document.getElementById('pl-gpx-file').addEventListener('change', async e=>{
 // Uložení
 // ---------------------------------------------------------------
 const saveOverlay = document.getElementById('pl-save-overlay');
-function isOwnerOfEditing(){ return !!(editing && editing.id && currentUser && Number(editing.owner_id) === Number(currentUser.id)); }
+function isOwnerOfEditing(){ return !!(editing && editing.id && canEditRoute(editing.owner_id)); }
 function openSaveDialog(){
   const pts = assemble();
   if(pts.length < 2){ toast('Trasa musí mít aspoň dva body.'); return; }
@@ -858,7 +873,8 @@ async function doSave(overwrite){
     const saved = overwrite
       ? await api('/api/routes/' + editing.id, { method:'PATCH', headers:{'Content-Type':'application/json'}, body })
       : await api('/api/routes', { method:'POST', headers:{'Content-Type':'application/json'}, body });
-    editing = { id:saved.id, name:saved.name, description:saved.description || '', route_type:saved.route_type, owner_id: currentUser.id };
+    editing = { id:saved.id, name:saved.name, description:saved.description || '', route_type:saved.route_type,
+                owner_id: overwrite ? editing.owner_id : currentUser.id, owner_display: overwrite ? editing.owner_display : currentUser.displayName };
     saveOverlay.classList.remove('open');
     renderStats();
     saveDraftSoon();
@@ -892,6 +908,13 @@ function restoreDraft(){
   segs = d.segs.map(s=>newSeg(s.mode, s.pts));
   segs.forEach((s,i)=>{ s.error = !!d.segs[i].error; if(s.mode==='route' && !s.pts) requestRoute(s); });
   editing = d.editing || null;
+  // rozpracovaná úprava cizí trasy (např. z dřívější verze nebo po odhlášení) se nepovoluje
+  if(editing && editing.id && !canEditRoute(editing.owner_id)){
+    wps = []; segs = []; editing = null;
+    try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
+    changed();
+    return false;
+  }
   changed();
   fitToRoute();
   return wps.length > 0;
@@ -900,7 +923,7 @@ function restoreDraft(){
 (async function boot(){
   try{ currentUser = await api('/api/auth/me'); }catch(e){ currentUser = null; }
   const userTag = document.getElementById('pl-user');
-  userTag.textContent = currentUser ? currentUser.displayName : 'Nepřihlášen(a)';
+  userTag.textContent = currentUser ? currentUser.displayName + (isAdminUser() ? ' · admin' : '') : 'Nepřihlášen(a)';
   userTag.classList.toggle('muted', !currentUser);
 
   const params = new URLSearchParams(location.search);

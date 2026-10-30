@@ -565,3 +565,28 @@ a.btn{text-decoration:none;}
   .rec-actions button{padding:9px 10px;font-size:0.8rem;}
   body.recording #selection-bar{bottom:124px;}
 }
+
+/* ---------- název stránky u loga (Atlas / Plánovač), benzínky (v1.28) ---------- */
+.brand-sub{font-family:'Roboto',sans-serif;font-size:0.8rem;font-weight:500;color:var(--gold);
+  text-transform:uppercase;letter-spacing:0.6px;margin-left:6px;}
+.admin-note{color:var(--rust-dark) !important;font-weight:600;}
+
+#fuel-btn{position:fixed;top:76px;right:calc(16px + 64px + 12px + 64px + 12px);z-index:950;}
+#fuel-btn:not(.active){opacity:0.75;filter:grayscale(0.6);}
+.fuel-marker{background:none;border:none;}
+.fuel-ico{
+  width:22px;height:22px;border-radius:6px;background:#1F4E8C;border:2px solid #fff;
+  box-shadow:0 1px 4px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;
+  transform:rotate(var(--map-rot, 0deg));box-sizing:border-box;
+}
+.fuel-ico svg{width:13px;height:13px;display:block;}
+.fuel-popup b{font-size:0.92rem;}
+.fuel-popup div{font-size:0.8rem;color:var(--ink-soft);margin-top:2px;}
+
+@media (max-width:760px){
+  .brand-sub{font-size:0.62rem;margin-left:3px;letter-spacing:0.4px;}
+  #fuel-btn{
+    position:fixed;right:108px;bottom:auto;z-index:1250;
+    width:42px;height:42px;font-size:1.2rem;border-radius:11px;
+  }
+}
