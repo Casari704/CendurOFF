@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CendurOFF — Atlas offroadu pro cestovní endura</title>
+<title>CendurOFF Atlas — offroad pro cestovní endura</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700&family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="public/style.css">
@@ -54,7 +54,7 @@
 <div id="app-screen">
   <header class="topbar">
     <img class="brand-logo" src="public/img/pms-logo.png" alt="Petrol Machine Silesia">
-    <div class="brand">CendurOFF</div>
+    <div class="brand">CendurOFF <span class="brand-sub">Atlas</span></div>
     <button class="btn solid" id="open-upload">+ Nahrát trasu</button>
     <a class="btn" id="open-planner" href="planovac.html">✏️ Plánovač</a>
     <button class="btn" id="open-about">O projektu</button>
@@ -128,6 +128,7 @@
   </main>
 
   <!-- mimo main.mapwrap (ten má overflow:hidden), ať se tlačítka na mobilu neoříznou nad hlavičkou -->
+  <button class="map-btn map-btn-square" id="fuel-btn" title="Zobrazit / skrýt čerpací stanice">⛽</button>
   <button class="map-btn map-btn-square" id="satellite-btn" title="Přepnout satelitní mapu">🛰</button>
   <button class="map-btn map-btn-square" id="fullscreen-btn" title="Celá obrazovka">⛶</button>
 </div>

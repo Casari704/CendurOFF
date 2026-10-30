@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Plánovač tras — CendurOFF</title>
+<title>CendurOFF Plánovač</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700&family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="public/style.css">
@@ -15,7 +15,7 @@
   <header class="topbar">
     <img class="brand-logo" src="public/img/pms-logo.png" alt="Petrol Machine Silesia">
     <div class="brand">CendurOFF <span class="brand-sub">Plánovač</span></div>
-    <a class="btn" id="back-link" href="index.html">← Zpět na mapu</a>
+    <a class="btn" id="back-link" href="index.html">← Zpět do Atlasu</a>
     <span class="btn user-tag" id="pl-user"></span>
   </header>
 
@@ -36,7 +36,7 @@
       <div class="pl-scroll">
         <section class="pl-section" id="pl-editing-box" hidden>
           <div class="pl-editing">Upravuješ: <b id="pl-editing-name"></b></div>
-          <a class="pl-small-link" id="pl-editing-link" href="#">Zobrazit na mapě</a>
+          <a class="pl-small-link" id="pl-editing-link" href="#">Zobrazit v Atlasu</a>
         </section>
 
         <section class="pl-section">
@@ -72,7 +72,7 @@
 
         <section class="pl-section">
           <h3>Otevřít trasu</h3>
-          <label for="pl-route-select">Trasa z CendurOFF</label>
+          <label for="pl-route-select">Moje trasa z CendurOFF (k úpravě)</label>
           <select id="pl-route-select"><option value="">Načítám trasy…</option></select>
           <button class="ghost-btn pl-full" id="pl-open-route" type="button">Otevřít k úpravě</button>
           <label for="pl-gpx-file">Nebo GPX soubor z počítače / telefonu</label>

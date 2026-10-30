@@ -1,6 +1,6 @@
 # CendurOFF
 
-Web pro sdílení offroad GPX tras: přihlášení, mapa s podklady OpenStreetMap, trasy
+Atlas a Plánovač – web pro sdílení offroad GPX tras: přihlášení, mapa s podklady OpenStreetMap, trasy
 nahrané uživateli a stránka trasy, kam může vlastník přidat 3 fotky a vybrat hlavní.
 
 Tohle je **skutečný backend** (Node.js + Express + PostgreSQL), ne jen artefakt v
@@ -81,6 +81,30 @@ public/           – frontend (statické soubory, servíruje je stejný server)
 
 Endpointy navíc: `DELETE /api/routes/:id` (smaže trasu, fotky se smažou automaticky) a
 `DELETE /api/routes/:id/photos/:photoId` (smaže jednu fotku).
+
+## Novinky ve verzi 1.28
+
+- **Názvy stránek:** hlavní stránka s mapou a navigací je **Atlas** (`index.html`), nová stránka je
+  **Plánovač** (`planovac.html`); název je u loga v hlavičce.
+- **Plánovač upravuje jen vlastní trasy:** v Plánovači jde otevřít k úpravě jen trasa, kterou
+  uživatel sám nahrál (tlačítko „Upravit v plánovači“ se u cizích tras v Atlasu vůbec neukáže).
+  Vytvářet nové trasy může každý. Server cizí úpravy odmítne i tak.
+- **Role admin:** nový sloupec `users.role` (`'user'` / `'admin'`) – přidá se sám při startu
+  serveru, všechny dosavadní účty dostanou `'user'`. Admin může upravovat a mazat trasy, fotky
+  a GPX všech uživatelů (v Atlasu i v Plánovači) a mazat cizí recenze. Role se čte z databáze při
+  každém požadavku, takže změna platí hned (bez nového přihlášení).
+- **Benzínky v Atlasu:** ikonky čerpacích stanic z OpenStreetMap (přes Overpass API) od přiblížení
+  ~10, klik ukáže název, značku a otevírací dobu. Zapíná/vypíná je tlačítko ⛽ vedle satelitu,
+  stažená data se pamatují v prohlížeči na týden. Při režimu „směr jízdy“ zůstávají ikonky rovně.
+
+### Jak nastavit admina
+
+V Railway → Postgres → záložka **Query/Console**:
+```sql
+UPDATE users SET role = 'admin' WHERE username = 'tvoje_jmeno';
+```
+(username je přihlašovací jméno malými písmeny). Odebrání: `UPDATE users SET role = 'user' WHERE username = '...';`
+Kdo je admin, uvidí u svého jména v hlavičce „· admin“.
 
 ## Novinky ve verzi 1.27
 

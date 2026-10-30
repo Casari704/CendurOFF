@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   display_name TEXT NOT NULL,
   is_approved BOOLEAN NOT NULL DEFAULT false,
+  role TEXT NOT NULL DEFAULT 'user',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -92,6 +93,11 @@ async function initDb() {
     await pool.query(`UPDATE users SET is_approved = true`);
     console.log('Migrace: sloupec is_approved přidán, stávající účty byly automaticky schváleny.');
   }
+
+  // Úroveň účtu: 'user' (běžný člen) nebo 'admin' (může upravovat a mazat trasy, fotky
+  // i recenze všech). Všechny dosavadní účty dostanou 'user'; admina nastavíš v DB
+  // (viz README: UPDATE users SET role = 'admin' WHERE username = '...').
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'`);
 
   // Datum posledního nahrazení GPX souboru (NULL = GPX se od nahrání trasy neměnilo).
   await pool.query('ALTER TABLE routes ADD COLUMN IF NOT EXISTS gpx_updated_at TIMESTAMPTZ');
@@ -157,15 +163,32 @@ function setAuthCookie(res, token) {
   });
 }
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token = req.cookies && req.cookies.token;
   if (!token) return res.status(401).json({ error: 'Nejste přihlášen(a).' });
   try {
     req.user = jwt.verify(token, JWT_SECRET);
-    next();
   } catch (e) {
     return res.status(401).json({ error: 'Přihlášení vypršelo, přihlaste se prosím znovu.' });
   }
+  try {
+    // roli čteme vždy čerstvě z databáze - změna role v DB platí hned, bez nového přihlášení
+    const r = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+    if (!r.rows[0]) return res.status(401).json({ error: 'Účet už neexistuje.' });
+    req.user.role = r.rows[0].role || 'user';
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'Nepodařilo se ověřit účet.' });
+  }
+  next();
+}
+
+function isAdmin(req) {
+  return !!(req.user && req.user.role === 'admin');
+}
+// smí uživatel upravovat/mazat věc, jejímž vlastníkem je ownerId? (vlastník nebo admin)
+function canEdit(req, ownerId) {
+  return !!req.user && (ownerId === req.user.id || isAdmin(req));
 }
 
 // Jako requireAuth, ale nepřihlášeného nevyhodí - jen nevyplní req.user.
@@ -231,7 +254,7 @@ app.post('/api/auth/register', async (req, res) => {
     const isFirstUser = countResult.rows[0].n === 0;
     const hash = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      'INSERT INTO users (username, password_hash, display_name, is_approved) VALUES ($1,$2,$3,$4) RETURNING id, username, display_name, is_approved',
+      'INSERT INTO users (username, password_hash, display_name, is_approved) VALUES ($1,$2,$3,$4) RETURNING id, username, display_name, is_approved, role',
       [username, hash, displayName, isFirstUser]
     );
     const user = result.rows[0];
@@ -242,7 +265,7 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
     setAuthCookie(res, signToken(user));
-    res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true });
+    res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true, role: user.role || 'user' });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Registrace se nepovedla.' });
@@ -262,7 +285,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(403).json({ error: 'Účet ještě čeká na schválení administrátorem.' });
     }
     setAuthCookie(res, signToken(user));
-    res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true });
+    res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true, role: user.role || 'user' });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Přihlášení se nepovedlo.' });
@@ -275,7 +298,7 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
-  res.json({ id: req.user.id, username: req.user.username, displayName: req.user.displayName });
+  res.json({ id: req.user.id, username: req.user.username, displayName: req.user.displayName, role: req.user.role });
 });
 
 app.post('/api/auth/change-password', requireAuth, async (req, res) => {
@@ -382,7 +405,7 @@ app.patch('/api/routes/:id', requireAuth, async (req, res) => {
     const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1', [req.params.id]);
     const route = routeResult.rows[0];
     if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
-    if (route.owner_id !== req.user.id) return res.status(403).json({ error: 'Trasu může upravovat jen vlastník.' });
+    if (!canEdit(req, route.owner_id)) return res.status(403).json({ error: 'Trasu může upravovat jen vlastník (nebo admin).' });
 
     const name = String(req.body.name || '').trim();
     const description = String(req.body.description || '').trim();
@@ -490,7 +513,14 @@ app.delete('/api/routes/:id/review', requireAuth, async (req, res) => {
   try {
     const routeId = Number(req.params.id);
     if (!Number.isInteger(routeId)) return res.status(404).json({ error: 'Trasa nenalezena.' });
-    await pool.query('DELETE FROM reviews WHERE route_id = $1 AND user_id = $2', [routeId, req.user.id]);
+    // admin může smazat i cizí recenzi: DELETE /api/routes/:id/review?userId=123
+    let targetUserId = req.user.id;
+    if (req.query.userId != null && Number(req.query.userId) !== req.user.id) {
+      if (!isAdmin(req)) return res.status(403).json({ error: 'Cizí recenzi může smazat jen admin.' });
+      targetUserId = Number(req.query.userId);
+      if (!Number.isInteger(targetUserId)) return res.status(400).json({ error: 'Neplatný uživatel.' });
+    }
+    await pool.query('DELETE FROM reviews WHERE route_id = $1 AND user_id = $2', [routeId, targetUserId]);
     res.json({ reviews: await reviewsForRoute(routeId) });
   } catch (e) {
     console.error(e);
@@ -506,7 +536,7 @@ app.post('/api/routes/:id/photos', requireAuth, upload.single('photo'), async (r
     const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1', [req.params.id]);
     const route = routeResult.rows[0];
     if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
-    if (route.owner_id !== req.user.id) return res.status(403).json({ error: 'Fotky může přidávat jen vlastník trasy.' });
+    if (!canEdit(req, route.owner_id)) return res.status(403).json({ error: 'Fotky může přidávat jen vlastník trasy (nebo admin).' });
     if (!req.file) return res.status(400).json({ error: 'Nahrajte obrázek.' });
     if (req.file.size > MAX_PHOTO_BYTES) return res.status(400).json({ error: 'Obrázek je příliš velký (max 3 MB).' });
 
@@ -532,7 +562,7 @@ app.patch('/api/routes/:id/photos/:photoId/main', requireAuth, async (req, res) 
     const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1', [req.params.id]);
     const route = routeResult.rows[0];
     if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
-    if (route.owner_id !== req.user.id) return res.status(403).json({ error: 'Hlavní fotku může měnit jen vlastník trasy.' });
+    if (!canEdit(req, route.owner_id)) return res.status(403).json({ error: 'Hlavní fotku může měnit jen vlastník trasy (nebo admin).' });
     await pool.query('UPDATE photos SET is_main = (id = $1) WHERE route_id = $2', [req.params.photoId, req.params.id]);
     res.json({ ok: true });
   } catch (e) {
@@ -546,7 +576,7 @@ app.delete('/api/routes/:id/photos/:photoId', requireAuth, async (req, res) => {
     const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1', [req.params.id]);
     const route = routeResult.rows[0];
     if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
-    if (route.owner_id !== req.user.id) return res.status(403).json({ error: 'Fotky může mazat jen vlastník trasy.' });
+    if (!canEdit(req, route.owner_id)) return res.status(403).json({ error: 'Fotky může mazat jen vlastník trasy (nebo admin).' });
     const photoResult = await pool.query('SELECT is_main FROM photos WHERE id = $1 AND route_id = $2', [req.params.photoId, req.params.id]);
     if (!photoResult.rows[0]) return res.status(404).json({ error: 'Fotka nenalezena.' });
     const wasMain = photoResult.rows[0].is_main;
@@ -570,7 +600,7 @@ app.delete('/api/routes/:id', requireAuth, async (req, res) => {
     const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1', [req.params.id]);
     const route = routeResult.rows[0];
     if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
-    if (route.owner_id !== req.user.id) return res.status(403).json({ error: 'Trasu může smazat jen vlastník.' });
+    if (!canEdit(req, route.owner_id)) return res.status(403).json({ error: 'Trasu může smazat jen vlastník (nebo admin).' });
     await pool.query('DELETE FROM routes WHERE id = $1', [req.params.id]); // fotky se smažou kaskádově
     res.json({ ok: true });
   } catch (e) {
