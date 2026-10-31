@@ -282,7 +282,7 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
 
 /* about modal */
 .about-modal{text-align:center;}
-.about-logo{width:154px;height:auto;margin:0 auto 14px;display:block;}  /* +40 % (v1.34) */
+.about-logo{width:185px;height:auto;margin:0 auto 14px;display:block;}  /* 110 px +40 % +20 % (v1.35) */
 .about-modal h2{margin-bottom:10px;}
 .about-modal .sub{text-align:left;}
 .about-modal a{color:var(--rust-dark);font-weight:600;overflow-wrap:anywhere;}
