@@ -82,6 +82,20 @@ public/           – frontend (statické soubory, servíruje je stejný server)
 Endpointy navíc: `DELETE /api/routes/:id` (smaže trasu, fotky se smažou automaticky) a
 `DELETE /api/routes/:id/photos/:photoId` (smaže jednu fotku).
 
+## Novinky ve verzi 1.30
+
+- **Oprava Plánovače:** když se dalo „Zpět“ ve chvíli, kdy se úsek ještě počítal, úsek zůstal
+  navždy „rozpočítaný“ a Uložit hlásilo „počkej, až se dopočítají úseky“. Opraveno; navíc má
+  hledání cesty časový limit 25 s a Uložit případný visící úsek samo přepočítá.
+
+## Novinky ve verzi 1.29
+
+- **Podkladové mapy s vrstevnicemi:** Atlas dřív ve skutečnosti používal základní OpenStreetMap
+  (bez vrstevnic, jen popisek uváděl CyclOSM). Tlačítko 🗺 (místo dřívějšího 🛰) teď nabízí:
+  **CyclOSM** (vrstevnice, stínování terénu, povrchy cest – výchozí), **Turistickou** (OpenTopoMap,
+  výrazné vrstevnice), **Základní** a **Satelit**.
+- **Atlas a Plánovač mají společnou volbu mapy** – co vybereš na jedné stránce, je i na druhé.
+
 ## Novinky ve verzi 1.28
 
 - **Názvy stránek:** hlavní stránka s mapou a navigací je **Atlas** (`index.html`), nová stránka je
