@@ -514,6 +514,8 @@ async function loadRoutes(){
   let routes = [];
   try{
     routes = await api('/api/routes');
+    // seznam tras abecedně podle názvu (česká abeceda: Č po C, Ch po H; čísla podle hodnoty)
+    routes.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'cs', { sensitivity:'base', numeric:true }));
   }catch(e){
     listEl.innerHTML = '<div class="empty-note">Trasy se nepodařilo načíst ze serveru.</div>';
     return;

@@ -761,6 +761,7 @@ async function loadRouteList(){
   const sel = document.getElementById('pl-route-select');
   try{
     allRoutes = await api('/api/routes');
+    allRoutes.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'cs', { sensitivity:'base', numeric:true }));
   }catch(e){
     sel.innerHTML = '<option value="">Trasy se nepodařilo načíst</option>';
     return;
