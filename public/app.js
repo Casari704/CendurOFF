@@ -556,6 +556,9 @@ async function loadRoutes(){
       }
       openDetail(route.id);
     });
+    // najetí myší na trasu v seznamu ji zvýrazní na mapě (stejně jako najetí přímo na čáru)
+    item.addEventListener('mouseenter', ()=> hoverRouteFromList(route.id, true));
+    item.addEventListener('mouseleave', ()=> hoverRouteFromList(route.id, false));
     item.querySelector('.route-visibility-checkbox').addEventListener('change', (e)=>{
       const layer = layersById[route.id];
       if(!layer) return;
@@ -601,6 +604,18 @@ function applyRouteStyle(id){
   } else {
     setLayerPane(layer, 'route-' + typeOf(routesCache[id]));
     layer.setStyle(normalStyle(id));
+  }
+}
+function hoverRouteFromList(id, on){
+  const layer = layersById[id];
+  if(!layer || !map.hasLayer(layer) || isRouteMarked(id)) return;
+  if(on){
+    // dočasně do nejvyšší vrstvy, ať zvýrazněná trasa není schovaná pod ostatními
+    setLayerPane(layer, SELECTED_PANE);
+    layer.setStyle(STYLE_HOVER);
+    layer.bringToFront();
+  } else {
+    applyRouteStyle(id);
   }
 }
 function routeTipHtml(route){
