@@ -162,7 +162,7 @@ let currentUser = null;
 function isAdminUser(){ return !!(currentUser && currentUser.role === 'admin'); }
 // upravovat (otevřít v plánovači a přepsat) smí jen vlastník trasy nebo admin
 function canEditRoute(ownerId){ return !!currentUser && (Number(ownerId) === Number(currentUser.id) || isAdminUser()); }
-const settings = Object.assign({ drawMode:'route', pref:'teren', allowPaths:true, showRoutes:true, base:'osm' }, lsGet(SETTINGS_KEY, {}));
+const settings = Object.assign({ drawMode:'route', pref:'teren', allowPaths:true, showRoutes:true }, lsGet(SETTINGS_KEY, {}));
 function saveSettings(){ lsSet(SETTINGS_KEY, settings); }
 
 const undoStack = [], redoStack = [];
@@ -182,7 +182,9 @@ function pushUndo(){
 }
 function restore(snap){
   wps = snap.wps.map(w=>Object.assign({}, w));
-  segs = snap.segs.map(s=>({ mode:s.mode, pts:s.pts, error:s.error }));
+  // staré výpočty zahodit a obnovit úseky jako nové objekty (s počítadlem požadavků)
+  segs.forEach(s=>{ s.req = (s.req||0) + 1; });
+  segs = snap.segs.map(s=>{ const n = newSeg(s.mode, s.needsRoute ? null : s.pts); n.error = s.error; return n; });
   editing = snap.editing ? Object.assign({}, snap.editing) : null;
   segs.forEach(s=>{ if(s.mode==='route' && (!s.pts || s.needsRoute)) requestRoute(s); });
   changed();
@@ -289,8 +291,15 @@ async function fetchRoute(a, b, retried){
   const profile = await getProfileId(!!retried);
   const url = `${BROUTER_URL}?lonlats=${a.lng.toFixed(6)},${a.lat.toFixed(6)}|${b.lng.toFixed(6)},${b.lat.toFixed(6)}` +
               `&profile=${encodeURIComponent(profile)}&alternativeidx=0&format=geojson`;
-  const res = await fetch(url);
-  const text = await res.text();
+  const ctrl = new AbortController();
+  const timer = setTimeout(()=>ctrl.abort(), 25000);
+  let res, text;
+  try{
+    res = await fetch(url, { signal:ctrl.signal });
+    text = await res.text();
+  }catch(e){
+    throw new Error(e && e.name === 'AbortError' ? 'timeout' : (e.message || String(e)));
+  }finally{ clearTimeout(timer); }
   if(!res.ok){
     // vlastní profily server po čase maže - zkusíme ho jednou nahrát znovu
     if(!retried && /profile/i.test(text)) return fetchRoute(a, b, true);
@@ -312,12 +321,17 @@ function brouterErrorText(msg){
 
 let errorToastShown = 0;
 function requestRoute(seg){
+  if(!Number.isFinite(seg.req)) seg.req = 0;
   seg.loading = true;
   seg.error = false;
   const myReq = ++seg.req;
   queue.push(async ()=>{
     const i = segs.indexOf(seg);
-    if(i < 0 || seg.req !== myReq || seg.mode !== 'route') return;
+    if(i < 0 || seg.req !== myReq || seg.mode !== 'route'){
+      // výpočet je zastaralý; pokud na úsek nečeká jiný požadavek, nesmí zůstat "rozpočítaný"
+      if(seg.req === myReq){ seg.loading = false; changed(true); }
+      return;
+    }
     const a = { lat:wps[i].lat, lng:wps[i].lng }, b = { lat:wps[i+1].lat, lng:wps[i+1].lng };
     try{
       const pts = await fetchRoute(a, b);
@@ -346,18 +360,22 @@ const map = L.map('map', { zoomControl:false }).setView([49.8711, 17.8756], 12);
 L.control.zoom({ position:'topright' }).addTo(map);
 const baseLayers = {
   osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap contributors' }),
-  topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom:17, attribution:'© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)' }),
-  cyclosm: L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', { maxZoom:20, attribution:'© OpenStreetMap contributors, CyclOSM' }),
+  topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom:19, maxNativeZoom:17, attribution:'© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)' }),
+  cyclosm: L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', { maxZoom:19, maxNativeZoom:20, attribution:'© OpenStreetMap contributors, CyclOSM' }),
   sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:19, attribution:'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics' })
 };
-const baseNames = { osm:'Základní mapa', topo:'Turistická (OpenTopoMap)', cyclosm:'Cesty a povrchy (CyclOSM)', sat:'Satelit' };
-(baseLayers[settings.base] || baseLayers.osm).addTo(map);
+const baseNames = { cyclosm:'CyclOSM – vrstevnice, povrchy', topo:'Turistická – vrstevnice', osm:'Základní (bez vrstevnic)', sat:'Satelit' };
+// podkladová mapa je společná s Atlasem (stejný klíč v prohlížeči) - změna na jedné stránce platí i na druhé
+const SHARED_BASE_KEY = 'baseMap';
+let currentBase = (()=>{ try{ return localStorage.getItem(SHARED_BASE_KEY); }catch(e){ return null; } })();
+if(!baseLayers[currentBase]) currentBase = 'cyclosm';
+baseLayers[currentBase].addTo(map);
 const layerControl = {};
-Object.keys(baseLayers).forEach(k=>{ layerControl[baseNames[k]] = baseLayers[k]; });
+['cyclosm','topo','osm','sat'].forEach(k=>{ layerControl[baseNames[k]] = baseLayers[k]; });
 L.control.layers(layerControl, null, { position:'topright' }).addTo(map);
 map.on('baselayerchange', e=>{
   const k = Object.keys(baseLayers).find(key=>baseLayers[key]===e.layer);
-  if(k){ settings.base = k; saveSettings(); }
+  if(k){ currentBase = k; try{ localStorage.setItem(SHARED_BASE_KEY, k); }catch(err){} }
 });
 
 map.createPane('pl-others').style.zIndex = 405;
@@ -826,7 +844,13 @@ function isOwnerOfEditing(){ return !!(editing && editing.id && canEditRoute(edi
 function openSaveDialog(){
   const pts = assemble();
   if(pts.length < 2){ toast('Trasa musí mít aspoň dva body.'); return; }
-  if(segs.some(s=>s.loading)){ toast('Počkej, až se dopočítají všechny úseky.'); return; }
+  const pending = segs.filter(s=>s.loading);
+  if(pending.length){
+    // pojistka: když fronta nic nepočítá, úsek "visí" - spustíme výpočet znovu
+    if(running + queue.length === 0) pending.forEach(s=>{ if(s.mode==='route') requestRoute(s); else s.loading = false; });
+    toast(`Trasa zatím NENÍ uložená – ještě se dopočítává ${pending.length === 1 ? '1 úsek' : pending.length + ' úseků'}. Zkus Uložit za pár vteřin.`, 4500);
+    return;
+  }
   const st = computeStats(pts);
   document.getElementById('pl-save-sub').textContent =
     `${st.distanceKm.toFixed(1).replace('.', ',')} km · ${Math.round(st.elevGainM)} m převýšení · ${pts.length} bodů GPX` +

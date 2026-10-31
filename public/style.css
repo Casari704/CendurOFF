@@ -590,3 +590,18 @@ a.btn{text-decoration:none;}
     width:42px;height:42px;font-size:1.2rem;border-radius:11px;
   }
 }
+
+/* ---------- nabídka podkladových map (v1.29) ---------- */
+#layer-menu{
+  position:fixed;z-index:1300;display:none;flex-direction:column;min-width:270px;max-width:calc(100vw - 16px);
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 8px 24px rgba(20,30,15,0.28);padding:6px;
+}
+#layer-menu.open{display:flex;}
+.layer-menu-title{font-size:0.75rem;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:0.5px;padding:6px 10px 4px;}
+.layer-opt{display:flex;align-items:center;gap:10px;text-align:left;background:none;border:none;border-radius:8px;
+  padding:10px;font-size:0.88rem;color:var(--ink);}
+.layer-opt:hover{background:#F3EEDC;}
+.layer-opt.active{font-weight:700;background:#EAF0E6;}
+.layer-radio{width:16px;height:16px;flex:none;border-radius:50%;border:2px solid var(--line);box-sizing:border-box;}
+.layer-opt.active .layer-radio{border:5px solid var(--moss);}
