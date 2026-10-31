@@ -282,7 +282,7 @@ textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius
 
 /* about modal */
 .about-modal{text-align:center;}
-.about-logo{width:110px;height:auto;margin:0 auto 14px;display:block;}
+.about-logo{width:154px;height:auto;margin:0 auto 14px;display:block;}  /* +40 % (v1.34) */
 .about-modal h2{margin-bottom:10px;}
 .about-modal .sub{text-align:left;}
 .about-modal a{color:var(--rust-dark);font-weight:600;overflow-wrap:anywhere;}
@@ -605,3 +605,16 @@ a.btn{text-decoration:none;}
 .layer-opt.active{font-weight:700;background:#EAF0E6;}
 .layer-radio{width:16px;height:16px;flex:none;border-radius:50%;border:2px solid var(--line);box-sizing:border-box;}
 .layer-opt.active .layer-radio{border:5px solid var(--moss);}
+
+/* ---------- logo na přihlašovací stránce (v1.33) ---------- */
+/* velké logo nad nadpisem v levé tmavé části; na nízkých oknech se zmenší, ať se vejde i text */
+.hero-logo{
+  position:relative;z-index:1;display:block;
+  width:min(320px, 42vh);height:auto;margin:0 0 22px -6px;
+  filter:drop-shadow(0 8px 18px rgba(0,0,0,0.35));
+}
+.login-logo-mobile{display:none;}
+@media (max-width:760px){
+  .login-logo-mobile{display:block;width:min(200px, 50vw);height:auto;margin:0 auto 22px;}
+  .login-side{justify-content:flex-start;padding-top:32px;overflow-y:auto;}
+}
