@@ -82,6 +82,10 @@ public/           – frontend (statické soubory, servíruje je stejný server)
 Endpointy navíc: `DELETE /api/routes/:id` (smaže trasu, fotky se smažou automaticky) a
 `DELETE /api/routes/:id/photos/:photoId` (smaže jednu fotku).
 
+## Novinky ve verzi 1.48
+
+- **Benzínky schované v nabídce 🗺** – samostatné tlačítko ⛽ zmizelo z mapy; čerpací stanice se zapínají/vypínají zaškrtávátkem „⛽ Čerpací stanice“ v nabídce podkladové mapy (sekce „Na mapě zobrazit“). Nabídka po přepnutí zůstane otevřená, nastavení se pamatuje jako dřív.
+
 ## Novinky ve verzi 1.47
 
 - **Jedno tlačítko „Sleduji / Nesleduji polohu“** (Atlas) – sloučeno s dřívějším „Sever nahoru / Směr jízdy“. Zapnuto = mapa sleduje polohu a natáčí se podle směru jízdy; vypnuto = sever nahoru a mapou jde volně posouvat. GPS i záznam jízdy běží dál i po vypnutí. Spuštění záznamu jízdy sledování zapne automaticky.
