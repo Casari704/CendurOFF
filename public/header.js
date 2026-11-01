@@ -11,8 +11,7 @@
 // Merch si přihlášení ověří sám (data-auth="auto").
 // ---------------------------------------------------------------
 (function(){
-  // '' = stejná adresa jako web (přes vercel.json); bez config.js záložně přímo Railway
-  const API_URL = (typeof window.CENDUROFF_API_URL === 'string') ? window.CENDUROFF_API_URL : 'https://cenduroff-web.up.railway.app';
+    const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app'; // prázdná/chybějící adresa = Railway
   const header = document.querySelector('header.topbar[data-page]');
   if(!header) return;
   const page = header.dataset.page;
@@ -93,7 +92,10 @@
   let user = null;
 
   async function api(url, options){
-    const res = await fetch(API_URL + url, Object.assign({ credentials:'include' }, options));
+    const o = Object.assign({ credentials:'include' }, options);
+    let t = null; try{ t = localStorage.getItem('cenduroff.token'); }catch(e){}
+    if(t) o.headers = Object.assign({}, o.headers, { Authorization: 'Bearer ' + t });
+    const res = await fetch(API_URL + url, o);
     let data = null, isJson = false;
     try{ data = await res.json(); isJson = true; }catch(e){}
     if(!res.ok) throw new Error((data && data.error) || 'Něco se pokazilo.');
@@ -144,6 +146,7 @@
 
   document.getElementById('logout-btn').addEventListener('click', async ()=>{
     try{ await api('/api/auth/logout', { method:'POST' }); }catch(e){}
+    try{ localStorage.removeItem('cenduroff.token'); }catch(e){}
     // po odhlášení vždy na přihlašovací stránku Atlasu
     location.href = 'index.html';
   });

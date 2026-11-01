@@ -317,13 +317,23 @@ function countWords(text){ return String(text||'').trim().split(/\s+/).filter(Bo
 
  // Adresa backendu z Railway (bez lomítka na konci) - nastavuje se v public/config.js,
  // tady je jen záloha pro případ, že by config.js na webu chyběl.
-// '' = stejná adresa jako web (přes vercel.json); bez config.js záložně přímo Railway
-const API_URL = (typeof window.CENDUROFF_API_URL === 'string') ? window.CENDUROFF_API_URL : 'https://cenduroff-web.up.railway.app';
+const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app'; // prázdná/chybějící adresa = Railway
 
+// přihlašovací token uložený v prohlížeči – posílá se v hlavičce Authorization, takže přihlášení
+// funguje i tam, kde prohlížeč blokuje cookies serveru (anonymní okno, Safari na iPhonu)
+const TOKEN_KEY = 'cenduroff.token';
+function getToken(){ try{ return localStorage.getItem(TOKEN_KEY); }catch(e){ return null; } }
+function setToken(t){ try{ if(t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); }catch(e){} }
+function withAuth(options){
+  const o = Object.assign({ credentials:'include' }, options);
+  const t = getToken();
+  if(t) o.headers = Object.assign({}, o.headers, { Authorization: 'Bearer ' + t });
+  return o;
+}
 async function api(url, options){
   // Automaticky připojí adresu backendu z Railway ke všem voláním
   const fullUrl = url.startsWith('http') ? url : API_URL + url;
-  const res = await fetch(fullUrl, Object.assign({ credentials:'include' }, options));
+  const res = await fetch(fullUrl, withAuth(options));
   let data = null, isJson = false;
   try{ data = await res.json(); isJson = true; }catch(e){}
   if(!res.ok) throw new Error((data && data.error) || 'Něco se pokazilo.');
@@ -386,6 +396,7 @@ loginForm.addEventListener('submit', async (e)=>{
       loginSubmit.disabled = false;
       return;
     }
+    if(user.token){ setToken(user.token); delete user.token; }
     currentUser = user;
     if(goNextIfAny()) return;
     enterApp();
