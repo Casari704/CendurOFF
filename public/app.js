@@ -1271,6 +1271,13 @@ function followMarkerFraction(){ return window.innerWidth > window.innerHeight ?
 // ve směru jízdy), takže funguje správně i po otočení/zvětšení mapy.
 function setFollowView(latlng, animate){
   const z = map.getZoom();
+  // V režimu "směr jízdy" je #map čtverec vystředěný přímo na místo šipky (viz layoutMapForMode),
+  // takže GPS bod stačí dát doprostřed mapy - leží pak přesně ve středu otáčení a při
+  // natočení mapy zůstává na místě (žádné "excentrické" houpnutí a dojíždění).
+  if(headingMode==='heading'){
+    map.setView(latlng, z, { animate: !!animate });
+    return;
+  }
   // výška viditelné části mapy (v režimu "směr jízdy" je samotný #map větší než obrazovka)
   const visibleH = mapEl.parentElement.clientHeight;
   const theta = (headingMode==='heading') ? displayedHeading * Math.PI/180 : 0;
@@ -1571,17 +1578,23 @@ function startOrientation(){
   window.addEventListener('deviceorientation', handler, true);
 }
 
-// V režimu "směr jízdy" se mapa otáčí. Aby při otočení nebyly v rozích vidět prázdné
-// kusy, je #map zvětšený na čtverec o straně úhlopříčky obrazovky a vystředěný -
-// mapa se tedy NEzvětšuje (žádné scale), úroveň přiblížení zůstává, jaká byla.
+// V režimu "směr jízdy" se mapa otáčí. #map je čtverec, jehož STŘED leží přesně na místě
+// šipky na obrazovce (vodorovně uprostřed, svisle ve followMarkerFraction() výšky).
+// CSS rotace se točí kolem středu prvku (transform-origin: center), takže se mapa otáčí
+// přímo kolem GPS bodu. Strana čtverce = 2× vzdálenost šipky k nejvzdálenějšímu rohu
+// obrazovky, aby při jakémkoli natočení nebyly v rozích prázdné kusy.
+// Mapa se NEzvětšuje (žádné scale), úroveň přiblížení zůstává, jaká byla.
 function layoutMapForMode(){
   const wrap = mapEl.parentElement;
   if(headingMode==='heading'){
     const w = wrap.clientWidth, h = wrap.clientHeight;
-    const d = Math.ceil(Math.hypot(w, h));
+    const f = followMarkerFraction();
+    const cx = w / 2, cy = h * f;                       // místo šipky na obrazovce
+    const r = Math.hypot(w / 2, Math.max(cy, h - cy));  // k nejvzdálenějšímu rohu
+    const d = Math.ceil(2 * r) + 2;
     mapEl.style.inset = 'auto';
-    mapEl.style.left = ((w - d) / 2) + 'px';
-    mapEl.style.top = ((h - d) / 2) + 'px';
+    mapEl.style.left = Math.round(cx - d / 2) + 'px';
+    mapEl.style.top = Math.round(cy - d / 2) + 'px';
     mapEl.style.width = d + 'px';
     mapEl.style.height = d + 'px';
   } else {
@@ -1591,7 +1604,13 @@ function layoutMapForMode(){
   // Leaflet si přepočítá rozměry; střed mapy i přiblížení přitom zůstanou stejné
   map.invalidateSize({ animate:false });
 }
-window.addEventListener('resize', ()=>{ if(map && headingMode==='heading') layoutMapForMode(); });
+window.addEventListener('resize', ()=>{
+  if(map && headingMode==='heading'){
+    layoutMapForMode();
+    // po otočení displeje se mění i výška šipky -> znovu ji posadit do středu otáčení
+    if(followMode && lastLatLng) setFollowView(lastLatLng, false);
+  }
+});
 
 function setMapRotation(on){
   if(on){
