@@ -618,3 +618,7 @@ a.btn{text-decoration:none;}
   .login-logo-mobile{display:block;width:min(200px, 50vw);height:auto;margin:0 auto 22px;}
   .login-side{justify-content:flex-start;padding-top:32px;overflow-y:auto;}
 }
+
+/* odkaz na Merch v textu na přihlašovací stránce (v1.38) */
+.hero-credit a{color:var(--gold);text-decoration:none;font-weight:700;}
+.hero-credit a:hover{color:#E0B65A;}

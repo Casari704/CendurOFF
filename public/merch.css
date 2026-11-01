@@ -1,0 +1,125 @@
+/* ---------- CendurOFF Merch (merch.html) ---------- */
+:root{
+  --ink:#1E2A1E; --ink-soft:#52604C; --text-mid:#3D4A39;
+  --bg-app:#172218; --bg-app-2:#22331F; --line-dark:#2C4229;
+  --page:#EFEAD8; --surface:#FBF8EE; --line:#D8D0B4;
+  --moss:#4F7048; --moss-dark:#3C5636; --rust:#A8572E; --rust-dark:#8A4523; --gold:#C79A3E;
+  --photo:#E6E4E0;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;}
+body{font-family:'Roboto',system-ui,sans-serif;color:var(--ink);background:var(--page);line-height:1.5;}
+h1,h2,h3{font-family:'Exo 2',sans-serif;margin:0;}
+a{color:var(--rust-dark);}
+a:hover{color:var(--rust);}
+img{max-width:100%;}
+
+/* hlavička */
+.m-top{background:var(--bg-app);color:#EFEAD8;padding:10px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  position:sticky;top:0;z-index:10;box-shadow:0 1px 0 rgba(0,0,0,0.2);}
+.m-brand{display:flex;align-items:center;gap:10px;margin-right:auto;color:#EFEAD8;text-decoration:none;
+  font-family:'Exo 2',sans-serif;font-weight:700;font-size:1.35rem;white-space:nowrap;}
+.m-brand:hover{color:#EFEAD8;}
+.m-brand img{width:40px;height:40px;}
+.brand-sub{font-family:'Roboto',sans-serif;font-size:0.8rem;font-weight:500;color:var(--gold);text-transform:uppercase;letter-spacing:0.6px;margin-left:4px;}
+.m-nav{display:flex;gap:8px;flex-wrap:wrap;}
+.m-nav a{color:#EFEAD8;text-decoration:none;border:1px solid rgba(239,234,216,0.3);border-radius:6px;padding:8px 14px;font-size:0.9rem;}
+.m-nav a:hover{background:rgba(255,255,255,0.08);color:#EFEAD8;}
+.m-nav a.active{background:var(--rust);border-color:var(--rust);color:#fff;font-weight:600;}
+
+/* úvod */
+.m-wrap{max-width:1200px;margin:0 auto;padding-left:24px;padding-right:24px;}
+.m-hero{background:var(--bg-app);color:#EFEAD8;padding:56px 0 64px;border-top:1px solid var(--line-dark);}
+.m-hero-in{display:flex;flex-wrap:wrap;align-items:center;gap:48px;}
+.m-hero-text{flex:999 1 480px;min-width:0;display:flex;flex-direction:column;gap:16px;}
+.m-eyebrow{font-size:0.8rem;letter-spacing:0.12em;color:var(--gold);font-weight:700;}
+.m-hero h1{font-weight:900;font-style:italic;font-size:clamp(48px,7vw,88px);line-height:1;}
+.m-hero h1 span{color:var(--gold);}
+.m-hero p{margin:0;font-size:1.1rem;line-height:1.6;color:#D9D3BC;max-width:560px;}
+.m-hero-logo{flex:0 1 300px;width:300px;max-width:70vw;height:auto;margin:0 auto;filter:drop-shadow(0 8px 18px rgba(0,0,0,0.35));}
+.m-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;}
+
+/* tlačítka */
+.m-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;border-radius:6px;padding:12px 20px;
+  font-weight:700;font-size:0.95rem;text-decoration:none;border:1px solid transparent;white-space:nowrap;}
+.m-btn-rust{background:var(--rust);color:#fff;}
+.m-btn-rust:hover{background:var(--rust-dark);color:#fff;}
+.m-btn-moss{background:var(--moss);color:#fff;}
+.m-btn-moss:hover{background:var(--moss-dark);color:#fff;}
+.m-btn-gold{background:var(--gold);color:var(--bg-app);}
+.m-btn-gold:hover{background:#D9AE55;color:var(--bg-app);}
+.m-btn-ghost-dark{color:#EFEAD8;border-color:rgba(239,234,216,0.35);font-weight:500;}
+.m-btn-ghost-dark:hover{background:rgba(255,255,255,0.08);color:#EFEAD8;}
+
+/* obsah */
+.m-main{padding-top:56px;padding-bottom:72px;display:flex;flex-direction:column;gap:64px;}
+.m-section{display:flex;flex-direction:column;gap:24px;}
+.m-head{display:flex;flex-direction:column;gap:8px;max-width:720px;}
+.m-head h2,.m-feature h2,.m-order h2{font-weight:800;font-size:clamp(26px,3.4vw,34px);line-height:1.15;}
+.m-head p{margin:0;font-size:1rem;line-height:1.6;color:var(--text-mid);}
+
+.m-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;}
+.m-feature{display:flex;flex-wrap:wrap;}
+.m-feature .m-gallery{flex:1 1 520px;}
+.m-body{flex:1 1 380px;min-width:0;padding:32px;display:flex;flex-direction:column;gap:14px;}
+.m-body p{margin:0;font-size:1rem;line-height:1.6;color:var(--text-mid);}
+.m-body ul{margin:0;padding-left:20px;font-size:0.95rem;line-height:1.7;color:var(--text-mid);}
+.m-gallery{min-width:0;background:var(--photo);padding:14px;display:grid;gap:8px;align-content:center;}
+.m-gallery img{width:100%;height:auto;display:block;border-radius:10px;}
+.m-gallery-2{grid-template-columns:repeat(2,minmax(0,1fr));}
+.m-gallery-3{grid-template-columns:repeat(3,minmax(0,1fr));}
+.m-tag{align-self:flex-start;background:var(--bg-app);color:var(--gold);font-size:0.75rem;font-weight:700;letter-spacing:0.1em;padding:6px 10px;border-radius:6px;}
+.m-tag-gold{background:none;padding:0;}
+.m-label{font-size:0.8rem;font-weight:700;color:var(--ink-soft);margin-top:4px;}
+.m-chips{display:flex;gap:6px;flex-wrap:wrap;}
+.m-chips span{border:1px solid var(--line);border-radius:6px;padding:7px 12px;font-size:0.9rem;background:#fff;}
+.m-chips-dark span{background:var(--bg-app);border-color:var(--bg-app);color:#EFEAD8;font-weight:600;}
+.m-colors{display:flex;gap:14px;flex-wrap:wrap;font-size:0.9rem;}
+.m-colors span{display:inline-flex;align-items:center;gap:8px;}
+.m-colors i{width:22px;height:22px;border-radius:50%;border:1px solid;display:inline-block;}
+.m-meta{font-size:0.88rem !important;color:var(--ink-soft) !important;}
+.m-buy{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:auto;padding-top:14px;border-top:1px solid var(--line);}
+.m-price{font-family:'Exo 2',sans-serif;font-weight:800;font-size:1.6rem;color:var(--rust-dark);}
+.m-price-sm{font-size:1.3rem;}
+
+.m-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;}
+.m-product{display:flex;flex-direction:column;}
+.m-product .m-gallery{padding:12px;}
+.m-product .m-body{padding:22px;gap:10px;flex:1;}
+.m-product h3{font-weight:800;font-size:1.35rem;}
+.m-dark{background:var(--bg-app);border-color:var(--line-dark);color:#EFEAD8;}
+.m-dark .m-body p{color:#D9D3BC;}
+.m-dark .m-meta{color:#B5AD92 !important;}
+.m-dark .m-buy{border-top-color:var(--line-dark);}
+.m-dark .m-price{color:var(--gold);}
+
+.m-sticker{flex:1 1 360px;min-width:0;background:var(--bg-app);display:flex;align-items:center;justify-content:center;padding:40px;}
+.m-sticker img{width:240px;height:auto;transform:rotate(-6deg);filter:drop-shadow(0 10px 18px rgba(0,0,0,0.4));}
+
+/* jak objednat */
+.m-order{background:var(--bg-app);color:#EFEAD8;border-radius:16px;padding:40px 32px;display:flex;flex-direction:column;gap:24px;}
+.m-order-lead{margin:-12px 0 0;color:#D9D3BC;}
+.m-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;}
+.m-steps li{background:var(--bg-app-2);border:1px solid var(--line-dark);border-radius:12px;padding:22px;display:flex;flex-direction:column;gap:8px;}
+.m-step-n{font-family:'Exo 2',sans-serif;font-weight:900;font-style:italic;font-size:2rem;color:var(--gold);line-height:1;}
+.m-step-t{font-weight:700;font-size:1.05rem;}
+.m-step-d{font-size:0.95rem;line-height:1.55;color:#D9D3BC;}
+.m-order a{color:#E9C77E;}
+.m-notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;font-size:0.9rem;line-height:1.6;color:#D9D3BC;border-top:1px solid var(--line-dark);padding-top:20px;}
+.m-notes b{color:#EFEAD8;}
+
+.m-foot{background:var(--bg-app);color:#A89E7C;padding:24px;font-size:0.85rem;text-align:center;}
+.m-foot a{color:var(--gold);}
+
+@media (max-width:760px){
+  .m-top{padding:8px 12px;}
+  .m-brand{font-size:1.1rem;}
+  .m-brand img{width:32px;height:32px;}
+  .m-nav a{padding:6px 10px;font-size:0.8rem;}
+  .m-hero{padding:36px 0 44px;}
+  .m-hero-logo{width:200px;}
+  .m-main{padding-top:32px;gap:44px;}
+  .m-body{padding:22px;}
+  .m-gallery-3{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .m-order{padding:28px 20px;}
+}
