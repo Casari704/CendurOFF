@@ -82,6 +82,35 @@ public/           – frontend (statické soubory, servíruje je stejný server)
 Endpointy navíc: `DELETE /api/routes/:id` (smaže trasu, fotky se smažou automaticky) a
 `DELETE /api/routes/:id/photos/:photoId` (smaže jednu fotku).
 
+## Novinky ve verzi 1.46
+
+- **Jízdní režim Atlasu** (mobil na výšku a nízké displeje na šířku, např. Samsung A13 na motorce):
+  tlačítka ve dvou sloupcích u okrajů, uprostřed volný pruh pro trasu. Nahoře vlevo celá obrazovka,
+  mapa, benzínky; nahoře vpravo ☰ a záznam; dole (pro palec) sever/směr jízdy, sledovat polohu, + a −.
+  Hlavička je schovaná za ☰, seznam tras se otevírá tlačítkem „Trasy“ v hlavičce.
+- **Šipka při sledování níž:** na výšku 80 % výšky mapy, na šířku 75 % (dřív 67 %).
+- **Sbalitelný panel záznamu:** v jízdním režimu jako malá lišta s časem a km, ťuknutím se rozbalí
+  na Pauza / Stop (sbalit jde i na PC šipkou ▾).
+- **Celá obrazovka:** podpora starších prohlížečů (Samsung Internet, starší Chrome); kde to nejde
+  (iPhone), ukáže se návod „Přidat na plochu“.
+- **Aplikace z plochy:** `manifest.webmanifest` + ikony – CendurOFF přidaný na plochu se otevírá bez
+  adresního řádku přes celý displej (Android i iPhone), s ohledem na výřez displeje.
+- Plovoucí tlačítka nad mapou se přepočítají při každé změně výšky hlavičky; dlouhé jméno
+  uživatele (e-mail) se v hlavičce zkrátí.
+
+## Novinky ve verzi 1.45
+
+- **Přihlašování přepsané na token:** po přihlášení server vrátí podepsaný přihlašovací token,
+  web si ho uloží v prohlížeči a posílá ho s každým požadavkem v hlavičce `Authorization: Bearer …`.
+  Přihlášení tak funguje na všech stránkách (Atlas, Plánovač, Merch) i v prohlížečích, které blokují
+  cookies cizích domén (anonymní okno, Safari na iPhonu). Cookie zůstává jako záloha.
+  Odhlášení token smaže. **Vyžaduje nasadit nový `server.js` na Railway.**
+
+## Novinky ve verzi 1.44
+
+- Prázdná nebo chybějící adresa backendu v `config.js` (třeba stará verze z mezipaměti) se teď vždy
+  nahradí adresou Railway, takže přihlášení nemůže skončit na „Něco se pokazilo“.
+
 ## Novinky ve verzi 1.43
 
 - Pojistka proti nekonečnému přeskakování mezi Plánovačem a přihlášením v Atlasu (blikání obrazovky):
