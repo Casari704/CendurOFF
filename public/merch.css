@@ -14,18 +14,10 @@ a{color:var(--rust-dark);}
 a:hover{color:var(--rust);}
 img{max-width:100%;}
 
-/* hlavička */
-.m-top{background:var(--bg-app);color:#EFEAD8;padding:10px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-  position:sticky;top:0;z-index:10;box-shadow:0 1px 0 rgba(0,0,0,0.2);}
-.m-brand{display:flex;align-items:center;gap:10px;margin-right:auto;color:#EFEAD8;text-decoration:none;
-  font-family:'Exo 2',sans-serif;font-weight:700;font-size:1.35rem;white-space:nowrap;}
-.m-brand:hover{color:#EFEAD8;}
-.m-brand img{width:40px;height:40px;}
-.brand-sub{font-family:'Roboto',sans-serif;font-size:0.8rem;font-weight:500;color:var(--gold);text-transform:uppercase;letter-spacing:0.6px;margin-left:4px;}
-.m-nav{display:flex;gap:8px;flex-wrap:wrap;}
-.m-nav a{color:#EFEAD8;text-decoration:none;border:1px solid rgba(239,234,216,0.3);border-radius:6px;padding:8px 14px;font-size:0.9rem;}
-.m-nav a:hover{background:rgba(255,255,255,0.08);color:#EFEAD8;}
-.m-nav a.active{background:var(--rust);border-color:var(--rust);color:#fff;font-weight:600;}
+/* hlavička je společná (style.css + header.js); tady jen přilepení k hornímu okraji při rolování */
+html,body{height:auto;}
+body{overflow:auto;}
+header.topbar{position:sticky;top:0;}
 
 /* úvod */
 .m-wrap{max-width:1200px;margin:0 auto;padding-left:24px;padding-right:24px;}
@@ -112,10 +104,6 @@ img{max-width:100%;}
 .m-foot a{color:var(--gold);}
 
 @media (max-width:760px){
-  .m-top{padding:8px 12px;}
-  .m-brand{font-size:1.1rem;}
-  .m-brand img{width:32px;height:32px;}
-  .m-nav a{padding:6px 10px;font-size:0.8rem;}
   .m-hero{padding:36px 0 44px;}
   .m-hero-logo{width:200px;}
   .m-main{padding-top:32px;gap:44px;}

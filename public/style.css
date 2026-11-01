@@ -622,3 +622,31 @@ a.btn{text-decoration:none;}
 /* odkaz na Merch v textu na přihlašovací stránce (v1.38) */
 .hero-credit a{color:var(--gold);text-decoration:none;font-weight:700;}
 .hero-credit a:hover{color:#E0B65A;}
+
+/* ---------- společná hlavička Atlas · Plánovač · Merch (v1.40, public/header.js) ---------- */
+header.topbar{gap:8px 10px;}
+.brand-link{display:flex;align-items:center;gap:10px;color:#EFEAD8;text-decoration:none;margin-right:6px;}
+.brand-link:hover{color:#EFEAD8;}
+header.topbar .brand-link .brand{margin-right:0;margin-left:0;}
+.site-nav{display:flex;gap:6px;flex-wrap:wrap;}
+.site-actions{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto;}
+.btn[hidden]{display:none;}
+/* aktivní stránka: zlatý obrys */
+.nav-link.active{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold);color:#F1D79A;}
+.nav-link.active:hover{background:rgba(199,154,62,0.12);}
+/* okno Můj účet */
+.account-sub{font-size:0.95rem;margin:4px 0 0;}
+.logout-btn{display:block;width:100%;margin-top:18px;padding:11px;border-radius:6px;background:none;
+  border:1px solid var(--rust);color:var(--rust-dark);font-weight:600;font-size:0.92rem;}
+.logout-btn:hover{background:var(--rust);color:#fff;}
+@media (max-width:760px){
+  /* mobil: 1. řádek logo + uživatel, 2. řádek menu a ostatní tlačítka – stejně na všech stránkách */
+  header.topbar{gap:6px 5px;}
+  .brand-link{gap:6px;margin-right:0;order:0;}
+  .site-actions{display:contents;}
+  #user-chip,#login-link{order:1;margin-left:auto;}
+  .site-nav{order:2;gap:5px;}
+  #open-upload{order:3;}
+  #open-about{order:4;}
+  header.topbar .btn{padding:6px 8px;font-size:0.74rem;}
+}

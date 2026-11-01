@@ -954,9 +954,7 @@ function restoreDraft(){
     return;
   }
   document.body.classList.remove('auth-pending');
-  const userTag = document.getElementById('pl-user');
-  userTag.textContent = currentUser ? currentUser.displayName + (isAdminUser() ? ' · admin' : '') : 'Nepřihlášen(a)';
-  userTag.classList.toggle('muted', !currentUser);
+  if(window.CendurHeader) window.CendurHeader.setUser(currentUser);
 
   const params = new URLSearchParams(location.search);
   const routeId = Number(params.get('trasa'));

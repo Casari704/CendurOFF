@@ -45,11 +45,6 @@
     if(panel) panel.insertAdjacentHTML('afterbegin',
       `<button class="panel-tab" id="detail-panel-tab" type="button" title="Zavřít detail trasy" aria-label="Zavřít detail trasy"><span class="tab-arrow">‹</span></button>`);
   }
-  // záznam jízdy + odkaz na plánovač (verze 1.27)
-  if(!document.getElementById('open-planner')){
-    const up = document.getElementById('open-upload');
-    if(up) up.insertAdjacentHTML('afterend', `<a class="btn" id="open-planner" href="planovac.html">✏️ Plánovač</a>`);
-  }
   if(!document.getElementById('rec-btn')){
     const lc = document.getElementById('locate-controls');
     if(lc) lc.insertAdjacentHTML('afterbegin', `
@@ -111,8 +106,6 @@
     const sat = document.getElementById('satellite-btn');
     if(sat) sat.insertAdjacentHTML('beforebegin', `<button class="map-btn map-btn-square" id="fuel-btn" title="Zobrazit / skrýt čerpací stanice">⛽</button>`);
   }
-  const brandEl = document.querySelector('header.topbar .brand');
-  if(brandEl && !brandEl.querySelector('.brand-sub')) brandEl.insertAdjacentHTML('beforeend', ` <span class="brand-sub">Atlas</span>`);
   if(!document.getElementById('lightbox')){
     document.body.insertAdjacentHTML('beforeend', `
       <div id="lightbox" role="dialog" aria-modal="true" aria-label="Prohlížeč fotek">
@@ -401,13 +394,6 @@ loginForm.addEventListener('submit', async (e)=>{
   }
 });
 
-document.getElementById('logout-btn').addEventListener('click', async ()=>{
-  try{ await api('/api/auth/logout', { method:'POST' }); }catch(e){}
-  currentUser = null;
-  releaseWakeLock();
-  document.getElementById('app-screen').style.display='none';
-  document.getElementById('login-screen').style.display='flex';
-});
 
 // ---------------------------------------------------------------
 // Map + routes
@@ -458,49 +444,7 @@ routeListTab.addEventListener('click', ()=>{
 document.getElementById('detail-panel-tab').addEventListener('click', closeDetail);
 window.addEventListener('resize', syncMobilePanelTabs);
 
-// modal "O projektu"
-const aboutOverlay = document.getElementById('about-overlay');
-document.getElementById('open-about').addEventListener('click', ()=> aboutOverlay.classList.add('open'));
-document.getElementById('about-close').addEventListener('click', ()=> aboutOverlay.classList.remove('open'));
-aboutOverlay.addEventListener('click', (e)=>{ if(e.target===aboutOverlay) aboutOverlay.classList.remove('open'); });
-
-// modal "Můj účet" (jméno v headeru) - změna hesla
-const accountOverlay = document.getElementById('account-overlay');
-const changePasswordForm = document.getElementById('change-password-form');
-document.getElementById('user-chip').addEventListener('click', ()=>{
-  if(!currentUser) return;
-  document.getElementById('account-username-label').textContent = 'Přihlášen(a) jako ' + currentUser.displayName;
-  changePasswordForm.reset();
-  document.getElementById('cp-msg').textContent = '';
-  accountOverlay.classList.add('open');
-});
-document.getElementById('account-close').addEventListener('click', ()=> accountOverlay.classList.remove('open'));
-document.getElementById('cp-cancel').addEventListener('click', ()=> accountOverlay.classList.remove('open'));
-accountOverlay.addEventListener('click', (e)=>{ if(e.target===accountOverlay) accountOverlay.classList.remove('open'); });
-changePasswordForm.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const msg = document.getElementById('cp-msg');
-  const cur = document.getElementById('cp-current').value;
-  const next = document.getElementById('cp-new').value;
-  const confirmVal = document.getElementById('cp-confirm').value;
-  msg.style.color = '';
-  if(next.length < 4){ msg.textContent = 'Nové heslo musí mít alespoň 4 znaky.'; return; }
-  if(next !== confirmVal){ msg.textContent = 'Nová hesla se neshodují.'; return; }
-  msg.textContent = 'Ukládám…';
-  try{
-    await api('/api/auth/change-password', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ currentPassword: cur, newPassword: next })
-    });
-    msg.style.color = 'var(--moss-dark)';
-    msg.textContent = 'Heslo bylo změněno.';
-    toast('Heslo bylo změněno.');
-    setTimeout(()=> accountOverlay.classList.remove('open'), 900);
-  }catch(err){
-    msg.textContent = err.message || 'Heslo se nepodařilo změnit.';
-  }
-});
+// okna „O projektu“ a „Můj účet“ (změna hesla, odhlášení) obsluhuje společná hlavička – public/header.js
 
 function initMap(){
   if(map) return;
@@ -2092,7 +2036,7 @@ window.addEventListener('beforeunload', (e)=>{
 async function enterApp(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app-screen').style.display='flex';
-  document.getElementById('user-chip').textContent = currentUser.displayName + (isAdminUser() ? ' · admin' : '');
+  if(window.CendurHeader) window.CendurHeader.setUser(currentUser);
   initMap();
   setTimeout(()=>map.invalidateSize(), 50);
   if(!enterApp._fuelBound){
