@@ -1361,7 +1361,7 @@ if(RIDE_MQ.addEventListener) RIDE_MQ.addEventListener('change', applyRideUi); el
 // tlačítko 🗺 (dřív jen satelit) otevírá nabídku podkladových map
 const satelliteBtn = document.getElementById('satellite-btn');
 satelliteBtn.textContent = '🗺';
-satelliteBtn.title = 'Podkladová mapa a benzínky';
+satelliteBtn.title = 'Podkladová mapa, benzínky, CHKO';
 document.body.insertAdjacentHTML('beforeend', `<div id="layer-menu" role="menu">
   <div class="layer-menu-title">Podkladová mapa</div>
   ${BASE_ORDER.map(k=>`<button type="button" class="layer-opt" data-base="${k}" role="menuitemradio"><span class="layer-radio"></span>${BASE_MAPS[k].label}</button>`).join('')}
@@ -1695,103 +1695,73 @@ document.addEventListener('webkitfullscreenchange', onFsChange);
 
 // ---------------------------------------------------------------
 // Čerpací stanice (benzínky) na mapě - data z OpenStreetMap přes Overpass API
-// - načítají se po dlaždicích podle výřezu mapy (od přiblížení FUEL_MIN_ZOOM),
-//   výsledky se pamatují v prohlížeči na týden, ať se nestahují pořád dokola
-// - zapíná/vypíná je tlačítko ⛽ (stav se pamatuje)
+// - celá oblast ČR + 100 km se stáhne najednou a pamatuje se v prohlížeči na týden
+// - zapínají/vypínají se v nabídce 🗺 (stav se pamatuje)
 // ---------------------------------------------------------------
 const FUEL_MIN_ZOOM = 10;
-const FUEL_TILE_DEG = 0.25;
-const FUEL_CACHE_DAYS = 7;
-const FUEL_CACHE_PREFIX = 'cenduroff.fuel.';
-const OVERPASS_URLS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
 const FUEL_SVG = '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M4 3h9a1 1 0 0 1 1 1v8h1.5a2.5 2.5 0 0 1 2.5 2.5V18a1 1 0 0 0 2 0v-6.6l-2.7-2.7a1 1 0 1 1 1.4-1.4l3 3a1 1 0 0 1 .3.7V18a3 3 0 0 1-6 0v-3.5a.5.5 0 0 0-.5-.5H14v7h1a1 1 0 1 1 0 2H2a1 1 0 1 1 0-2h1V4a1 1 0 0 1 1-1zm1.5 2v5h6V5h-6z"/></svg>';
 
+// Benzínky (v1.49): stáhnou se JEDNOU pro celou ČR + 100 km od hranic (regiondata.js),
+// uloží se v prohlížeči na týden; na mapě se pak ukazují jen ty v záběru (od přiblížení 10).
 let fuelOn = localStorage.getItem('fuelOn') !== '0';
 let fuelLayer = null, fuelHintShown = false, fuelErrorShown = false;
-const fuelTiles = {};          // klíč dlaždice -> 'loading' | 'done'
-const fuelSeen = new Set();    // id stanic už přidaných na mapu
-const fuelQueue = [];
-let fuelBusy = false;
-const fuelBtn = document.getElementById('fuel-toggle');
+let fuelData = null, fuelLoading = false, fuelRetry = null;
+const FUEL_CELL = 0.1;               // mřížka pro rychlé hledání stanic v záběru
+const fuelGrid = {};                 // "x_y" -> [stanice]
+const fuelMarkers = new Map();       // id -> marker (jen ty, co jsou teď na mapě)
+try{ Object.keys(localStorage).filter(k=>k.startsWith('cenduroff.fuel.')).forEach(k=>localStorage.removeItem(k)); }catch(e){} // úklid starých dlaždic (≤ v1.48)
 
 function fuelIcon(){
   return L.divIcon({ className:'fuel-marker', html:`<div class="fuel-ico">${FUEL_SVG}</div>`, iconSize:[22,22], iconAnchor:[11,11], popupAnchor:[0,-10] });
 }
-function fuelTileKey(x, y){ return x + '_' + y; }
-function addFuelStations(items){
-  if(!fuelLayer) return;
-  items.forEach(st=>{
-    if(fuelSeen.has(st.id)) return;
-    fuelSeen.add(st.id);
-    const title = st.name || st.brand || 'Čerpací stanice';
-    const extra = [st.brand && st.brand !== title ? st.brand : '', st.hours ? 'Otevřeno: ' + st.hours : ''].filter(Boolean);
-    const m = L.marker([st.lat, st.lon], { icon:fuelIcon(), keyboard:false, zIndexOffset:-500 });
-    m.bindTooltip(escapeHtml(title), { direction:'top', offset:[0,-10], className:'trail-tip' });
-    m.bindPopup(`<div class="fuel-popup"><b>⛽ ${escapeHtml(title)}</b>${extra.map(e=>`<div>${escapeHtml(e)}</div>`).join('')}</div>`);
-    m.addTo(fuelLayer);
+function makeFuelMarker(st){
+  // kompaktní záznam: [id, lat, lon, název, značka, otevírací doba]
+  const [, lat, lon, name, brand, hours] = st;
+  const title = name || brand || 'Čerpací stanice';
+  const extra = [brand && brand !== title ? brand : '', hours ? 'Otevřeno: ' + hours : ''].filter(Boolean);
+  const m = L.marker([lat, lon], { icon:fuelIcon(), keyboard:false, zIndexOffset:-500 });
+  m.bindTooltip(escapeHtml(title), { direction:'top', offset:[0,-10], className:'trail-tip' });
+  m.bindPopup(`<div class="fuel-popup"><b>⛽ ${escapeHtml(title)}</b>${extra.map(e=>`<div>${escapeHtml(e)}</div>`).join('')}</div>`);
+  return m;
+}
+function downloadFuel(){
+  const R = window.CendurRegion;
+  // 3 pruhy po sobě - menší dotazy než jeden obří
+  return R.stripes(3).reduce((p, box)=>p.then(async acc=>{
+    const q = `[out:json][timeout:180];(node["amenity"="fuel"](${R.bboxStr(box)});way["amenity"="fuel"](${R.bboxStr(box)}););out center tags;`;
+    const data = await R.overpass(q);
+    (data.elements || []).forEach(el=>{
+      const t = el.tags || {};
+      const lat = el.lat != null ? el.lat : (el.center && el.center.lat);
+      const lon = el.lon != null ? el.lon : (el.center && el.center.lon);
+      if(lat == null || lon == null) return;
+      acc.push([el.type[0] + el.id, +lat.toFixed(6), +lon.toFixed(6), t.name || '', t.brand || t.operator || '', t.opening_hours || '']);
+    });
+    return acc;
+  }), Promise.resolve([]));
+}
+function indexFuel(list){
+  const seen = new Set();
+  list.forEach(st=>{
+    if(seen.has(st[0])) return; seen.add(st[0]);
+    const k = Math.floor(st[2]/FUEL_CELL) + '_' + Math.floor(st[1]/FUEL_CELL);
+    (fuelGrid[k] || (fuelGrid[k] = [])).push(st);
   });
+  fuelData = list;
 }
-function readFuelCache(key){
-  try{
-    const c = JSON.parse(localStorage.getItem(FUEL_CACHE_PREFIX + key) || 'null');
-    if(c && Date.now() - c.t < FUEL_CACHE_DAYS*86400000) return c.items;
-  }catch(e){}
-  return null;
-}
-function writeFuelCache(key, items){
-  try{ localStorage.setItem(FUEL_CACHE_PREFIX + key, JSON.stringify({ t:Date.now(), items })); }
-  catch(e){
-    // plné úložiště - smažeme staré dlaždice benzínek a zkusíme to znovu
-    try{
-      Object.keys(localStorage).filter(k=>k.startsWith(FUEL_CACHE_PREFIX)).forEach(k=>localStorage.removeItem(k));
-      localStorage.setItem(FUEL_CACHE_PREFIX + key, JSON.stringify({ t:Date.now(), items }));
-    }catch(e2){}
-  }
-}
-// jeden dotaz na obdélník dlaždic x0..x1 × y0..y1
-async function fetchFuelBox(x0, y0, x1, y1){
-  const s = y0*FUEL_TILE_DEG, w = x0*FUEL_TILE_DEG, n = (y1+1)*FUEL_TILE_DEG, e = (x1+1)*FUEL_TILE_DEG;
-  const bbox = `${s.toFixed(4)},${w.toFixed(4)},${n.toFixed(4)},${e.toFixed(4)}`;
-  const q = `[out:json][timeout:25];(node["amenity"="fuel"](${bbox});way["amenity"="fuel"](${bbox}););out center tags;`;
-  let lastErr = null;
-  for(const url of OVERPASS_URLS){
-    try{
-      const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded' }, body:'data=' + encodeURIComponent(q) });
-      if(!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      return (data.elements || []).map(el=>{
-        const t = el.tags || {};
-        const lat = el.lat != null ? el.lat : (el.center && el.center.lat);
-        const lon = el.lon != null ? el.lon : (el.center && el.center.lon);
-        return { id: el.type + el.id, lat, lon, name: t.name || '', brand: t.brand || t.operator || '', hours: t.opening_hours || '' };
-      }).filter(st=>st.lat != null && st.lon != null);
-    }catch(err){ lastErr = err; }
-  }
-  throw lastErr || new Error('Overpass nedostupný');
-}
-async function pumpFuelQueue(){
-  if(fuelBusy) return;
-  fuelBusy = true;
-  while(fuelQueue.length){
-    // všechny čekající dlaždice najednou jedním dotazem (méně zátěže pro Overpass)
-    const tiles = fuelQueue.splice(0, fuelQueue.length);
-    const xs = tiles.map(t=>t[0]), ys = tiles.map(t=>t[1]);
-    try{
-      const items = await fetchFuelBox(Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys));
-      const byTile = {};
-      tiles.forEach(([x,y])=>{ byTile[fuelTileKey(x,y)] = []; });
-      items.forEach(st=>{
-        const k = fuelTileKey(Math.floor(st.lon/FUEL_TILE_DEG), Math.floor(st.lat/FUEL_TILE_DEG));
-        if(byTile[k]) byTile[k].push(st);
-      });
-      Object.keys(byTile).forEach(k=>{ fuelTiles[k] = 'done'; writeFuelCache(k, byTile[k]); });
-      if(fuelOn) addFuelStations(items);
-    }catch(e){
-      tiles.forEach(([x,y])=>{ delete fuelTiles[fuelTileKey(x,y)]; }); // zkusí se znovu při dalším posunu mapy
-      if(!fuelErrorShown){ fuelErrorShown = true; toast('Benzínky se teď nepodařilo načíst (služba OpenStreetMap je přetížená nebo chybí signál).', 4500); }
-    }
-  }
-  fuelBusy = false;
+function loadFuel(){
+  if(fuelData || fuelLoading || !window.CendurRegion) return;
+  fuelLoading = true;
+  window.CendurRegion.load('fuel', downloadFuel, ()=>toast('Stahuji benzínky pro celou ČR + 100 km (jednou za týden)…', 3500)).then(list=>{
+    fuelLoading = false;
+    indexFuel(list);
+    updateFuel();
+  }).catch(()=>{
+    fuelLoading = false;
+    if(!fuelErrorShown){ fuelErrorShown = true; toast('Benzínky se teď nepodařilo načíst (služba OpenStreetMap je přetížená nebo chybí signál). Zkusím to znovu.', 4500); }
+    clearTimeout(fuelRetry);
+    fuelRetry = setTimeout(loadFuel, 30000);
+  });
 }
 function updateFuel(){
   if(!map) return;
@@ -1799,21 +1769,25 @@ function updateFuel(){
   const visible = fuelOn && map.getZoom() >= FUEL_MIN_ZOOM;
   if(visible && !map.hasLayer(fuelLayer)) fuelLayer.addTo(map);
   if(!visible && map.hasLayer(fuelLayer)) map.removeLayer(fuelLayer);
+  if(!fuelOn) return;
+  if(!fuelData){ loadFuel(); return; }
   if(!visible) return;
-  const b = map.getBounds();
-  const x0 = Math.floor(b.getWest()/FUEL_TILE_DEG), x1 = Math.floor(b.getEast()/FUEL_TILE_DEG);
-  const y0 = Math.floor(b.getSouth()/FUEL_TILE_DEG), y1 = Math.floor(b.getNorth()/FUEL_TILE_DEG);
-  if((x1-x0+1)*(y1-y0+1) > 30) return; // pojistka (velmi široká obrazovka)
+  // jen stanice v záběru (+ okraj), ostatní z mapy pryč - ať je mapa svižná
+  const b = map.getBounds().pad(0.3);
+  const x0 = Math.floor(b.getWest()/FUEL_CELL), x1 = Math.floor(b.getEast()/FUEL_CELL);
+  const y0 = Math.floor(b.getSouth()/FUEL_CELL), y1 = Math.floor(b.getNorth()/FUEL_CELL);
+  const want = new Set();
   for(let x=x0;x<=x1;x++) for(let y=y0;y<=y1;y++){
-    const key = fuelTileKey(x, y);
-    if(fuelTiles[key]) continue;
-    const cached = readFuelCache(key);
-    if(cached){ fuelTiles[key] = 'done'; addFuelStations(cached); continue; }
-    fuelTiles[key] = 'loading';
-    fuelQueue.push([x, y]);
+    (fuelGrid[x + '_' + y] || []).forEach(st=>{
+      want.add(st[0]);
+      if(!fuelMarkers.has(st[0])){ const m = makeFuelMarker(st); fuelMarkers.set(st[0], m); m.addTo(fuelLayer); }
+    });
   }
-  pumpFuelQueue();
+  fuelMarkers.forEach((m, id)=>{
+    if(!want.has(id) && !m.isPopupOpen()){ fuelLayer.removeLayer(m); fuelMarkers.delete(id); }
+  });
 }
+const fuelBtn = document.getElementById('fuel-toggle');
 function syncFuelBtn(){
   if(!fuelBtn) return;
   fuelBtn.classList.toggle('active', fuelOn);
@@ -2180,6 +2154,7 @@ async function enterApp(){
   if(!enterApp._fuelBound){
     enterApp._fuelBound = true;
     map.on('moveend', updateFuel);
+    if(window.CendurChko) CendurChko.attach(map, layerMenu);
     setTimeout(updateFuel, 400);
   }
   positionFloatingMapButtons();

@@ -386,13 +386,14 @@ baseLayers[currentBase].addTo(map);
 document.getElementById('pl-zoom-in').addEventListener('click', ()=> map.zoomIn());
 document.getElementById('pl-zoom-out').addEventListener('click', ()=> map.zoomOut());
 const layersBtn = document.getElementById('pl-layers-btn');
+layersBtn.title = 'Podkladová mapa, CHKO';
 document.body.insertAdjacentHTML('beforeend', `<div id="layer-menu" role="menu">
   <div class="layer-menu-title">Podkladová mapa</div>
   ${BASE_ORDER.map(k=>`<button type="button" class="layer-opt" data-base="${k}" role="menuitemradio"><span class="layer-radio"></span>${baseNames[k]}</button>`).join('')}
 </div>`);
 const layerMenu = document.getElementById('layer-menu');
 function syncLayerMenu(){
-  layerMenu.querySelectorAll('.layer-opt').forEach(b=>{
+  layerMenu.querySelectorAll('.layer-opt[data-base]').forEach(b=>{
     const on = b.dataset.base === currentBase;
     b.classList.toggle('active', on);
     b.setAttribute('aria-checked', String(on));
@@ -431,6 +432,7 @@ document.addEventListener('click', (e)=>{
 });
 window.addEventListener('resize', ()=>{ if(layerMenu.classList.contains('open')) placeLayerMenu(); });
 syncLayerMenu();
+if(window.CendurChko) CendurChko.attach(map, layerMenu);
 
 map.createPane('pl-others').style.zIndex = 405;
 map.createPane('pl-route').style.zIndex = 450;
