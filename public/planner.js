@@ -54,9 +54,10 @@ function computeStats(points){
 }
 async function api(url, options){
   const res = await fetch(API_URL + url, Object.assign({ credentials:'include' }, options));
-  let data = null;
-  try{ data = await res.json(); }catch(e){}
+  let data = null, isJson = false;
+  try{ data = await res.json(); isJson = true; }catch(e){}
   if(!res.ok) throw new Error((data && data.error) || 'Něco se pokazilo.');
+  if(!isJson) throw new Error('Server neodpověděl správně (zkus to prosím za chvíli).');
   return data;
 }
 function parseGPX(text){
@@ -949,11 +950,28 @@ function restoreDraft(){
 (async function boot(){
   try{ currentUser = await api('/api/auth/me'); }catch(e){ currentUser = null; }
   if(!currentUser){
-    // Plánovač je jen pro přihlášené členy - pošleme na přihlášení a po něm zpátky sem
+    // Plánovač je jen pro přihlášené členy - pošleme na přihlášení a po něm zpátky sem.
+    // Pojistka proti nekonečnému přeskakování Atlas <-> Plánovač: když se to během chvíle
+    // opakuje, přestaneme přesměrovávat a ukážeme hlášku.
+    let hops = [];
+    try{ hops = JSON.parse(sessionStorage.getItem('plAuthHops') || '[]').filter(t=>Date.now()-t < 20000); }catch(e){}
+    if(hops.length >= 2){
+      try{ sessionStorage.removeItem('plAuthHops'); }catch(e){}
+      document.body.classList.remove('auth-pending');
+      document.getElementById('app-screen').innerHTML =
+        '<div style="margin:auto;max-width:420px;padding:32px;text-align:center;font-family:Roboto,sans-serif">' +
+        '<h2 style="font-family:\'Exo 2\',sans-serif">Přihlášení se nepodařilo ověřit</h2>' +
+        '<p>Server teď neodpovídá nebo prohlížeč blokuje přihlašovací cookie. Zkus to prosím za chvíli znovu.</p>' +
+        '<p><a href="index.html">Přejít do Atlasu</a></p></div>';
+      return;
+    }
+    hops.push(Date.now());
+    try{ sessionStorage.setItem('plAuthHops', JSON.stringify(hops)); }catch(e){}
     const back = 'planovac.html' + location.search;
     location.replace('index.html?next=' + encodeURIComponent(back));
     return;
   }
+  try{ sessionStorage.removeItem('plAuthHops'); }catch(e){}
   document.body.classList.remove('auth-pending');
   if(window.CendurHeader) window.CendurHeader.setUser(currentUser);
 

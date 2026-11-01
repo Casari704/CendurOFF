@@ -94,9 +94,10 @@
 
   async function api(url, options){
     const res = await fetch(API_URL + url, Object.assign({ credentials:'include' }, options));
-    let data = null;
-    try{ data = await res.json(); }catch(e){}
+    let data = null, isJson = false;
+    try{ data = await res.json(); isJson = true; }catch(e){}
     if(!res.ok) throw new Error((data && data.error) || 'Něco se pokazilo.');
+    if(!isJson) throw new Error('Server neodpověděl správně (zkus to prosím za chvíli).');
     return data;
   }
   function closeOnBackdrop(overlay){ overlay.addEventListener('click', e=>{ if(e.target===overlay) overlay.classList.remove('open'); }); }

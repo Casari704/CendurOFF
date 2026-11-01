@@ -1,9 +1,5 @@
 // Společné nastavení pro Atlas (index.html), Plánovač (planovac.html) a Merch (merch.html).
 
-// Adresa backendu pro volání API.
-// Prázdný řetězec = API běží na STEJNÉ adrese jako web: Vercel ho podle souboru vercel.json
-// přeposílá na Railway (/api/* -> https://cenduroff-web.up.railway.app/api/*).
-// Díky tomu je přihlašovací cookie „vlastní“ (first-party) a přihlášení vydrží i v anonymním
-// okně a v Safari na iPhonu, které cookies cizích domén blokují.
-// Kdyby web neběžel na Vercelu, vrať sem plnou adresu: 'https://cenduroff-web.up.railway.app'
-window.CENDUROFF_API_URL = '';
+// Adresa backendu (Railway) bez lomítka na konci.
+// (Pokus z v1.41 s prázdnou adresou a přeposíláním přes vercel.json na tomto hostingu nefunguje.)
+window.CENDUROFF_API_URL = 'https://cenduroff-web.up.railway.app';

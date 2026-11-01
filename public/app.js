@@ -324,9 +324,10 @@ async function api(url, options){
   // Automaticky připojí adresu backendu z Railway ke všem voláním
   const fullUrl = url.startsWith('http') ? url : API_URL + url;
   const res = await fetch(fullUrl, Object.assign({ credentials:'include' }, options));
-  let data = null;
-  try{ data = await res.json(); }catch(e){}
+  let data = null, isJson = false;
+  try{ data = await res.json(); isJson = true; }catch(e){}
   if(!res.ok) throw new Error((data && data.error) || 'Něco se pokazilo.');
+  if(!isJson) throw new Error('Server neodpověděl správně (zkus to prosím za chvíli).');
   return data;
 }
 
