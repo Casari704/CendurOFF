@@ -54,16 +54,7 @@
 
 <!-- ============ APP ============ -->
 <div id="app-screen">
-  <header class="topbar">
-    <img class="brand-logo" src="public/img/pms-logo.png" alt="Petrol Machine Silesia">
-    <div class="brand">CendurOFF <span class="brand-sub">Atlas</span></div>
-    <button class="btn solid" id="open-upload">+ Nahrát trasu</button>
-    <a class="btn" id="open-planner" href="planovac.html">✏️ Plánovač</a>
-    <a class="btn" id="open-merch" href="merch.html">Merch</a>
-    <button class="btn" id="open-about">O projektu</button>
-    <button class="btn" id="user-chip" type="button"></button>
-    <button class="btn" id="logout-btn">Odhlásit se</button>
-  </header>
+  <header class="topbar" data-page="atlas"></header>
   <main class="mapwrap">
     <div id="map"></div>
 
@@ -195,46 +186,7 @@
   </div>
 </div>
 
-<!-- ============ O PROJEKTU MODAL ============ -->
-<div class="modal-overlay" id="about-overlay">
-  <div class="modal about-modal">
-    <button class="detail-close" id="about-close">×</button>
-    <img class="about-logo" src="public/img/pms-logo.png" alt="Petrol Machine Silesia">
-    <h2>O projektu</h2>
-    <p class="sub">CendurOFF vytvořila a spravuje parta <strong>Petrol Machine Silesia</strong> —
-      skupina lidí, které baví offroad, enduro a objevování tras, které nenajdete na žádné
-      turistické mapě.</p>
-    <p class="sub">Cílem je vytvořit offroad atlas, kam si každý může nahrát vlastní GPX trasu, ukázat
-      ji ostatním a přidat pár fotek z cesty.</p>
-    <p class="sub">S připomínkami a nápady na vylepšení nás můžete kontaktovat na našem Facebooku
-      <a href="https://www.facebook.com/PetrolMachineSilesia" target="_blank" rel="noopener">Petrol Machine Silesia</a>
-      nebo na e-mailu <a href="mailto:petrol.machine@gmail.com">petrol.machine@gmail.com</a>.</p>
-    <p class="sub about-soon">Pokud se ti náš projekt líbí, můžeš nás podpořit třeba nákupem
-      <a href="merch.html">merche nebo samolepek CendurOFF</a>.</p>
-  </div>
-</div>
 
-<!-- ============ MŮJ ÚČET MODAL (změna hesla) ============ -->
-<div class="modal-overlay" id="account-overlay">
-  <div class="modal">
-    <button class="detail-close" id="account-close">×</button>
-    <h2>Můj účet</h2>
-    <p class="sub" id="account-username-label"></p>
-    <form id="change-password-form">
-      <label for="cp-current">Současné heslo</label>
-      <input type="password" id="cp-current" autocomplete="current-password" required minlength="4">
-      <label for="cp-new">Nové heslo</label>
-      <input type="password" id="cp-new" autocomplete="new-password" required minlength="4">
-      <label for="cp-confirm">Nové heslo znovu</label>
-      <input type="password" id="cp-confirm" autocomplete="new-password" required minlength="4">
-      <div class="form-msg" id="cp-msg"></div>
-      <div class="actions">
-        <button class="ghost-btn" id="cp-cancel" type="button">Zrušit</button>
-        <button class="primary-btn" type="submit" style="margin-top:0;">Změnit heslo</button>
-      </div>
-    </form>
-  </div>
-</div>
 
 <!-- ============ PROHLÍŽEČ FOTEK ============ -->
 <div id="lightbox" role="dialog" aria-modal="true" aria-label="Prohlížeč fotek">
@@ -249,6 +201,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="public/config.js"></script>
+<script src="public/header.js"></script>
 <script src="public/app.js"></script>
 </body>
 </html>
