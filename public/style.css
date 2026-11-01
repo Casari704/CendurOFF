@@ -650,3 +650,5 @@ header.topbar .brand-link .brand{margin-right:0;margin-left:0;}
   #open-about{order:4;}
   header.topbar .btn{padding:6px 8px;font-size:0.74rem;}
 }
+/* odkazy <a> i <button> v hlavičce stejně vysoké */
+header.topbar .btn{line-height:1.25;font-family:inherit;box-sizing:border-box;}

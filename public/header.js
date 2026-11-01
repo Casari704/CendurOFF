@@ -11,7 +11,8 @@
 // Merch si přihlášení ověří sám (data-auth="auto").
 // ---------------------------------------------------------------
 (function(){
-  const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
+  // '' = stejná adresa jako web (přes vercel.json); bez config.js záložně přímo Railway
+  const API_URL = (typeof window.CENDUROFF_API_URL === 'string') ? window.CENDUROFF_API_URL : 'https://cenduroff-web.up.railway.app';
   const header = document.querySelector('header.topbar[data-page]');
   if(!header) return;
   const page = header.dataset.page;
@@ -34,7 +35,7 @@
       ${page==='atlas' ? '<button class="btn solid" id="open-upload" type="button">+ Nahrát trasu</button>' : ''}
       <button class="btn" id="open-about" type="button">O projektu</button>
       <button class="btn user-btn" id="user-chip" type="button" hidden></button>
-      <a class="btn" id="login-link" href="index.html" hidden>Přihlásit se</a>
+      <a class="btn" id="login-link" href="index.html${page==='atlas' ? '' : '?next=' + encodeURIComponent(current.href)}" hidden>Přihlásit se</a>
     </div>`;
 
   // --- okna (vloží se jen jednou) ---

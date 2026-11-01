@@ -27,6 +27,8 @@ header.topbar{position:sticky;top:0;}
 .m-eyebrow{font-size:0.8rem;letter-spacing:0.12em;color:var(--gold);font-weight:700;}
 .m-hero h1{font-weight:900;font-style:italic;font-size:clamp(48px,7vw,88px);line-height:1;}
 .m-hero h1 span{color:var(--gold);}
+.m-hero h1 .m-h1-pre{color:#EFEAD8;}
+.m-hero h1{font-size:clamp(40px,6vw,76px);}
 .m-hero p{margin:0;font-size:1.1rem;line-height:1.6;color:#D9D3BC;max-width:560px;}
 .m-hero-logo{flex:0 1 300px;width:300px;max-width:70vw;height:auto;margin:0 auto;filter:drop-shadow(0 8px 18px rgba(0,0,0,0.35));}
 .m-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;}

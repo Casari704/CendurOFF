@@ -282,7 +282,7 @@ let pendingLinkId = routeIdFromUrl(); // trasa z odkazu, otevře se po přihlá�
 // Povolené jsou jen naše vlastní stránky, ať se odkaz nedá zneužít k přesměrování jinam.
 function nextPageAfterLogin(){
   const n = new URLSearchParams(location.search).get('next');
-  return (n && /^planovac\.html(\?[^#]*)?$/.test(n)) ? n : null;
+  return (n && /^(planovac|merch)\.html(\?[^#]*)?$/.test(n)) ? n : null;
 }
 function goNextIfAny(){
   const n = nextPageAfterLogin();
@@ -317,7 +317,8 @@ function countWords(text){ return String(text||'').trim().split(/\s+/).filter(Bo
 
  // Adresa backendu z Railway (bez lomítka na konci) - nastavuje se v public/config.js,
  // tady je jen záloha pro případ, že by config.js na webu chyběl.
-const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
+// '' = stejná adresa jako web (přes vercel.json); bez config.js záložně přímo Railway
+const API_URL = (typeof window.CENDUROFF_API_URL === 'string') ? window.CENDUROFF_API_URL : 'https://cenduroff-web.up.railway.app';
 
 async function api(url, options){
   // Automaticky připojí adresu backendu z Railway ke všem voláním
