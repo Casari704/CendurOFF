@@ -106,6 +106,15 @@
     const sat = document.getElementById('satellite-btn');
     if(sat) sat.insertAdjacentHTML('beforebegin', `<button class="map-btn map-btn-square" id="fuel-btn" title="Zobrazit / skrýt čerpací stanice">⛽</button>`);
   }
+  // jízdní režim (v1.46): tlačítko ☰ a sbalení panelu záznamu
+  if(!document.getElementById('menu-btn')){
+    const fb = document.getElementById('fuel-btn') || document.getElementById('satellite-btn');
+    if(fb) fb.insertAdjacentHTML('beforebegin', `<button class="map-btn map-btn-square" id="menu-btn" type="button" title="Menu" aria-label="Zobrazit / skrýt menu" aria-expanded="false">☰</button>`);
+  }
+  if(!document.getElementById('rec-toggle')){
+    const rp = document.getElementById('rec-panel');
+    if(rp) rp.insertAdjacentHTML('beforeend', `<button class="rec-toggle" id="rec-toggle" type="button" aria-label="Sbalit / rozbalit panel záznamu" aria-expanded="true">▾</button>`);
+  }
   if(!document.getElementById('lightbox')){
     document.body.insertAdjacentHTML('beforeend', `
       <div id="lightbox" role="dialog" aria-modal="true" aria-label="Prohlížeč fotek">
@@ -1243,7 +1252,11 @@ const HEADING_UPDATE_THRESHOLD_DEG_GPS = 4;      // GPS kurz: změny menší ne�
 const HEADING_UPDATE_THRESHOLD_DEG_COMPASS = 9;  // kompas: vyšší práh, ať drobné chvění v klidu vůbec neprojde
 const HEADING_MIN_UPDATE_MS_GPS = 120;           // GPS: přepočet natočení max ~8x/s
 const HEADING_MIN_UPDATE_MS_COMPASS = 280;       // kompas: přepočet pomalejší, max ~3-4x/s
-const FOLLOW_MARKER_Y_FRACTION = 2/3;      // poloha šipky na obrazovce při sledování (0=nahoře, 1=dole); 2/3 = "jedna třetina od spodu"
+// poloha šipky na obrazovce při sledování (0 = nahoře, 1 = dole): na výšku 80 %, na šířku
+// (nízký displej) 75 % – ať je před šipkou vidět co nejvíc trasy
+const FOLLOW_MARKER_Y_PORTRAIT = 0.80;
+const FOLLOW_MARKER_Y_LANDSCAPE = 0.75;
+function followMarkerFraction(){ return window.innerWidth > window.innerHeight ? FOLLOW_MARKER_Y_LANDSCAPE : FOLLOW_MARKER_Y_PORTRAIT; }
 
 // Vycentruje mapu tak, aby se GPS bod nezobrazil uprostřed obrazovky, ale
 // v dolní třetině (FOLLOW_MARKER_Y_FRACTION) - ať je vidět víc mapy před sebou.
@@ -1254,7 +1267,7 @@ function setFollowView(latlng, animate){
   // výška viditelné části mapy (v režimu "směr jízdy" je samotný #map větší než obrazovka)
   const visibleH = mapEl.parentElement.clientHeight;
   const theta = (headingMode==='heading') ? displayedHeading * Math.PI/180 : 0;
-  const k = (FOLLOW_MARKER_Y_FRACTION - 0.5) * visibleH;
+  const k = (followMarkerFraction() - 0.5) * visibleH;
   const targetPx = map.project(latlng, z);
   const dx = Math.sin(theta) * k;
   const dy = Math.cos(theta) * k;
@@ -1282,20 +1295,68 @@ document.getElementById('zoom-out-btn').addEventListener('click', ()=> map.zoomO
 // výšky hlavičky (ta se na mobilu může zalomit na 2 řádky a mění výšku podle
 // obsahu), ať tlačítka nikdy nepřekrývají tlačítka v hlavičce.
 function positionFloatingMapButtons(){
+  // spodní hrana hlavičky -> CSS proměnné, ze kterých si tlačítka nad mapou počítají polohu
+  // (--hdr-bottom pro běžné rozložení, --top-offset pro jízdní režim: 0, když je hlavička schovaná)
   const header = document.querySelector('header.topbar');
-  const sat = document.getElementById('satellite-btn');
-  const full = document.getElementById('fullscreen-btn');
-  const fuel = document.getElementById('fuel-btn');
-  if(!header || !sat || !full) return;
-  const top = Math.round(header.getBoundingClientRect().bottom) + 8;
-  sat.style.top = top + 'px';
-  full.style.top = top + 'px';
-  if(fuel) fuel.style.top = top + 'px';
+  const visible = header && header.offsetParent !== null && header.getBoundingClientRect().height > 0;
+  const bottom = visible ? Math.round(header.getBoundingClientRect().bottom) : 0;
+  const root = document.documentElement.style;
+  root.setProperty('--hdr-bottom', bottom + 'px');
+  root.setProperty('--top-offset', bottom + 'px');
+  ['satellite-btn','fullscreen-btn','fuel-btn'].forEach(id=>{ const el = document.getElementById(id); if(el) el.style.top = ''; });
 }
 window.addEventListener('resize', positionFloatingMapButtons);
 window.addEventListener('load', positionFloatingMapButtons);
 positionFloatingMapButtons();
 setTimeout(positionFloatingMapButtons, 300);
+// hlavička mění výšku i po načtení (písmo, jméno uživatele, zalomení) -> sledovat ji
+if('ResizeObserver' in window){
+  const hdr = document.querySelector('header.topbar');
+  if(hdr) new ResizeObserver(()=>positionFloatingMapButtons()).observe(hdr);
+}
+
+// ---------------------------------------------------------------
+// Jízdní režim (mobil na výšku a nízké displeje na šířku):
+// tlačítka ve sloupcích u okrajů, hlavička a seznam tras schované za tlačítkem ☰
+// ---------------------------------------------------------------
+const RIDE_MQ = window.matchMedia('(max-width:760px), (max-height:520px)');
+const menuBtn = document.getElementById('menu-btn');
+function setHeaderOpen(open){
+  document.body.classList.toggle('header-open', !!open);
+  if(menuBtn){ menuBtn.classList.toggle('active', !!open); menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+  positionFloatingMapButtons();
+  // mapa změnila velikost
+  setTimeout(()=> window.dispatchEvent(new Event('resize')), 30);
+}
+function applyRideUi(){
+  const on = RIDE_MQ.matches;
+  const was = document.body.classList.contains('ride-ui');
+  document.body.classList.toggle('ride-ui', on);
+  if(!on) setHeaderOpen(false);
+  if(on && !was){
+    // seznam tras na začátku sbalený, ať je vidět mapa
+    const rl = document.getElementById('route-list');
+    if(rl) rl.classList.add('collapsed');
+    if(typeof setRecCompact === 'function' && rec && rec.state !== 'idle') setRecCompact(true);
+  }
+  positionFloatingMapButtons();
+}
+if(menuBtn) menuBtn.addEventListener('click', ()=> setHeaderOpen(!document.body.classList.contains('header-open')));
+// v jízdním režimu se seznam tras otevírá tlačítkem „Trasy“ v hlavičce (jazýček u okraje by kolidoval s tlačítky)
+(function addRoutesButton(){
+  const up = document.getElementById('open-upload');
+  if(!up || document.getElementById('open-routes')) return;
+  up.insertAdjacentHTML('beforebegin', '<button class="btn" id="open-routes" type="button">Trasy</button>');
+  document.getElementById('open-routes').addEventListener('click', ()=>{
+    const rl = document.getElementById('route-list');
+    const opening = rl.classList.contains('collapsed');
+    rl.classList.toggle('collapsed');
+    if(opening && detailPanelEl.classList.contains('open')) closeDetail();
+    if(opening) setHeaderOpen(false);
+  });
+})();
+if(RIDE_MQ.addEventListener) RIDE_MQ.addEventListener('change', applyRideUi); else if(RIDE_MQ.addListener) RIDE_MQ.addListener(applyRideUi);
+
 
 // tlačítko 🗺 (dřív jen satelit) otevírá nabídku podkladových map
 const satelliteBtn = document.getElementById('satellite-btn');
@@ -1323,8 +1384,18 @@ function setBaseMap(k){
 }
 function placeLayerMenu(){
   const r = satelliteBtn.getBoundingClientRect();
-  layerMenu.style.top = Math.round(r.bottom + 8) + 'px';
-  layerMenu.style.right = Math.max(8, Math.round(window.innerWidth - r.right)) + 'px';
+  if(r.left + r.width/2 < window.innerWidth/2){
+    // tlačítko vlevo (jízdní režim) -> nabídka vedle něj doprava
+    layerMenu.style.left = Math.round(r.right + 8) + 'px';
+    layerMenu.style.right = 'auto';
+    layerMenu.style.top = Math.round(r.top) + 'px';
+  } else {
+    layerMenu.style.left = 'auto';
+    layerMenu.style.top = Math.round(r.bottom + 8) + 'px';
+    layerMenu.style.right = Math.max(8, Math.round(window.innerWidth - r.right)) + 'px';
+  }
+  layerMenu.style.maxHeight = Math.max(160, window.innerHeight - parseFloat(layerMenu.style.top) - 8) + 'px';
+  layerMenu.style.overflowY = 'auto';
 }
 satelliteBtn.addEventListener('click', (e)=>{
   e.stopPropagation();
@@ -1575,19 +1646,60 @@ document.addEventListener('visibilitychange', ()=>{
 // Celá obrazovka (schová adresní řádek prohlížeče)
 // ---------------------------------------------------------------
 const fullscreenBtn = document.getElementById('fullscreen-btn');
+const IS_STANDALONE = (window.matchMedia && window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) || window.navigator.standalone === true;
+if(IS_STANDALONE) document.body.classList.add('standalone');   // spuštěno z plochy - celá obrazovka už je
+function fsElement(){ return document.fullscreenElement || document.webkitFullscreenElement || null; }
+function fsRequest(){
+  const el = document.documentElement;
+  if(el.requestFullscreen) return el.requestFullscreen();
+  if(el.webkitRequestFullscreen) return el.webkitRequestFullscreen();   // starší Chrome / Samsung Internet
+  if(el.webkitRequestFullScreen) return el.webkitRequestFullScreen();
+  return Promise.reject(new Error('unsupported'));
+}
+function fsExit(){
+  if(document.exitFullscreen) return document.exitFullscreen();
+  if(document.webkitExitFullscreen) return document.webkitExitFullscreen();
+  if(document.webkitCancelFullScreen) return document.webkitCancelFullScreen();
+  return Promise.resolve();
+}
+function showInstallHelp(){
+  let ov = document.getElementById('a2hs-overlay');
+  if(!ov){
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    document.body.insertAdjacentHTML('beforeend', `
+      <div class="modal-overlay" id="a2hs-overlay">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="a2hs-title">
+          <button class="detail-close" id="a2hs-close" type="button" aria-label="Zavřít">×</button>
+          <h2 id="a2hs-title">Celá obrazovka</h2>
+          <p class="sub">${isIOS
+            ? 'Safari na iPhonu webům celou obrazovku nedovolí. Přidej si CendurOFF na plochu – z ikony se pak otevře přes celý displej bez adresního řádku, jako aplikace.'
+            : 'Tenhle prohlížeč celou obrazovku nepodporuje. Přidej si CendurOFF na plochu – z ikony se pak otevře přes celý displej bez adresního řádku, jako aplikace.'}</p>
+          <ol class="a2hs-steps">${isIOS
+            ? '<li>Dole v Safari klepni na <b>Sdílet</b> (čtvereček se šipkou nahoru).</li><li>Vyber <b>Přidat na plochu</b> a potvrď <b>Přidat</b>.</li><li>Otevírej CendurOFF ikonou z plochy.</li>'
+            : '<li>V prohlížeči otevři menu <b>⋮</b>.</li><li>Vyber <b>Přidat na plochu</b> (nebo <b>Instalovat aplikaci</b>).</li><li>Otevírej CendurOFF ikonou z plochy.</li>'}</ol>
+        </div>
+      </div>`);
+    ov = document.getElementById('a2hs-overlay');
+    document.getElementById('a2hs-close').addEventListener('click', ()=> ov.classList.remove('open'));
+    ov.addEventListener('click', e=>{ if(e.target===ov) ov.classList.remove('open'); });
+  }
+  ov.classList.add('open');
+}
 fullscreenBtn.addEventListener('click', async ()=>{
+  if(fsElement()){ try{ await fsExit(); }catch(e){} return; }
   try{
-    if(!document.fullscreenElement){
-      await document.documentElement.requestFullscreen();
-    } else {
-      await document.exitFullscreen();
-    }
-  }catch(e){ toast('Celou obrazovku se nepodařilo přepnout.'); }
+    await fsRequest();
+    // některé prohlížeče požadavek tiše ignorují -> když se do chvíle nic nestane, ukážeme návod
+    setTimeout(()=>{ if(!fsElement()) showInstallHelp(); }, 800);
+  }catch(e){ showInstallHelp(); }
 });
-document.addEventListener('fullscreenchange', ()=>{
-  fullscreenBtn.classList.toggle('active', !!document.fullscreenElement);
-  fullscreenBtn.title = document.fullscreenElement ? 'Ukončit celou obrazovku' : 'Celá obrazovka';
-});
+function onFsChange(){
+  fullscreenBtn.classList.toggle('active', !!fsElement());
+  fullscreenBtn.title = fsElement() ? 'Ukončit celou obrazovku' : 'Celá obrazovka';
+  setTimeout(positionFloatingMapButtons, 50);
+}
+document.addEventListener('fullscreenchange', onFsChange);
+document.addEventListener('webkitfullscreenchange', onFsChange);
 
 
 // ---------------------------------------------------------------
@@ -1789,6 +1901,13 @@ function ensureRecLine(){
     recLine = L.polyline(rec.points.map(p=>[p[0],p[1]]), { pane:'rec-track', color:REC_COLOR, weight:5, opacity:0.95, interactive:false }).addTo(map);
   }
 }
+// sbalený panel záznamu = jen tečka, čas a km (ťuknutím se rozbalí na Pauza / Stop)
+function setRecCompact(on){
+  if(!recPanel) return;
+  recPanel.classList.toggle('compact', !!on);
+  const t = document.getElementById('rec-toggle');
+  if(t){ t.textContent = on ? '▴' : '▾'; t.setAttribute('aria-expanded', on ? 'false' : 'true'); }
+}
 function updateRecUi(){
   const active = rec.state !== 'idle';
   document.body.classList.toggle('recording', active);
@@ -1821,6 +1940,7 @@ function stopRecTimer(){ if(recTimer){ clearInterval(recTimer); recTimer = null;
 
 function recStart(){
   if(!startGpsWatch()) return;
+  setRecCompact(document.body.classList.contains('ride-ui'));
   rec.state = 'recording';
   rec.points = [];
   rec.startedAt = Date.now();
@@ -1950,6 +2070,12 @@ if(recBtn){
     if(rec.state==='recording') recPause(); else recResume();
   });
   document.getElementById('rec-stop').addEventListener('click', openRideDialog);
+  const recToggle = document.getElementById('rec-toggle');
+  if(recToggle) recToggle.addEventListener('click', e=>{ e.stopPropagation(); setRecCompact(!recPanel.classList.contains('compact')); });
+  // ve sbaleném stavu rozbalí panel ťuknutí kamkoli na lištu
+  recPanel.addEventListener('click', e=>{
+    if(recPanel.classList.contains('compact') && !e.target.closest('button')) setRecCompact(false);
+  });
   document.getElementById('ride-resume').addEventListener('click', ()=>{ closeRideDialog(); recResume(); });
   document.getElementById('ride-discard').addEventListener('click', ()=>{
     if(!confirm('Opravdu záznam jízdy zahodit? Tuto akci nejde vrátit zpět.')) return;
@@ -2022,6 +2148,7 @@ function restoreRecording(){
   rec.state = 'paused';
   ensureRecLine();
   recPersist();
+  setRecCompact(document.body.classList.contains('ride-ui'));
   updateRecUi();
   toast('Máš nedokončený záznam jízdy – můžeš pokračovat, nebo ho uložit tlačítkem Stop.', 6000);
 }
@@ -2051,6 +2178,7 @@ async function enterApp(){
   document.getElementById('app-screen').style.display='flex';
   if(window.CendurHeader) window.CendurHeader.setUser(currentUser);
   initMap();
+  applyRideUi();
   setTimeout(()=>map.invalidateSize(), 50);
   if(!enterApp._fuelBound){
     enterApp._fuelBound = true;

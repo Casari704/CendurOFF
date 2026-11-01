@@ -652,3 +652,139 @@ header.topbar .brand-link .brand{margin-right:0;margin-left:0;}
 }
 /* odkazy <a> i <button> v hlavičce stejně vysoké */
 header.topbar .btn{line-height:1.25;font-family:inherit;box-sizing:border-box;}
+
+/* =====================================================================
+   v1.46 – jízdní režim, sbalitelný záznam, celá obrazovka, safe-area
+   ===================================================================== */
+
+/* tlačítka nad mapou se řídí spodní hranou hlavičky (nastavuje app.js) */
+#satellite-btn, #fullscreen-btn, #fuel-btn{ top:calc(var(--hdr-bottom, 68px) + 8px); }
+#menu-btn{ display:none; }
+
+/* výřez displeje / zaoblené rohy (iPhone, aplikace z plochy) */
+header.topbar{
+  padding-top:calc(8px + env(safe-area-inset-top, 0px));
+  padding-left:calc(20px + env(safe-area-inset-left, 0px));
+  padding-right:calc(20px + env(safe-area-inset-right, 0px));
+}
+@media (max-width:760px){
+  header.topbar{
+    padding-top:calc(6px + env(safe-area-inset-top, 0px));
+    padding-left:calc(10px + env(safe-area-inset-left, 0px));
+    padding-right:calc(10px + env(safe-area-inset-right, 0px));
+  }
+}
+.login-side{ padding-top:calc(32px + env(safe-area-inset-top, 0px)); }
+
+/* dlouhé jméno uživatele (např. e-mail) se zkrátí */
+.user-btn{ display:inline-block; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+@media (max-width:760px){ .user-btn{ max-width:150px; } }
+
+/* ---------- sbalený panel záznamu (všude) ---------- */
+.rec-toggle{ border:none; background:none; color:var(--ink-soft); font-size:1.1rem; width:36px; height:36px;
+  border-radius:8px; display:flex; align-items:center; justify-content:center; flex:none; }
+.rec-toggle:hover{ background:#F3EEDC; }
+#rec-panel.compact{ gap:10px; padding:4px 6px 4px 12px; cursor:pointer; }
+#rec-panel.compact .rec-actions,
+#rec-panel.compact .rec-stats > div:nth-child(3),
+#rec-panel.compact .rec-stats span{ display:none; }
+#rec-panel.compact .rec-stats b{ font-size:1rem; }
+#rec-panel.compact .rec-stats div{ min-width:0; }
+#rec-panel.compact #rec-dist::after{ content:' km'; font-family:'Roboto',sans-serif; font-weight:500; font-size:0.8rem; }
+
+/* okno s návodem na přidání na plochu */
+.a2hs-steps{ margin:0; padding-left:20px; font-size:0.9rem; line-height:1.7; }
+
+/* aplikace z plochy: tlačítko celé obrazovky není potřeba */
+body.standalone #fullscreen-btn{ display:none !important; }
+
+/* ---------- jízdní režim ---------- */
+body.ride-ui{
+  --rb:52px;   /* velikost tlačítka */
+  --rg:8px;    /* mezera mezi tlačítky */
+  --re:8px;    /* odsazení od okraje */
+  --rt:calc(var(--top-offset, 0px) + var(--re));
+  --rl:calc(env(safe-area-inset-left, 0px) + var(--re));
+  --rr:calc(env(safe-area-inset-right, 0px) + var(--re));
+  --rbm:calc(env(safe-area-inset-bottom, 0px) + var(--re));
+  --step:calc(var(--rb) + var(--rg));
+}
+@media (max-height:520px){ body.ride-ui{ --rb:44px; --rg:6px; --re:6px; } }
+
+/* hlavička jen po ťuknutí na ☰ */
+body.ride-ui:not(.header-open) header.topbar{ display:none; }
+/* bez hlavičky musí horní tlačítka uhnout výřezu displeje */
+body.ride-ui:not(.header-open){ --rt:calc(env(safe-area-inset-top, 0px) + var(--re)); }
+
+body.ride-ui #locate-controls,
+body.ride-ui .nav-grid{ display:contents; }
+
+body.ride-ui #menu-btn,
+body.ride-ui #fullscreen-btn,
+body.ride-ui #satellite-btn,
+body.ride-ui #fuel-btn,
+body.ride-ui #rec-btn,
+body.ride-ui #heading-btn,
+body.ride-ui #locate-btn,
+body.ride-ui #zoom-in-btn,
+body.ride-ui #zoom-out-btn{
+  position:fixed; z-index:960; display:flex; align-items:center; justify-content:center;
+  width:var(--rb); height:var(--rb); min-width:0; padding:0; gap:0;
+  border-radius:12px; font-size:calc(var(--rb) * 0.42); line-height:1;
+  top:auto; bottom:auto; left:auto; right:auto; flex:none;
+}
+body.ride-ui #heading-btn .map-btn-label,
+body.ride-ui #locate-btn .map-btn-label,
+body.ride-ui #rec-btn .map-btn-label{ display:none; }
+body.ride-ui .map-btn-icon{ width:calc(var(--rb) * 0.48); height:calc(var(--rb) * 0.48); }
+body.ride-ui #rec-btn .rec-icon{ width:calc(var(--rb) * 0.38); height:calc(var(--rb) * 0.38); }
+
+/* levý horní sloupec: celá obrazovka, mapa, benzínky */
+body.ride-ui #fullscreen-btn{ top:var(--rt); left:var(--rl); }
+body.ride-ui #satellite-btn{ top:calc(var(--rt) + var(--step)); left:var(--rl); }
+body.ride-ui #fuel-btn{ top:calc(var(--rt) + var(--step) * 2); left:var(--rl); }
+/* z plochy (bez tlačítka celé obrazovky) se sloupec posune nahoru */
+body.ride-ui.standalone #satellite-btn{ top:var(--rt); }
+body.ride-ui.standalone #fuel-btn{ top:calc(var(--rt) + var(--step)); }
+/* pravý horní sloupec: menu, záznam */
+body.ride-ui #menu-btn{ top:var(--rt); right:var(--rr); }
+body.ride-ui #rec-btn{ top:calc(var(--rt) + var(--step)); right:var(--rr); }
+/* levý dolní sloupec (palec): sever / směr jízdy, sledovat polohu */
+body.ride-ui #locate-btn{ bottom:var(--rbm); left:var(--rl); }
+body.ride-ui #heading-btn{ bottom:calc(var(--rbm) + var(--step)); left:var(--rl); }
+/* pravý dolní sloupec (palec): + a − */
+body.ride-ui #zoom-out-btn{ bottom:var(--rbm); right:var(--rr); }
+body.ride-ui #zoom-in-btn{ bottom:calc(var(--rbm) + var(--step)); right:var(--rr); }
+
+/* lišta záznamu nahoře uprostřed mezi sloupci */
+body.ride-ui #rec-panel{
+  position:fixed; top:var(--rt); bottom:auto; left:50%; right:auto; transform:translateX(-50%);
+  max-width:calc(100vw - (var(--rb) + var(--re) * 2) * 2 - 8px); z-index:955;
+  justify-content:center;
+}
+body.ride-ui #rec-panel:not(.compact){ flex-wrap:wrap; }
+body.ride-ui #rec-panel .rec-status #rec-state{ display:none; }
+
+/* hromadný výběr tras dole uprostřed mezi sloupci */
+body.ride-ui #selection-bar{
+  left:calc(var(--rb) + var(--re) * 2); right:calc(var(--rb) + var(--re) * 2);
+  bottom:var(--rbm); transform:none; max-width:none;
+}
+body.ride-ui.recording #selection-bar{ bottom:var(--rbm); }
+
+/* nabídka map se v jízdním režimu otevře vedle tlačítka vlevo */
+body.ride-ui #layer-menu{ max-width:calc(100vw - var(--rb) - 32px); }
+/* hlášky v jízdním režimu nahoře pod lištou záznamu, ať nezakrývají šipku a trasu před ní */
+body.ride-ui .toast{
+  bottom:auto; top:calc(var(--rt) + var(--rb) + 10px);
+  max-width:calc(100vw - (var(--rb) + var(--re) * 2) * 2 - 8px); text-align:center;
+}
+
+/* tlačítko „Trasy“ v hlavičce jen v jízdním režimu; jazýček seznamu tam není */
+#open-routes{ display:none; }
+body.ride-ui #open-routes{ display:inline-flex; }
+/* jazýček seznamu jen u otevřeného seznamu (slouží k zavření) */
+body.ride-ui #route-list.collapsed #route-list-tab{ display:none; }
+body.ride-ui #route-list:not(.collapsed) #route-list-tab{ display:flex !important; }
+/* otevřený seznam tras v jízdním režimu překryje levý sloupec tlačítek */
+body.ride-ui #route-list{ z-index:970; }
