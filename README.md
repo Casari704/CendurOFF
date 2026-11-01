@@ -82,6 +82,80 @@ public/           – frontend (statické soubory, servíruje je stejný server)
 Endpointy navíc: `DELETE /api/routes/:id` (smaže trasu, fotky se smažou automaticky) a
 `DELETE /api/routes/:id/photos/:photoId` (smaže jednu fotku).
 
+## Novinky ve verzi 1.43
+
+- Pojistka proti nekonečnému přeskakování mezi Plánovačem a přihlášením v Atlasu (blikání obrazovky):
+  po druhém opakování během 20 s Plánovač přestane přesměrovávat a ukáže hlášku.
+
+## Novinky ve verzi 1.42
+
+- **Návrat k přímé adrese Railway** v `public/config.js` – přeposílání přes `vercel.json` z v1.41 na
+  hostingu webu nefungovalo (přihlášení hlásilo chybu). `vercel.json` je odstraněný.
+- Odpověď serveru, která není JSON, se teď hlásí jako chyba (dřív mohla rozbít stránku).
+
+## Novinky ve verzi 1.41
+
+- **Oprava přihlášení v anonymním okně a v Safari:** prohlížeče blokují cookies cizích domén, takže
+  přihlašovací cookie z Railway se neuložila a po přechodu na jinou stránku byl uživatel odhlášený.
+  API teď jde přes stejnou adresu jako web – nový soubor **`vercel.json`** přeposílá `/api/*` na Railway
+  a v `public/config.js` je `CENDUROFF_API_URL = ''`. (Kdyby web neběžel na Vercelu, vrať tam plnou
+  adresu Railway.)
+- Po přihlášení přes „Přihlásit se“ na Merchi se uživatel vrátí zpět na Merch.
+- Soubory CSS/JS se načítají s `?v=1.41`, aby prohlížeče po nahrání nové verze nedržely staré.
+- Nadpis na Merchi: „Připravujeme Merch.“
+
+## Novinky ve verzi 1.40
+
+- **Jednotná hlavička na všech stránkách** (`public/header.js`): logo s názvem stránky, menu
+  **Atlas · Plánovač · Merch** (vždy stejné pořadí a názvy, bez ikonek; aktivní stránka má zlatý
+  obrys), „O projektu“ a tlačítko uživatele. Tlačítko uživatele otevře „Můj účet“ se změnou hesla
+  a **odhlášením**. „+ Nahrát trasu“ je jen v Atlasu. Nepřihlášený na stránce Merch vidí „Přihlásit se“.
+- Okna „O projektu“ a „Můj účet“ jsou teď v `header.js` (z `index.html` zmizela).
+
+## Novinky ve verzi 1.39
+
+- **Plánovač jen pro přihlášené:** nepřihlášeného uživatele Plánovač pošle na přihlášení v Atlasu
+  (`index.html?next=planovac.html`) a po přihlášení ho vrátí zpátky (i s otevřenou trasou z odkazu).
+  Merch zůstává veřejný.
+
+## Novinky ve verzi 1.38
+
+- **Nová stránka Merch** (`merch.html`) – veřejná (bez přihlášení): mikina Gold & Silver, trička
+  Roleplay, trička CendurOFF, Night Ride Edition a samolepka. Ceny zatím „Připravujeme“, objednávky
+  e-mailem (tlačítka otevřou e-mail s předvyplněným předmětem), zakázková výroba do 10 dní.
+  Styly v `public/merch.css`, fotky v `public/img/merch/`.
+- Odkaz na Merch v hlavičce Atlasu i Plánovače, na přihlašovací stránce a v okně „O projektu“.
+
+## Novinky ve verzi 1.37
+
+- Okno „O projektu“: poslední řádek teď zve k podpoře projektu nákupem merche nebo samolepek.
+
+## Novinky ve verzi 1.36
+
+- Trasy se v Atlasu (seznam vlevo) i v Plánovači (výběr trasy) řadí abecedně podle názvu
+  podle české abecedy (Č po C, Ch po H, „trasa 2“ před „trasa 10“).
+
+## Novinky ve verzi 1.35
+
+- Logo v okně „O projektu“ ještě o 20 % větší (154 → 185 px).
+- Pozor: logo přihlašovací stránky musí ležet v `public/img/cenduroff-logo.png` (ne přímo v `public/`).
+
+## Novinky ve verzi 1.34
+
+- Logo v okně „O projektu“ je o 40 % větší (110 → 154 px).
+
+## Novinky ve verzi 1.33
+
+- **Logo CendurOFF na přihlašovací stránce** – velké (až 320 px) nad nadpisem v levé tmavé části,
+  na nízkých oknech se úměrně zmenší; na mobilu menší nad přihlašovacím formulářem.
+  Nový soubor `public/img/cenduroff-logo.png`.
+
+## Novinky ve verzi 1.32
+
+- **Zvýraznění trasy ze seznamu:** najetí myší na trasu v seznamu vlevo ji na mapě zvýrazní
+  světle modře (stejně jako najetí přímo na čáru) a vytáhne ji nad ostatní trasy.
+  (Verze 1.31 s mapou Tracestrack se nenasazovala.)
+
 ## Novinky ve verzi 1.30
 
 - **Oprava Plánovače:** když se dalo „Zpět“ ve chvíli, kdy se úsek ještě počítal, úsek zůstal
