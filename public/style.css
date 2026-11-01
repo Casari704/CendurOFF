@@ -571,8 +571,6 @@ a.btn{text-decoration:none;}
   text-transform:uppercase;letter-spacing:0.6px;margin-left:6px;}
 .admin-note{color:var(--rust-dark) !important;font-weight:600;}
 
-#fuel-btn{position:fixed;top:76px;right:calc(16px + 64px + 12px + 64px + 12px);z-index:950;}
-#fuel-btn:not(.active){opacity:0.75;filter:grayscale(0.6);}
 .fuel-marker{background:none;border:none;}
 .fuel-ico{
   width:22px;height:22px;border-radius:6px;background:#1F4E8C;border:2px solid #fff;
@@ -585,10 +583,6 @@ a.btn{text-decoration:none;}
 
 @media (max-width:760px){
   .brand-sub{font-size:0.62rem;margin-left:3px;letter-spacing:0.4px;}
-  #fuel-btn{
-    position:fixed;right:108px;bottom:auto;z-index:1250;
-    width:42px;height:42px;font-size:1.2rem;border-radius:11px;
-  }
 }
 
 /* ---------- nabídka podkladových map (v1.29) ---------- */
@@ -658,7 +652,7 @@ header.topbar .btn{line-height:1.25;font-family:inherit;box-sizing:border-box;}
    ===================================================================== */
 
 /* tlačítka nad mapou se řídí spodní hranou hlavičky (nastavuje app.js) */
-#satellite-btn, #fullscreen-btn, #fuel-btn{ top:calc(var(--hdr-bottom, 68px) + 8px); }
+#satellite-btn, #fullscreen-btn{ top:calc(var(--hdr-bottom, 68px) + 8px); }
 #menu-btn{ display:none; }
 
 /* výřez displeje / zaoblené rohy (iPhone, aplikace z plochy) */
@@ -722,7 +716,6 @@ body.ride-ui .nav-grid{ display:contents; }
 body.ride-ui #menu-btn,
 body.ride-ui #fullscreen-btn,
 body.ride-ui #satellite-btn,
-body.ride-ui #fuel-btn,
 body.ride-ui #rec-btn,
 body.ride-ui #locate-btn,
 body.ride-ui #zoom-in-btn,
@@ -737,13 +730,11 @@ body.ride-ui #rec-btn .map-btn-label{ display:none; }
 body.ride-ui .map-btn-icon{ width:calc(var(--rb) * 0.48); height:calc(var(--rb) * 0.48); }
 body.ride-ui #rec-btn .rec-icon{ width:calc(var(--rb) * 0.38); height:calc(var(--rb) * 0.38); }
 
-/* levý horní sloupec: celá obrazovka, mapa, benzínky */
+/* levý horní sloupec: celá obrazovka, mapa (+ benzínky v nabídce) */
 body.ride-ui #fullscreen-btn{ top:var(--rt); left:var(--rl); }
 body.ride-ui #satellite-btn{ top:calc(var(--rt) + var(--step)); left:var(--rl); }
-body.ride-ui #fuel-btn{ top:calc(var(--rt) + var(--step) * 2); left:var(--rl); }
 /* z plochy (bez tlačítka celé obrazovky) se sloupec posune nahoru */
 body.ride-ui.standalone #satellite-btn{ top:var(--rt); }
-body.ride-ui.standalone #fuel-btn{ top:calc(var(--rt) + var(--step)); }
 /* pravý horní sloupec: menu, záznam */
 body.ride-ui #menu-btn{ top:var(--rt); right:var(--rr); }
 body.ride-ui #rec-btn{ top:calc(var(--rt) + var(--step)); right:var(--rr); }
@@ -791,3 +782,11 @@ body.ride-ui #route-list{ z-index:970; }
 .nav-grid #locate-btn{ grid-row:1 / span 2; grid-column:1; height:auto; }
 .nav-grid #zoom-in-btn{ grid-row:1; grid-column:2; }
 .nav-grid #zoom-out-btn{ grid-row:2; grid-column:2; }
+
+/* ===== v1.48: benzínky jako přepínač v nabídce 🗺 ===== */
+.layer-menu-sep{border-top:1px solid var(--line);margin-top:6px;padding-top:10px;}
+.layer-check{width:16px;height:16px;flex:none;border-radius:4px;border:2px solid var(--line);box-sizing:border-box;
+  display:flex;align-items:center;justify-content:center;font-size:11px;line-height:1;color:#fff;}
+.layer-toggle.active{font-weight:700;background:#EAF0E6;}
+.layer-toggle.active .layer-check{background:var(--moss);border-color:var(--moss);}
+.layer-toggle.active .layer-check::after{content:'✓';}

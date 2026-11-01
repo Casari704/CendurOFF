@@ -101,14 +101,10 @@
         </div>
       </div>`);
   }
-  // benzínky + název stránky u loga (verze 1.28)
-  if(!document.getElementById('fuel-btn')){
-    const sat = document.getElementById('satellite-btn');
-    if(sat) sat.insertAdjacentHTML('beforebegin', `<button class="map-btn map-btn-square" id="fuel-btn" title="Zobrazit / skrýt čerpací stanice">⛽</button>`);
-  }
+  // benzínky: od v1.48 jsou přepínač v nabídce 🗺 (podkladová mapa), ne samostatné tlačítko
   // jízdní režim (v1.46): tlačítko ☰ a sbalení panelu záznamu
   if(!document.getElementById('menu-btn')){
-    const fb = document.getElementById('fuel-btn') || document.getElementById('satellite-btn');
+    const fb = document.getElementById('satellite-btn');
     if(fb) fb.insertAdjacentHTML('beforebegin', `<button class="map-btn map-btn-square" id="menu-btn" type="button" title="Menu" aria-label="Zobrazit / skrýt menu" aria-expanded="false">☰</button>`);
   }
   if(!document.getElementById('rec-toggle')){
@@ -1307,7 +1303,7 @@ function positionFloatingMapButtons(){
   const root = document.documentElement.style;
   root.setProperty('--hdr-bottom', bottom + 'px');
   root.setProperty('--top-offset', bottom + 'px');
-  ['satellite-btn','fullscreen-btn','fuel-btn'].forEach(id=>{ const el = document.getElementById(id); if(el) el.style.top = ''; });
+  ['satellite-btn','fullscreen-btn'].forEach(id=>{ const el = document.getElementById(id); if(el) el.style.top = ''; });
 }
 window.addEventListener('resize', positionFloatingMapButtons);
 window.addEventListener('load', positionFloatingMapButtons);
@@ -1365,14 +1361,16 @@ if(RIDE_MQ.addEventListener) RIDE_MQ.addEventListener('change', applyRideUi); el
 // tlačítko 🗺 (dřív jen satelit) otevírá nabídku podkladových map
 const satelliteBtn = document.getElementById('satellite-btn');
 satelliteBtn.textContent = '🗺';
-satelliteBtn.title = 'Podkladová mapa (vrstevnice, satelit…)';
+satelliteBtn.title = 'Podkladová mapa a benzínky';
 document.body.insertAdjacentHTML('beforeend', `<div id="layer-menu" role="menu">
   <div class="layer-menu-title">Podkladová mapa</div>
   ${BASE_ORDER.map(k=>`<button type="button" class="layer-opt" data-base="${k}" role="menuitemradio"><span class="layer-radio"></span>${BASE_MAPS[k].label}</button>`).join('')}
+  <div class="layer-menu-title layer-menu-sep">Na mapě zobrazit</div>
+  <button type="button" class="layer-opt layer-toggle" id="fuel-toggle" role="menuitemcheckbox" aria-checked="false"><span class="layer-check"></span>⛽ Čerpací stanice</button>
 </div>`);
 const layerMenu = document.getElementById('layer-menu');
 function syncLayerMenu(){
-  layerMenu.querySelectorAll('.layer-opt').forEach(b=>{
+  layerMenu.querySelectorAll('.layer-opt[data-base]').forEach(b=>{
     const on = b.dataset.base === currentBase;
     b.classList.toggle('active', on);
     b.setAttribute('aria-checked', String(on));
@@ -1714,7 +1712,7 @@ const fuelTiles = {};          // klíč dlaždice -> 'loading' | 'done'
 const fuelSeen = new Set();    // id stanic už přidaných na mapu
 const fuelQueue = [];
 let fuelBusy = false;
-const fuelBtn = document.getElementById('fuel-btn');
+const fuelBtn = document.getElementById('fuel-toggle');
 
 function fuelIcon(){
   return L.divIcon({ className:'fuel-marker', html:`<div class="fuel-ico">${FUEL_SVG}</div>`, iconSize:[22,22], iconAnchor:[11,11], popupAnchor:[0,-10] });
@@ -1816,10 +1814,15 @@ function updateFuel(){
   }
   pumpFuelQueue();
 }
-function syncFuelBtn(){ if(fuelBtn) fuelBtn.classList.toggle('active', fuelOn); }
+function syncFuelBtn(){
+  if(!fuelBtn) return;
+  fuelBtn.classList.toggle('active', fuelOn);
+  fuelBtn.setAttribute('aria-checked', String(fuelOn));
+}
 if(fuelBtn){
   syncFuelBtn();
-  fuelBtn.addEventListener('click', ()=>{
+  fuelBtn.addEventListener('click', (e)=>{
+    e.stopPropagation();   // nabídka zůstane otevřená
     fuelOn = !fuelOn;
     try{ localStorage.setItem('fuelOn', fuelOn ? '1' : '0'); }catch(e){}
     syncFuelBtn();
