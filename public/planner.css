@@ -109,3 +109,6 @@
 @media (max-width:760px){
   .planner-page .user-tag{display:none;}  /* ať se hlavička vejde na jeden řádek */
 }
+
+/* dokud se neověří přihlášení, stránka se nezobrazí (nepřihlášený je přesměrován na přihlášení) */
+body.auth-pending #app-screen{visibility:hidden;}

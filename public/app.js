@@ -285,6 +285,17 @@ function setUrlRoute(id){
   }catch(e){}
 }
 let pendingLinkId = routeIdFromUrl(); // trasa z odkazu, otevře se po přihlášení
+// ?next=… – stránka, ze které byl nepřihlášený uživatel poslán na přihlášení (např. Plánovač).
+// Povolené jsou jen naše vlastní stránky, ať se odkaz nedá zneužít k přesměrování jinam.
+function nextPageAfterLogin(){
+  const n = new URLSearchParams(location.search).get('next');
+  return (n && /^planovac\.html(\?[^#]*)?$/.test(n)) ? n : null;
+}
+function goNextIfAny(){
+  const n = nextPageAfterLogin();
+  if(n){ location.replace(n); return true; }
+  return false;
+}
 async function shareRoute(route){
   const url = routeShareUrl(route.id);
   // na telefonu systémové "Sdílet" (Messenger, WhatsApp…), na počítači zkopírování do schránky
@@ -381,6 +392,7 @@ loginForm.addEventListener('submit', async (e)=>{
       return;
     }
     currentUser = user;
+    if(goNextIfAny()) return;
     enterApp();
   }catch(err){
     formMsg.textContent = err.message || 'Něco se nepovedlo, zkuste to prosím znovu.';
@@ -2111,6 +2123,7 @@ async function enterApp(){
   try{
     const user = await api('/api/auth/me');
     currentUser = user;
+    if(goNextIfAny()) return;
     enterApp();
   }catch(e){
     // not logged in - show login screen (already visible by default)

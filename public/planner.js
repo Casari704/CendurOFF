@@ -947,6 +947,13 @@ function restoreDraft(){
 
 (async function boot(){
   try{ currentUser = await api('/api/auth/me'); }catch(e){ currentUser = null; }
+  if(!currentUser){
+    // Plánovač je jen pro přihlášené členy - pošleme na přihlášení a po něm zpátky sem
+    const back = 'planovac.html' + location.search;
+    location.replace('index.html?next=' + encodeURIComponent(back));
+    return;
+  }
+  document.body.classList.remove('auth-pending');
   const userTag = document.getElementById('pl-user');
   userTag.textContent = currentUser ? currentUser.displayName + (isAdminUser() ? ' · admin' : '') : 'Nepřihlášen(a)';
   userTag.classList.toggle('muted', !currentUser);
