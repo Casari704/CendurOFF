@@ -163,8 +163,16 @@ function setAuthCookie(res, token) {
   });
 }
 
+// Přihlašovací token: z hlavičky "Authorization: Bearer …" (web si ho drží v prohlížeči – funguje
+// i tam, kde prohlížeč blokuje cookies cizích domén, např. anonymní okno nebo Safari), jinak z cookie.
+function tokenFrom(req) {
+  const h = req.headers && req.headers.authorization;
+  if (h && /^Bearer\s+/i.test(h)) return h.replace(/^Bearer\s+/i, '').trim();
+  return req.cookies && req.cookies.token;
+}
+
 async function requireAuth(req, res, next) {
-  const token = req.cookies && req.cookies.token;
+  const token = tokenFrom(req);
   if (!token) return res.status(401).json({ error: 'Nejste přihlášen(a).' });
   try {
     req.user = jwt.verify(token, JWT_SECRET);
@@ -193,7 +201,7 @@ function canEdit(req, ownerId) {
 
 // Jako requireAuth, ale nepřihlášeného nevyhodí - jen nevyplní req.user.
 function optionalAuth(req, res, next) {
-  const token = req.cookies && req.cookies.token;
+  const token = tokenFrom(req);
   if (token) {
     try { req.user = jwt.verify(token, JWT_SECRET); } catch (e) { /* neplatný token = jako nepřihlášený */ }
   }
@@ -264,8 +272,9 @@ app.post('/api/auth/register', async (req, res) => {
         message: 'Registrace přijata. Účet teď čeká na schválení administrátorem, pak se budeš moct přihlásit.'
       });
     }
-    setAuthCookie(res, signToken(user));
-    res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true, role: user.role || 'user' });
+    const token = signToken(user);
+    setAuthCookie(res, token);
+    res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true, role: user.role || 'user', token });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Registrace se nepovedla.' });
@@ -284,8 +293,9 @@ app.post('/api/auth/login', async (req, res) => {
     if (!user.is_approved) {
       return res.status(403).json({ error: 'Účet ještě čeká na schválení administrátorem.' });
     }
-    setAuthCookie(res, signToken(user));
-    res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true, role: user.role || 'user' });
+    const token = signToken(user);
+    setAuthCookie(res, token);
+    res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true, role: user.role || 'user', token });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Přihlášení se nepovedlo.' });
