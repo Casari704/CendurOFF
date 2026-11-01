@@ -556,10 +556,16 @@ async function loadRoutes(){
 const ROUTE_COLOR_SELECTED = '#1E64D6';
 const ROUTE_COLOR_HOVER = '#7EB6FF'; // světlejší modrá než vybraná trasa - pro najetí myší
 
-const STYLE_SELECTED = { color:ROUTE_COLOR_SELECTED, weight:6, opacity:1 };
+// Tloušťka čar: při sledování polohy (jízda) výrazně silnější, ať jsou trasy na displeji
+// za jízdy dobře vidět; při prohlížení mapy normální, ať nezakrývají cesty pod sebou.
+let navOn = false;
+const ROUTE_WEIGHT = { normal:4, selected:6, rec:5 };
+const ROUTE_WEIGHT_NAV = { normal:8, selected:10, rec:9 };
+function routeWeight(kind){ return (navOn ? ROUTE_WEIGHT_NAV : ROUTE_WEIGHT)[kind]; }
+function selectedStyle(){ return { color:ROUTE_COLOR_SELECTED, weight:routeWeight('selected'), opacity:1 }; }
 const STYLE_HOVER = { color:ROUTE_COLOR_HOVER, weight:6, opacity:1 };
 function normalStyle(id){
-  return { color: typeInfo(routesCache[id]).color, weight:4, opacity:0.9 };
+  return { color: typeInfo(routesCache[id]).color, weight:routeWeight('normal'), opacity: navOn ? 1 : 0.9 };
 }
 
 // Je trasa "modrá"? Buď je otevřená v detailu, nebo je zaškrtnutá ve výběru více tras.
@@ -579,7 +585,7 @@ function applyRouteStyle(id){
   if(!layer) return;
   if(isRouteMarked(id)){
     setLayerPane(layer, SELECTED_PANE);
-    layer.setStyle(STYLE_SELECTED);
+    layer.setStyle(selectedStyle());
     layer.bringToFront();
   } else {
     setLayerPane(layer, 'route-' + typeOf(routesCache[id]));
@@ -1282,9 +1288,7 @@ let lastHeadingUpdateTs = 0;
 let currentSpeedKmh = 0;
 
 const locateBtn = document.getElementById('locate-btn');
-const headingBtn = document.getElementById('heading-btn');
 const locateBtnLabel = document.getElementById('locate-btn-label');
-const headingBtnLabel = document.getElementById('heading-btn-label');
 const mapEl = document.getElementById('map');
 
 document.getElementById('zoom-in-btn').addEventListener('click', ()=> map.zoomIn());
@@ -1497,39 +1501,57 @@ function onPositionError(err){
     watchId = null;
   }
   toast('Polohu se nepodařilo získat: ' + (err.message || 'neznámá chyba'));
-  followMode = false;
-  locateBtn.classList.remove('active');
-  locateBtnLabel.textContent = 'Nesleduji polohu';
+  setNavMode(false);
 }
 
-// Zapne odběr GPS (pokud ještě neběží) a režim "sleduji polohu".
-// Volá ho tlačítko polohy i spuštění záznamu jízdy.
+// Zapne jen odběr GPS (pokud ještě neběží) - poloha a šipka se aktualizují, záznam jízdy běží.
 function startGpsWatch(){
   if(!navigator.geolocation){ toast('Prohlížeč nepodporuje GPS polohu.'); return false; }
   if(watchId!=null) return true;
-  followMode = true;
-  locateBtn.classList.add('active');
-  locateBtnLabel.textContent = 'Sleduji polohu';
-  headingBtn.disabled = false;
   watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, { enableHighAccuracy:true, maximumAge:2000, timeout:15000 });
   return true;
 }
 
-locateBtn.addEventListener('click', ()=>{
-  if(!navigator.geolocation){ toast('Prohlížeč nepodporuje GPS polohu.'); return; }
-  if(watchId==null){
-    startGpsWatch();
-  } else if(!followMode){
-    followMode = true;
-    locateBtn.classList.add('active');
-    locateBtnLabel.textContent = 'Sleduji polohu';
-    if(lastLatLng) setFollowView(lastLatLng, false);
+// Kompas telefonu (doplněk pro pomalou jízdu); na iPhonu vyžaduje svolení - proto se volá z klepnutí.
+function enableCompass(){
+  if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+    DeviceOrientationEvent.requestPermission().then(perm=>{
+      if(perm === 'granted') startOrientation();
+      else toast('Kompas nedostupný – pod 5 km/h bude směr méně přesný, nad 5 km/h se použije GPS kurz.');
+    }).catch(()=>{});
   } else {
-    followMode = false;
-    locateBtn.classList.remove('active');
-    locateBtnLabel.textContent = 'Nesleduji polohu';
+    startOrientation();
   }
-});
+}
+
+// Jedno tlačítko „Sleduji / Nesleduji polohu“:
+//  zapnuto  = sledovat polohu + mapa natočená podle směru jízdy + silnější čáry tras
+//  vypnuto  = mapa volně posouvatelná, sever nahoru, normální čáry (GPS a záznam běží dál)
+function setNavMode(on){
+  if(on){
+    if(!startGpsWatch()) return;
+    navOn = true;
+    followMode = true;
+    enableCompass();
+    headingMode = 'heading';
+  } else {
+    navOn = false;
+    followMode = false;
+    headingMode = 'north';
+  }
+  layoutMapForMode();
+  setMapRotation(headingMode === 'heading');
+  if(followMode && lastLatLng) setFollowView(lastLatLng, false);
+  locateBtn.classList.toggle('active', navOn);
+  locateBtnLabel.textContent = navOn ? 'Sleduji polohu' : 'Nesleduji polohu';
+  locateBtn.setAttribute('aria-pressed', navOn ? 'true' : 'false');
+  document.body.classList.toggle('nav-on', navOn);
+  // čáry tras a záznamu podle režimu
+  Object.keys(layersById).forEach(applyRouteStyle);
+  if(recLine) recLine.setStyle({ weight: routeWeight('rec') });
+}
+
+locateBtn.addEventListener('click', ()=> setNavMode(!navOn));
 
 function startOrientation(){
   if(orientationBound) return;
@@ -1593,36 +1615,7 @@ function setMapRotation(on){
   }
 }
 
-headingBtn.addEventListener('click', async ()=>{
-  if(headingMode==='north'){
-    // Kompas je jen doplněk pro nízké rychlosti (viz startOrientation) - pokud
-    // není dostupný / nepovolený (typicky PC bez kompasu), režim "směr jízdy"
-    // se přesto zapne a nad 5 km/h normálně jede podle GPS kurzu.
-    if(typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
-      try{
-        const perm = await DeviceOrientationEvent.requestPermission();
-        if(perm === 'granted') startOrientation();
-        else toast('Kompas nedostupný - pod 5 km/h bude směr méně přesný, nad 5 km/h se použije GPS kurz.');
-      }catch(e){ /* kompas na tomto zařízení není - GPS kurz nad 5 km/h funguje bez něj */ }
-    } else {
-      startOrientation();
-    }
-    headingMode = 'heading';
-    headingBtn.classList.add('active');
-    headingBtnLabel.textContent = 'Směr jízdy';
-    layoutMapForMode();
-    setMapRotation(true);
-  } else {
-    headingMode = 'north';
-    headingBtn.classList.remove('active');
-    headingBtnLabel.textContent = 'Sever nahoru';
-    layoutMapForMode();
-    setMapRotation(false);
-  }
-  // Po přepnutí režimu se mění rotace mapy, takže dolní-třetinový posun
-  // přepočítáme rovnou, ať šipka neposkočí na chvíli jinam.
-  if(followMode && lastLatLng) setFollowView(lastLatLng, true);
-});
+// (samostatné tlačítko „Sever nahoru / Směr jízdy“ je od v1.47 sloučené do tlačítka polohy – setNavMode)
 
 // ---------------------------------------------------------------
 // Wake Lock - zabránění zhasnutí/vypnutí displeje během používání
@@ -1898,7 +1891,7 @@ function ensureRecLine(){
   if(!map) return;
   if(!map.getPane('rec-track')) map.createPane('rec-track').style.zIndex = 445;
   if(!recLine){
-    recLine = L.polyline(rec.points.map(p=>[p[0],p[1]]), { pane:'rec-track', color:REC_COLOR, weight:5, opacity:0.95, interactive:false }).addTo(map);
+    recLine = L.polyline(rec.points.map(p=>[p[0],p[1]]), { pane:'rec-track', color:REC_COLOR, weight:routeWeight('rec'), opacity:0.95, interactive:false }).addTo(map);
   }
 }
 // sbalený panel záznamu = jen tečka, čas a km (ťuknutím se rozbalí na Pauza / Stop)
@@ -1940,6 +1933,7 @@ function stopRecTimer(){ if(recTimer){ clearInterval(recTimer); recTimer = null;
 
 function recStart(){
   if(!startGpsWatch()) return;
+  if(!navOn) setNavMode(true);
   setRecCompact(document.body.classList.contains('ride-ui'));
   rec.state = 'recording';
   rec.points = [];

@@ -724,7 +724,6 @@ body.ride-ui #fullscreen-btn,
 body.ride-ui #satellite-btn,
 body.ride-ui #fuel-btn,
 body.ride-ui #rec-btn,
-body.ride-ui #heading-btn,
 body.ride-ui #locate-btn,
 body.ride-ui #zoom-in-btn,
 body.ride-ui #zoom-out-btn{
@@ -733,7 +732,6 @@ body.ride-ui #zoom-out-btn{
   border-radius:12px; font-size:calc(var(--rb) * 0.42); line-height:1;
   top:auto; bottom:auto; left:auto; right:auto; flex:none;
 }
-body.ride-ui #heading-btn .map-btn-label,
 body.ride-ui #locate-btn .map-btn-label,
 body.ride-ui #rec-btn .map-btn-label{ display:none; }
 body.ride-ui .map-btn-icon{ width:calc(var(--rb) * 0.48); height:calc(var(--rb) * 0.48); }
@@ -749,9 +747,8 @@ body.ride-ui.standalone #fuel-btn{ top:calc(var(--rt) + var(--step)); }
 /* pravý horní sloupec: menu, záznam */
 body.ride-ui #menu-btn{ top:var(--rt); right:var(--rr); }
 body.ride-ui #rec-btn{ top:calc(var(--rt) + var(--step)); right:var(--rr); }
-/* levý dolní sloupec (palec): sever / směr jízdy, sledovat polohu */
+/* levý dolní roh (palec): sledovat polohu = navigace (od v1.47 jedno tlačítko) */
 body.ride-ui #locate-btn{ bottom:var(--rbm); left:var(--rl); }
-body.ride-ui #heading-btn{ bottom:calc(var(--rbm) + var(--step)); left:var(--rl); }
 /* pravý dolní sloupec (palec): + a − */
 body.ride-ui #zoom-out-btn{ bottom:var(--rbm); right:var(--rr); }
 body.ride-ui #zoom-in-btn{ bottom:calc(var(--rbm) + var(--step)); right:var(--rr); }
@@ -788,3 +785,9 @@ body.ride-ui #route-list.collapsed #route-list-tab{ display:none; }
 body.ride-ui #route-list:not(.collapsed) #route-list-tab{ display:flex !important; }
 /* otevřený seznam tras v jízdním režimu překryje levý sloupec tlačítek */
 body.ride-ui #route-list{ z-index:970; }
+
+/* ===== v1.47: sloučené tlačítko „Sleduji / Nesleduji polohu“ ===== */
+/* desktop: tlačítko polohy zabírá oba řádky vlevo, vpravo + nad − */
+.nav-grid #locate-btn{ grid-row:1 / span 2; grid-column:1; height:auto; }
+.nav-grid #zoom-in-btn{ grid-row:1; grid-column:2; }
+.nav-grid #zoom-out-btn{ grid-row:2; grid-column:2; }

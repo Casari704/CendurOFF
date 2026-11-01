@@ -361,26 +361,76 @@ function requestRoute(seg){
 // Mapa
 // ---------------------------------------------------------------
 const map = L.map('map', { zoomControl:false }).setView([49.8711, 17.8756], 12);
-L.control.zoom({ position:'topright' }).addTo(map);
 const baseLayers = {
   osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap contributors' }),
   topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom:19, maxNativeZoom:17, attribution:'© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)' }),
   cyclosm: L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', { maxZoom:19, maxNativeZoom:20, attribution:'© OpenStreetMap contributors, CyclOSM' }),
   sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:19, attribution:'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics' })
 };
-const baseNames = { cyclosm:'CyclOSM – vrstevnice, povrchy', topo:'Turistická – vrstevnice', osm:'Základní (bez vrstevnic)', sat:'Satelit' };
+// stejné názvy a pořadí jako v Atlasu
+const baseNames = {
+  cyclosm:'CyclOSM – vrstevnice, stínování, povrchy cest',
+  topo:'Turistická (OpenTopoMap) – výrazné vrstevnice',
+  osm:'Základní (OpenStreetMap) – bez vrstevnic',
+  sat:'Satelit (Esri)'
+};
+const baseShort = { cyclosm:'CyclOSM', topo:'Turistická', osm:'Základní', sat:'Satelit' };
+const BASE_ORDER = ['cyclosm','topo','osm','sat'];
 // podkladová mapa je společná s Atlasem (stejný klíč v prohlížeči) - změna na jedné stránce platí i na druhé
 const SHARED_BASE_KEY = 'baseMap';
 let currentBase = (()=>{ try{ return localStorage.getItem(SHARED_BASE_KEY); }catch(e){ return null; } })();
 if(!baseLayers[currentBase]) currentBase = 'cyclosm';
 baseLayers[currentBase].addTo(map);
-const layerControl = {};
-['cyclosm','topo','osm','sat'].forEach(k=>{ layerControl[baseNames[k]] = baseLayers[k]; });
-L.control.layers(layerControl, null, { position:'topright' }).addTo(map);
-map.on('baselayerchange', e=>{
-  const k = Object.keys(baseLayers).find(key=>baseLayers[key]===e.layer);
-  if(k){ currentBase = k; try{ localStorage.setItem(SHARED_BASE_KEY, k); }catch(err){} }
+
+// tlačítka mapy jako v Atlasu: 🗺 (nabídka podkladů), +, −
+document.getElementById('pl-zoom-in').addEventListener('click', ()=> map.zoomIn());
+document.getElementById('pl-zoom-out').addEventListener('click', ()=> map.zoomOut());
+const layersBtn = document.getElementById('pl-layers-btn');
+document.body.insertAdjacentHTML('beforeend', `<div id="layer-menu" role="menu">
+  <div class="layer-menu-title">Podkladová mapa</div>
+  ${BASE_ORDER.map(k=>`<button type="button" class="layer-opt" data-base="${k}" role="menuitemradio"><span class="layer-radio"></span>${baseNames[k]}</button>`).join('')}
+</div>`);
+const layerMenu = document.getElementById('layer-menu');
+function syncLayerMenu(){
+  layerMenu.querySelectorAll('.layer-opt').forEach(b=>{
+    const on = b.dataset.base === currentBase;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', String(on));
+  });
+}
+function setBaseMap(k){
+  if(!baseLayers[k] || k===currentBase) return;
+  map.removeLayer(baseLayers[currentBase]);
+  currentBase = k;
+  baseLayers[k].addTo(map);
+  try{ localStorage.setItem(SHARED_BASE_KEY, k); }catch(e){}
+  syncLayerMenu();
+}
+function placeLayerMenu(){
+  const r = layersBtn.getBoundingClientRect();
+  layerMenu.style.left = 'auto';
+  layerMenu.style.top = Math.round(r.top) + 'px';
+  layerMenu.style.right = Math.max(8, Math.round(window.innerWidth - r.left + 8)) + 'px';
+  layerMenu.style.maxHeight = Math.max(160, window.innerHeight - r.top - 8) + 'px';
+  layerMenu.style.overflowY = 'auto';
+}
+layersBtn.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  placeLayerMenu();
+  layerMenu.classList.toggle('open');
 });
+layerMenu.addEventListener('click', (e)=>{
+  const b = e.target.closest('.layer-opt');
+  if(!b) return;
+  setBaseMap(b.dataset.base);
+  layerMenu.classList.remove('open');
+  toast('Mapa: ' + baseShort[b.dataset.base], 1800);
+});
+document.addEventListener('click', (e)=>{
+  if(layerMenu.classList.contains('open') && !layerMenu.contains(e.target) && e.target !== layersBtn) layerMenu.classList.remove('open');
+});
+window.addEventListener('resize', ()=>{ if(layerMenu.classList.contains('open')) placeLayerMenu(); });
+syncLayerMenu();
 
 map.createPane('pl-others').style.zIndex = 405;
 map.createPane('pl-route').style.zIndex = 450;
