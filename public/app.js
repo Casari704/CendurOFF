@@ -1365,8 +1365,6 @@ satelliteBtn.title = 'Podkladová mapa, benzínky, CHKO';
 document.body.insertAdjacentHTML('beforeend', `<div id="layer-menu" role="menu">
   <div class="layer-menu-title">Podkladová mapa</div>
   ${BASE_ORDER.map(k=>`<button type="button" class="layer-opt" data-base="${k}" role="menuitemradio"><span class="layer-radio"></span>${BASE_MAPS[k].label}</button>`).join('')}
-  <div class="layer-menu-title layer-menu-sep">Na mapě zobrazit</div>
-  <button type="button" class="layer-opt layer-toggle" id="fuel-toggle" role="menuitemcheckbox" aria-checked="false"><span class="layer-check"></span>⛽ Čerpací stanice</button>
 </div>`);
 const layerMenu = document.getElementById('layer-menu');
 function syncLayerMenu(){
@@ -1693,122 +1691,8 @@ document.addEventListener('fullscreenchange', onFsChange);
 document.addEventListener('webkitfullscreenchange', onFsChange);
 
 
-// ---------------------------------------------------------------
-// Čerpací stanice (benzínky) na mapě - data z OpenStreetMap přes Overpass API
-// - celá oblast ČR + 100 km se stáhne najednou a pamatuje se v prohlížeči na týden
-// - zapínají/vypínají se v nabídce 🗺 (stav se pamatuje)
-// ---------------------------------------------------------------
-const FUEL_MIN_ZOOM = 10;
-const FUEL_SVG = '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M4 3h9a1 1 0 0 1 1 1v8h1.5a2.5 2.5 0 0 1 2.5 2.5V18a1 1 0 0 0 2 0v-6.6l-2.7-2.7a1 1 0 1 1 1.4-1.4l3 3a1 1 0 0 1 .3.7V18a3 3 0 0 1-6 0v-3.5a.5.5 0 0 0-.5-.5H14v7h1a1 1 0 1 1 0 2H2a1 1 0 1 1 0-2h1V4a1 1 0 0 1 1-1zm1.5 2v5h6V5h-6z"/></svg>';
+// Benzínky a CHKO: od v1.50 sdílené moduly public/fuel.js a public/chko.js (stejné v Atlasu i Plánovači)
 
-// Benzínky (v1.49): stáhnou se JEDNOU pro celou ČR + 100 km od hranic (regiondata.js),
-// uloží se v prohlížeči na týden; na mapě se pak ukazují jen ty v záběru (od přiblížení 10).
-let fuelOn = localStorage.getItem('fuelOn') !== '0';
-let fuelLayer = null, fuelHintShown = false, fuelErrorShown = false;
-let fuelData = null, fuelLoading = false, fuelRetry = null;
-const FUEL_CELL = 0.1;               // mřížka pro rychlé hledání stanic v záběru
-const fuelGrid = {};                 // "x_y" -> [stanice]
-const fuelMarkers = new Map();       // id -> marker (jen ty, co jsou teď na mapě)
-try{ Object.keys(localStorage).filter(k=>k.startsWith('cenduroff.fuel.')).forEach(k=>localStorage.removeItem(k)); }catch(e){} // úklid starých dlaždic (≤ v1.48)
-
-function fuelIcon(){
-  return L.divIcon({ className:'fuel-marker', html:`<div class="fuel-ico">${FUEL_SVG}</div>`, iconSize:[22,22], iconAnchor:[11,11], popupAnchor:[0,-10] });
-}
-function makeFuelMarker(st){
-  // kompaktní záznam: [id, lat, lon, název, značka, otevírací doba]
-  const [, lat, lon, name, brand, hours] = st;
-  const title = name || brand || 'Čerpací stanice';
-  const extra = [brand && brand !== title ? brand : '', hours ? 'Otevřeno: ' + hours : ''].filter(Boolean);
-  const m = L.marker([lat, lon], { icon:fuelIcon(), keyboard:false, zIndexOffset:-500 });
-  m.bindTooltip(escapeHtml(title), { direction:'top', offset:[0,-10], className:'trail-tip' });
-  m.bindPopup(`<div class="fuel-popup"><b>⛽ ${escapeHtml(title)}</b>${extra.map(e=>`<div>${escapeHtml(e)}</div>`).join('')}</div>`);
-  return m;
-}
-function downloadFuel(){
-  const R = window.CendurRegion;
-  // 3 pruhy po sobě - menší dotazy než jeden obří
-  return R.stripes(3).reduce((p, box)=>p.then(async acc=>{
-    const q = `[out:json][timeout:180];(node["amenity"="fuel"](${R.bboxStr(box)});way["amenity"="fuel"](${R.bboxStr(box)}););out center tags;`;
-    const data = await R.overpass(q);
-    (data.elements || []).forEach(el=>{
-      const t = el.tags || {};
-      const lat = el.lat != null ? el.lat : (el.center && el.center.lat);
-      const lon = el.lon != null ? el.lon : (el.center && el.center.lon);
-      if(lat == null || lon == null) return;
-      acc.push([el.type[0] + el.id, +lat.toFixed(6), +lon.toFixed(6), t.name || '', t.brand || t.operator || '', t.opening_hours || '']);
-    });
-    return acc;
-  }), Promise.resolve([]));
-}
-function indexFuel(list){
-  const seen = new Set();
-  list.forEach(st=>{
-    if(seen.has(st[0])) return; seen.add(st[0]);
-    const k = Math.floor(st[2]/FUEL_CELL) + '_' + Math.floor(st[1]/FUEL_CELL);
-    (fuelGrid[k] || (fuelGrid[k] = [])).push(st);
-  });
-  fuelData = list;
-}
-function loadFuel(){
-  if(fuelData || fuelLoading || !window.CendurRegion) return;
-  fuelLoading = true;
-  window.CendurRegion.load('fuel', downloadFuel, ()=>toast('Stahuji benzínky pro celou ČR + 100 km (jednou za týden)…', 3500)).then(list=>{
-    fuelLoading = false;
-    indexFuel(list);
-    updateFuel();
-  }).catch(()=>{
-    fuelLoading = false;
-    if(!fuelErrorShown){ fuelErrorShown = true; toast('Benzínky se teď nepodařilo načíst (služba OpenStreetMap je přetížená nebo chybí signál). Zkusím to znovu.', 4500); }
-    clearTimeout(fuelRetry);
-    fuelRetry = setTimeout(loadFuel, 30000);
-  });
-}
-function updateFuel(){
-  if(!map) return;
-  if(!fuelLayer) fuelLayer = L.layerGroup();
-  const visible = fuelOn && map.getZoom() >= FUEL_MIN_ZOOM;
-  if(visible && !map.hasLayer(fuelLayer)) fuelLayer.addTo(map);
-  if(!visible && map.hasLayer(fuelLayer)) map.removeLayer(fuelLayer);
-  if(!fuelOn) return;
-  if(!fuelData){ loadFuel(); return; }
-  if(!visible) return;
-  // jen stanice v záběru (+ okraj), ostatní z mapy pryč - ať je mapa svižná
-  const b = map.getBounds().pad(0.3);
-  const x0 = Math.floor(b.getWest()/FUEL_CELL), x1 = Math.floor(b.getEast()/FUEL_CELL);
-  const y0 = Math.floor(b.getSouth()/FUEL_CELL), y1 = Math.floor(b.getNorth()/FUEL_CELL);
-  const want = new Set();
-  for(let x=x0;x<=x1;x++) for(let y=y0;y<=y1;y++){
-    (fuelGrid[x + '_' + y] || []).forEach(st=>{
-      want.add(st[0]);
-      if(!fuelMarkers.has(st[0])){ const m = makeFuelMarker(st); fuelMarkers.set(st[0], m); m.addTo(fuelLayer); }
-    });
-  }
-  fuelMarkers.forEach((m, id)=>{
-    if(!want.has(id) && !m.isPopupOpen()){ fuelLayer.removeLayer(m); fuelMarkers.delete(id); }
-  });
-}
-const fuelBtn = document.getElementById('fuel-toggle');
-function syncFuelBtn(){
-  if(!fuelBtn) return;
-  fuelBtn.classList.toggle('active', fuelOn);
-  fuelBtn.setAttribute('aria-checked', String(fuelOn));
-}
-if(fuelBtn){
-  syncFuelBtn();
-  fuelBtn.addEventListener('click', (e)=>{
-    e.stopPropagation();   // nabídka zůstane otevřená
-    fuelOn = !fuelOn;
-    try{ localStorage.setItem('fuelOn', fuelOn ? '1' : '0'); }catch(e){}
-    syncFuelBtn();
-    updateFuel();
-    if(fuelOn && map && map.getZoom() < FUEL_MIN_ZOOM && !fuelHintShown){
-      fuelHintShown = true;
-      toast('Benzínky se ukážou po přiblížení mapy.');
-    } else {
-      toast(fuelOn ? 'Benzínky zobrazeny.' : 'Benzínky skryty.', 1800);
-    }
-  });
-}
 // ---------------------------------------------------------------
 // Záznam jízdy
 // - nahrává polohu z GPS (stejný odběr jako tlačítko polohy), ostatní trasy
@@ -2153,9 +2037,8 @@ async function enterApp(){
   setTimeout(()=>map.invalidateSize(), 50);
   if(!enterApp._fuelBound){
     enterApp._fuelBound = true;
-    map.on('moveend', updateFuel);
+    if(window.CendurFuel) CendurFuel.attach(map, layerMenu);
     if(window.CendurChko) CendurChko.attach(map, layerMenu);
-    setTimeout(updateFuel, 400);
   }
   positionFloatingMapButtons();
   setTimeout(positionFloatingMapButtons, 100);

@@ -386,7 +386,7 @@ baseLayers[currentBase].addTo(map);
 document.getElementById('pl-zoom-in').addEventListener('click', ()=> map.zoomIn());
 document.getElementById('pl-zoom-out').addEventListener('click', ()=> map.zoomOut());
 const layersBtn = document.getElementById('pl-layers-btn');
-layersBtn.title = 'Podkladová mapa, CHKO';
+layersBtn.title = 'Podkladová mapa, benzínky, CHKO';
 document.body.insertAdjacentHTML('beforeend', `<div id="layer-menu" role="menu">
   <div class="layer-menu-title">Podkladová mapa</div>
   ${BASE_ORDER.map(k=>`<button type="button" class="layer-opt" data-base="${k}" role="menuitemradio"><span class="layer-radio"></span>${baseNames[k]}</button>`).join('')}
@@ -432,6 +432,7 @@ document.addEventListener('click', (e)=>{
 });
 window.addEventListener('resize', ()=>{ if(layerMenu.classList.contains('open')) placeLayerMenu(); });
 syncLayerMenu();
+if(window.CendurFuel) CendurFuel.attach(map, layerMenu);
 if(window.CendurChko) CendurChko.attach(map, layerMenu);
 
 map.createPane('pl-others').style.zIndex = 405;
@@ -605,11 +606,11 @@ function wpIcon(i){
 }
 
 function segStyle(s){
-  if(s.mode==='route' && (s.loading || !s.pts) && !s.error) return { color:COLORS.loading, weight:4, opacity:0.8, dashArray:'4 8' };
-  if(s.mode==='route' && s.error) return { color:COLORS.error, weight:4, opacity:0.9, dashArray:'8 6' };
-  if(s.mode==='straight') return { color:COLORS.straight, weight:5, opacity:0.95, dashArray:'10 7' };
-  if(s.mode==='raw') return { color:COLORS.raw, weight:5, opacity:0.9 };
-  return { color:COLORS.route, weight:5, opacity:0.95 };
+  if(s.mode==='route' && (s.loading || !s.pts) && !s.error) return { color:COLORS.loading, weight:5, opacity:0.9, dashArray:'4 8' };
+  if(s.mode==='route' && s.error) return { color:COLORS.error, weight:5, opacity:1, dashArray:'8 6' };
+  if(s.mode==='straight') return { color:COLORS.straight, weight:6, opacity:1, dashArray:'10 7' };
+  if(s.mode==='raw') return { color:COLORS.raw, weight:6, opacity:1 };
+  return { color:COLORS.route, weight:6, opacity:1 };
 }
 
 let segLines = [];
@@ -626,7 +627,7 @@ function renderSegs(){
       const idx = segLines.findIndex(x=>x.hit===hit);
       if(idx >= 0) insertOnSeg(idx, e.latlng);
     });
-    hit.on('mouseover', ()=> line.setStyle({ weight:7 }));
+    hit.on('mouseover', ()=> line.setStyle({ weight:9 }));
     hit.on('mouseout', ()=> line.setStyle({ weight:segStyle(s).weight }));
     segLines.push({ line, hit });
   });
@@ -844,7 +845,7 @@ function drawOthers(){
   allRoutes.forEach(r=>{
     if(editing && Number(editing.id)===Number(r.id)) return; // upravovaná trasa se kreslí jako plán
     const color = (ROUTE_TYPES[r.route_type] || ROUTE_TYPES.offroad).color;
-    L.polyline(r.points.map(p=>[p[0],p[1]]), { pane:'pl-others', color, weight:3, opacity:0.45, interactive:false }).addTo(othersLayer);
+    L.polyline(r.points.map(p=>[p[0],p[1]]), { pane:'pl-others', color, weight:4, opacity:0.7, interactive:false }).addTo(othersLayer);
   });
 }
 const showRoutesEl = document.getElementById('pl-show-routes');

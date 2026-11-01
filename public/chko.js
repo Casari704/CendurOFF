@@ -11,10 +11,11 @@
   const MIN_ZOOM = 7;
   const COLOR = '#D32F2F';
 
-  let map = null, layer = null, toggleBtn = null, renderer = null;
+  let map = null, layer = null, toggleBtn = null, renderer = null, statusEl = null;
+  function status(txt){ if(statusEl) statusEl.textContent = txt ? ' · ' + txt : ''; }
   let on = (()=>{ try{ return localStorage.getItem(STORE_KEY) === '1'; }catch(e){ return false; } })();
   const drawn = new Set();   // id oblastí už na mapě
-  let areas = null, loading = false, errorShown = false, retryTimer = null;
+  let areas = null, loading = false, retryTimer = null;
 
   function say(msg, ms){ if(typeof window.toast === 'function') window.toast(msg, ms); }
 
@@ -100,7 +101,7 @@
       drawn.add(a.id);
       L.polygon(a.rings, {
         renderer, pane:'chko', interactive:false,
-        color:COLOR, weight:2.5, opacity:0.9,
+        color:COLOR, weight:1.5, opacity:0.75,
         fillColor:'url(#chko-hatch)', fillOpacity:1, fillRule:'evenodd'
       }).addTo(layer);
     });
@@ -108,27 +109,34 @@
   }
 
   // ---- načtení pro celou oblast ČR + 100 km ----
-  const TITLE_RE = '^chr[aá]n[eěé]n[aá] krajinn[aá] oblas';
+  // CHKO poznáme podle názvu nebo druhu ochrany: „CHKO …“, „Chráněná krajinná oblast …“ (i slovensky „Chránená …“)
+  const CHKO_RE = '(^|[^a-z])chko([^a-z]|$)|chr[aá]n[eěé]n[aá] krajinn[aá] oblas';
   function download(){
     const R = window.CendurRegion, bbox = R.bboxStr(R.REGION);
+    status('stahuji…');
+    const keys = '^(name|official_name|protection_title|protection_title:cs|designation)$';
     const q = `[out:json][timeout:180];(` +
-      `relation["boundary"="protected_area"]["protection_title"~"${TITLE_RE}",i](${bbox});` +
-      `relation["boundary"="protected_area"]["name"~"^(chko|chr[aá]n[eěé]n[aá] krajinn[aá] oblas)",i](${bbox});` +
-      `way["boundary"="protected_area"]["protection_title"~"${TITLE_RE}",i](${bbox});` +
+      `relation["boundary"="protected_area"][~"${keys}"~"${CHKO_RE}",i](${bbox});` +
+      `way["boundary"="protected_area"][~"${keys}"~"${CHKO_RE}",i](${bbox});` +
+      `relation["leisure"="nature_reserve"][~"${keys}"~"${CHKO_RE}",i](${bbox});` +
       `);out geom;`;
     return R.overpass(q).then(d=>parseElements(d.elements));
   }
   function ensureLoaded(){
-    if(areas || loading || !window.CendurRegion) return;
+    if(areas || loading) return;
+    if(!window.CendurRegion){ status('chyba'); say('CHKO: chybí soubor public/regiondata.js – nahraj ho na web.', 6000); return; }
     loading = true;
+    status('načítám…');
     window.CendurRegion.load('chko', download, ()=>say('Stahuji hranice CHKO pro celou ČR + 100 km (jednou za týden)…', 3500)).then(list=>{
       areas = list; loading = false;
+      status(list.length ? '' : 'nic nenalezeno');
       update();
-    }).catch(()=>{
+    }).catch(err=>{
       loading = false;
-      if(!errorShown){ errorShown = true; say('CHKO se teď nepodařilo načíst (služba OpenStreetMap je přetížená nebo chybí signál). Zkusím to znovu.', 4500); }
+      status('chyba, zkusím znovu');
+      say('CHKO se nepodařilo stáhnout (' + (err && err.message || 'chyba') + '). Zkusím to znovu za 30 s.', 5000);
       clearTimeout(retryTimer);
-      retryTimer = setTimeout(ensureLoaded, 30000);
+      retryTimer = setTimeout(()=>{ if(on) ensureLoaded(); }, 30000);
     });
   }
   function update(){
@@ -152,16 +160,18 @@
     if(!menu.querySelector('.layer-menu-sep')){
       menu.insertAdjacentHTML('beforeend', '<div class="layer-menu-title layer-menu-sep">Na mapě zobrazit</div>');
     }
-    menu.insertAdjacentHTML('beforeend', '<button type="button" class="layer-opt layer-toggle" id="chko-toggle" role="menuitemcheckbox" aria-checked="false"><span class="layer-check"></span><span class="chko-swatch"></span>CHKO (chráněné krajinné oblasti)</button>');
+    menu.insertAdjacentHTML('beforeend', '<button type="button" class="layer-opt layer-toggle" id="chko-toggle" role="menuitemcheckbox" aria-checked="false"><span class="layer-check"></span><span class="chko-swatch"></span><span>CHKO (chráněné krajinné oblasti)<small class="layer-status"></small></span></button>');
     toggleBtn = menu.querySelector('#chko-toggle');
+    statusEl = toggleBtn.querySelector('.layer-status');
     toggleBtn.addEventListener('click', (e)=>{
       e.stopPropagation();   // nabídka zůstane otevřená
       on = !on;
       try{ localStorage.setItem(STORE_KEY, on ? '1' : '0'); }catch(err){}
       sync();
+      if(!on) status('');
       update();
       if(on && map && map.getZoom() < MIN_ZOOM) say('CHKO se ukážou po přiblížení mapy.');
-      else say(on ? 'CHKO zobrazeny.' : 'CHKO skryty.', 1800);
+      else if(areas || !on) say(on ? 'CHKO zobrazeny.' : 'CHKO skryty.', 1800);
     });
     sync();
   }

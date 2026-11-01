@@ -8,7 +8,8 @@
   // obdélník kolem ČR (48.55–51.06 s. š., 12.09–18.86 v. d.) rozšířený o ~100 km
   // (100 km ≈ 0.9° zeměpisné šířky, ≈ 1.4° délky v našich šířkách)
   const REGION = { s:47.65, w:10.70, n:51.96, e:20.26 };
-  const OVERPASS_URLS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
+  const OVERPASS_URLS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+  const TIMEOUT_MS = 150000;
   const MAX_AGE_DAYS = 7;
   const DB_NAME = 'cenduroff-data', STORE = 'kv';
 
@@ -46,14 +47,28 @@
     }catch(e){}
   }
 
-  async function overpass(query){
+  // Dotazy jdou po jednom (Overpass dovolí z jedné adresy jen ~2 souběžné dotazy),
+  // každý s časovým limitem; při chybě se zkusí další server.
+  let chain = Promise.resolve();
+  function overpass(query){
+    const run = chain.then(()=>overpassNow(query));
+    chain = run.catch(()=>{});
+    return run;
+  }
+  async function overpassNow(query){
     let lastErr = null;
     for(const url of OVERPASS_URLS){
+      const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timer = ctl ? setTimeout(()=>ctl.abort(), TIMEOUT_MS) : null;
       try{
-        const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded' }, body:'data=' + encodeURIComponent(query) });
-        if(!res.ok) throw new Error('HTTP ' + res.status);
-        return await res.json();
-      }catch(err){ lastErr = err; }
+        const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded' }, body:'data=' + encodeURIComponent(query), signal: ctl ? ctl.signal : undefined });
+        if(!res.ok) throw new Error('server ' + res.status);
+        const json = await res.json();
+        if(json.remark && /runtime error|timed out|out of memory/i.test(json.remark) && !(json.elements||[]).length) throw new Error('server přetížený');
+        return json;
+      }catch(err){
+        lastErr = (err && err.name === 'AbortError') ? new Error('vypršel čas') : err;
+      }finally{ if(timer) clearTimeout(timer); }
     }
     throw lastErr || new Error('Overpass nedostupný');
   }

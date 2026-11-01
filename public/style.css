@@ -794,3 +794,4 @@ body.ride-ui #route-list{ z-index:970; }
 /* ===== v1.49: CHKO ===== */
 .chko-swatch{width:16px;height:12px;flex:none;border:2px solid #D32F2F;border-radius:2px;box-sizing:border-box;
   background:repeating-linear-gradient(45deg, rgba(211,47,47,0.55) 0 2px, transparent 2px 6px);}
+.layer-status{font-weight:400;color:var(--ink-soft);font-size:0.78rem;}
