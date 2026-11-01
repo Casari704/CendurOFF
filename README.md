@@ -82,6 +82,12 @@ public/           – frontend (statické soubory, servíruje je stejný server)
 Endpointy navíc: `DELETE /api/routes/:id` (smaže trasu, fotky se smažou automaticky) a
 `DELETE /api/routes/:id/photos/:photoId` (smaže jednu fotku).
 
+## Novinky ve verzi 1.47
+
+- **Jedno tlačítko „Sleduji / Nesleduji polohu“** (Atlas) – sloučeno s dřívějším „Sever nahoru / Směr jízdy“. Zapnuto = mapa sleduje polohu a natáčí se podle směru jízdy; vypnuto = sever nahoru a mapou jde volně posouvat. GPS i záznam jízdy běží dál i po vypnutí. Spuštění záznamu jízdy sledování zapne automaticky.
+- **Silnější čáry tras při sledování polohy** – za jízdy jsou trasy zhruba dvakrát silnější (4 → 8 px, vybraná 6 → 10 px, záznam 5 → 9 px), při prohlížení mapy zůstávají jako dřív.
+- **Plánovač: tlačítka mapy jako v Atlasu** – vpravo nahoře 🗺 (stejná nabídka podkladových map se stejnými názvy), + a −. Výběr podkladu je dál společný s Atlasem.
+
 ## Novinky ve verzi 1.46
 
 - **Jízdní režim Atlasu** (mobil na výšku a nízké displeje na šířku, např. Samsung A13 na motorce):
