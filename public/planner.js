@@ -365,14 +365,18 @@ const baseLayers = {
   osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap contributors' }),
   topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom:19, maxNativeZoom:17, attribution:'© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)' }),
   cyclosm: L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', { maxZoom:19, maxNativeZoom:20, attribution:'© OpenStreetMap contributors, CyclOSM' }),
-  sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:19, attribution:'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics' })
+  // v ČR letecké snímky ČÚZK, pod nimi Esri (vidět za hranicemi)
+  sat: L.layerGroup([
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:19, attribution:'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics' }),
+    L.tileLayer('https://ags.cuzk.gov.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer/tile/{z}/{y}/{x}', { maxZoom:19, maxNativeZoom:20, attribution:'Ortofoto © ČÚZK' })
+  ])
 };
 // stejné názvy a pořadí jako v Atlasu
 const baseNames = {
   cyclosm:'CyclOSM – vrstevnice, stínování, povrchy cest',
   topo:'Turistická (OpenTopoMap) – výrazné vrstevnice',
   osm:'Základní (OpenStreetMap) – bez vrstevnic',
-  sat:'Satelit (Esri)'
+  sat:'Satelit (ČÚZK v ČR, Esri mimo ČR)'
 };
 const baseShort = { cyclosm:'CyclOSM', topo:'Turistická', osm:'Základní', sat:'Satelit' };
 const BASE_ORDER = ['cyclosm','topo','osm','sat'];

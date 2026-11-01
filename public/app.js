@@ -430,9 +430,11 @@ const BASE_MAPS = {
   osm:     { label:'Základní (OpenStreetMap) – bez vrstevnic', short:'Základní',
     url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom:19,
     attribution:'© OpenStreetMap contributors' },
-  sat:     { label:'Satelit (Esri)', short:'Satelit',
+  // v ČR ostré letecké snímky ČÚZK, pod nimi Esri - to je vidět za hranicemi (kde ČÚZK nemá data)
+  sat:     { label:'Satelit (ČÚZK v ČR, Esri mimo ČR)', short:'Satelit',
     url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', maxZoom:19,
-    attribution:'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics' }
+    attribution:'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
+    overlay:{ url:'https://ags.cuzk.gov.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer/tile/{z}/{y}/{x}', maxZoom:20, attribution:'Ortofoto © ČÚZK' } }
 };
 const BASE_ORDER = ['cyclosm','topo','osm','sat'];
 const baseLayers = {};
@@ -470,7 +472,10 @@ function initMap(){
   BASE_ORDER.forEach(k=>{
     const b = BASE_MAPS[k];
     // maxNativeZoom: při větším přiblížení se dlaždice jen zvětší, místo aby mapa zmizela
-    baseLayers[k] = L.tileLayer(b.url, { maxZoom:19, maxNativeZoom:b.maxZoom, attribution:b.attribution });
+    const base = L.tileLayer(b.url, { maxZoom:19, maxNativeZoom:b.maxZoom, attribution:b.attribution });
+    baseLayers[k] = b.overlay
+      ? L.layerGroup([base, L.tileLayer(b.overlay.url, { maxZoom:19, maxNativeZoom:b.overlay.maxZoom, attribution:b.overlay.attribution })])
+      : base;
   });
   baseLayers[currentBase].addTo(map);
   syncLayerMenu();
