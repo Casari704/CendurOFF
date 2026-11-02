@@ -10,8 +10,8 @@
 <title>CendurOFF Roadbook planner</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=2.0">
-<link rel="stylesheet" href="public/rb.css?v=2.0">
+<link rel="stylesheet" href="public/style.css?v=2.1">
+<link rel="stylesheet" href="public/rb.css?v=2.1">
 <style>body.auth-pending #app-screen{visibility:hidden;}</style>
 </head>
 <body class="rb-page rb-planner auth-pending">
@@ -25,10 +25,17 @@
     <span id="rb-status" class="rb-badge none">—</span>
     <span class="rb-info" id="rb-info"></span>
     <span class="spacer"></span>
-    <button class="btn-rb" id="rb-regen" type="button">Vygenerovat znovu</button>
-    <button class="btn-rb" id="rb-legend-btn" type="button">Legenda</button>
-    <button class="btn-rb" id="rb-print-btn" type="button">Tisk</button>
-    <a class="btn-rb" id="rb-navi-link" href="roadbook-navi.html">Roadbook NAVI</a>
+    <button class="btn-rb" id="rb-pick" type="button">🗺 Vybrat jinou trasu</button>
+    <div class="rb-more">
+      <button class="btn-rb" id="rb-more-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="rb-more-list">Nástroje ▾</button>
+      <div class="rb-more-list" id="rb-more-list" role="menu" hidden>
+        <button class="btn-rb" id="rb-regen" type="button" role="menuitem">↻ Vygenerovat znovu</button>
+        <button class="btn-rb" id="rb-reverse" type="button" role="menuitem">⇄ Obrátit směr</button>
+        <button class="btn-rb" id="rb-print-btn" type="button" role="menuitem">🖨 Tisk (A5 / pás)</button>
+        <button class="btn-rb" id="rb-legend-btn" type="button" role="menuitem">Legenda symbolů</button>
+        <a class="btn-rb" id="rb-navi-link" href="roadbook-navi.html" role="menuitem">Otevřít v Roadbook NAVI</a>
+      </div>
+    </div>
     <button class="btn-rb" id="rb-ready" type="button">Označit READY</button>
     <button class="btn-rb go" id="rb-save" type="button">Uložit</button>
   </div>
@@ -43,7 +50,7 @@
           <button type="button" data-f="manual">Ruční / upravené</button>
         </div>
       </div>
-      <div id="rb-rows"><div class="rb-empty">Vyber nahoře trasu. Roadbook se k ní vygeneruje automaticky a pak ho tady doladíš.</div></div>
+      <div id="rb-rows"><div class="rb-empty">Klikni na trasu na mapě (nebo ji vyber nahoře v seznamu). Roadbook se k ní vygeneruje a pak ho tady doladíš.</div></div>
     </section>
 
     <section id="rb-mapwrap">
@@ -67,22 +74,28 @@
   </main>
 </div>
 
-<!-- ============ PŘEGENEROVÁNÍ ============ -->
-<div class="modal-overlay" id="rb-regen-overlay">
-  <div class="modal rb-modal" role="dialog" aria-modal="true" aria-labelledby="rb-regen-title">
+<!-- ============ GENEROVÁNÍ ============ -->
+<div class="modal-overlay" id="rb-gen-overlay">
+  <div class="modal rb-modal" role="dialog" aria-modal="true" aria-labelledby="rb-gen-title">
     <button class="detail-close" data-close type="button" aria-label="Zavřít">×</button>
-    <h2 id="rb-regen-title">Vygenerovat roadbook znovu</h2>
-    <p class="sub">Zatáčky se najdou z GPX, křižovatky, brody, závory, přejezdy a benzínky z OpenStreetMap.</p>
+    <h2 id="rb-gen-title">Vygenerovat roadbook</h2>
+    <p class="sub" id="rb-gen-intro"></p>
+    <div id="rb-gen-keep-box">
+      <label class="opt"><input type="radio" name="rb-gen-keep" value="keep" checked> Zachovat moje úpravy (ruční instrukce, poznámky, smazané body)</label>
+      <label class="opt"><input type="radio" name="rb-gen-keep" value="fresh"> Začít úplně od nuly</label>
+    </div>
     <label for="rb-minangle">Hlásit zatáčky od</label>
     <select id="rb-minangle">
       <option value="20">20° (víc instrukcí)</option>
       <option value="30" selected>30° (doporučeno)</option>
       <option value="45">45° (jen výrazné zatáčky)</option>
     </select>
-    <label class="opt"><input type="checkbox" id="rb-useosm" checked> Hledat křižovatky a body v OpenStreetMap</label>
-    <div class="actions">
-      <button class="primary-btn" id="rb-regen-keep" type="button" style="margin-top:0">Přegenerovat a zachovat moje úpravy</button>
-      <button class="ghost-btn" id="rb-regen-fresh" type="button">Začít úplně od nuly</button>
+    <p class="sub" id="rb-gen-osm" style="margin-top:14px"></p>
+    <div class="actions" style="flex-direction:column">
+      <button class="primary-btn" id="rb-gen-osm-btn" type="button" style="margin-top:0">Stáhnout z OSM a vygenerovat</button>
+      <button class="ghost-btn" id="rb-gen-redl" type="button" hidden>Stáhnout data z OSM znovu (aktuální)</button>
+      <button class="ghost-btn" id="rb-gen-gpx" type="button">Jen ze zatáček GPX – bez stahování (okamžitě)</button>
+      <button class="ghost-btn" data-close type="button">Zrušit</button>
     </div>
   </div>
 </div>
@@ -124,14 +137,14 @@
   </div>
 </div>
 
-<div class="rb-busy" id="rb-busy"><div id="rb-busy-text">Pracuji…</div></div>
+<div class="rb-busy" id="rb-busy"><div><div id="rb-busy-text">Pracuji…</div><button class="btn-rb warn" id="rb-busy-cancel" type="button" hidden style="margin-top:12px">Zrušit stahování</button></div></div>
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="public/config.js?v=2.0"></script>
-<script src="public/header.js?v=2.0"></script>
-<script src="public/regiondata.js?v=2.0"></script>
-<script src="public/rb-core.js?v=2.0"></script>
-<script src="public/rb-planner.js?v=2.0"></script>
+<script src="public/config.js?v=2.1"></script>
+<script src="public/header.js?v=2.1"></script>
+<script src="public/regiondata.js?v=2.1"></script>
+<script src="public/rb-core.js?v=2.1"></script>
+<script src="public/rb-planner.js?v=2.1"></script>
 </body>
 </html>

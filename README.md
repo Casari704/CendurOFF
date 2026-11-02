@@ -28,7 +28,7 @@ public/           – frontend (statické soubory, servíruje je stejný server)
 - **Fotky**: vlastník trasy nahraje až 3 fotky (max 3 MB/kus), server je uloží
   do databáze a umí označit, která je hlavní.
 
-## Verze 2.0 – Roadbook (zatím samostatně, mimo menu)
+## Verze 2.0 / 2.1 – Roadbook (v hlavičce pod „Menu ▾“)
 
 Dvě nové stránky, které **nijak nemění** Atlas ani Plánovač (trasy jen čtou):
 
@@ -47,6 +47,13 @@ Soubory: `roadbook-api.js` (backend, nová tabulka `roadbooks` + endpointy `/api
 `public/rb-core.js` (společné jádro), `public/rb-planner.js`, `public/rb-navi.js`, `public/rb.css`.
 Jediné zásahy do stávajících souborů: jeden řádek v `server.js` (připojení roadbook API) a
 nová tabulka na konci `db/schema.sql` (tabulku si server stejně založí sám).
+
+v2.1: trasa se vybírá kliknutím na mapě (barva = stav roadbooku), rozpracované roadbooky se
+pamatují (v paměti i v prohlížeči, přepnutí trasy nic neztratí), před stažením z OpenStreetMap se
+planner zeptá (odhad dotazů a MB), stahování ukazuje průběh a jde zrušit, stažená OSM data se
+ukládají v prohlížeči (další generování je okamžité). Tlačítko „Obrátit směr“ (start ↔ cíl).
+NAVI: začíná na začátku trasy (i u okruhu), korekce ±50 m, roadbook jde posouvat prstem a po
+4 s se sám vrátí k aktuální instrukci, výběr trasy z mapy.
 
 Pojistka: při uložení roadbooku se uloží otisk bodů trasy. Když se GPX trasy později změní
 (např. v Plánovači), roadbook se hlásí jako NOT ready; Roadbook planner ho při otevření

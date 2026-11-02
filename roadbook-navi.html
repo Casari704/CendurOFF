@@ -13,8 +13,8 @@
 <title>CendurOFF Roadbook NAVI</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=2.0">
-<link rel="stylesheet" href="public/rb.css?v=2.0">
+<link rel="stylesheet" href="public/style.css?v=2.1">
+<link rel="stylesheet" href="public/rb.css?v=2.1">
 <style>body.auth-pending #app-screen{visibility:hidden;}</style>
 </head>
 <body class="rb-page rb-navi auth-pending">
@@ -26,10 +26,17 @@
   <section id="nv-select">
     <div class="wrap">
       <h1>Roadbook NAVI</h1>
-      <p class="sub">Vyber trasu a jeď podle roadbooku. Trasy bez uloženého roadbooku se vygenerují automaticky (nezkontrolované).</p>
+      <p class="sub">Klikni na trasu na mapě (nebo ji najdi v seznamu) a jeď podle roadbooku. Zelená = READY, oranžová = NOT ready, šedá = bez roadbooku (vygeneruje se jen ze zatáček GPX).</p>
       <div class="nv-opts">
         <label><input type="checkbox" id="nv-simopt"> Simulace jízdy (vyzkoušení u stolu, bez GPS)</label>
         <a class="btn-rb" href="roadbook-planner.html">Roadbook planner</a>
+      </div>
+      <div id="nv-map" role="region" aria-label="Mapa tras – klikni na trasu"></div>
+      <div id="nv-pick" aria-live="polite">
+        <div class="t"><b id="nv-pick-name"></b><span id="nv-pick-km"></span><span id="nv-pick-badge" class="rb-badge"></span></div>
+        <div class="note" id="nv-pick-note"></div>
+        <label id="nv-pick-rev-box"><input type="checkbox" id="nv-pick-rev"> Jet obráceně (start ↔ cíl)</label>
+        <button type="button" class="btn-rb go" id="nv-pick-go">Jet podle roadbooku</button>
       </div>
       <label for="nv-search" style="position:absolute;left:-9999px">Hledat trasu</label>
       <input type="search" id="nv-search" placeholder="Hledat trasu…">
@@ -54,25 +61,26 @@
     <div class="b"><div id="nv-nextlabel"></div><div id="nv-bar"><i></i></div></div>
   </div>
   <div id="nv-btns">
-    <button type="button" id="nv-minus" aria-label="Odečíst 10 metrů z počítadla">−10 m</button>
-    <button type="button" id="nv-plus" aria-label="Přičíst 10 metrů k počítadlu">+10 m</button>
+    <button type="button" id="nv-minus" aria-label="Odečíst 50 metrů z počítadla">−50 m</button>
+    <button type="button" id="nv-plus" aria-label="Přičíst 50 metrů k počítadlu">+50 m</button>
     <button type="button" id="nv-mapbtn">Mapa</button>
     <button type="button" id="nv-end" class="go">Konec</button>
   </div>
   <div id="nv-off"><svg id="nv-off-arrow" width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 18-7-4-7 4z" fill="#fff"/></svg><span id="nv-off-text">MIMO TRASU</span></div>
   <div id="nv-wait">Čekám na GPS signál…</div>
+  <div id="nv-manual">Ruční posun – návrat za <span id="nv-manual-s">4</span> s</div>
   <div id="nv-sim"><button type="button" id="nv-sim-pause">⏸ Pauza</button><button type="button" id="nv-sim-speed">30 km/h</button></div>
   <div id="nv-bigmap"><div id="nv-bigmap-map"></div><button type="button" id="nv-bigmap-close">Zpět na roadbook</button></div>
 </div>
 
-<div class="rb-busy" id="rb-busy"><div id="rb-busy-text">Pracuji…</div></div>
+<div class="rb-busy" id="rb-busy"><div><div id="rb-busy-text">Pracuji…</div></div></div>
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="public/config.js?v=2.0"></script>
-<script src="public/header.js?v=2.0"></script>
-<script src="public/regiondata.js?v=2.0"></script>
-<script src="public/rb-core.js?v=2.0"></script>
-<script src="public/rb-navi.js?v=2.0"></script>
+<script src="public/config.js?v=2.1"></script>
+<script src="public/header.js?v=2.1"></script>
+<script src="public/regiondata.js?v=2.1"></script>
+<script src="public/rb-core.js?v=2.1"></script>
+<script src="public/rb-navi.js?v=2.1"></script>
 </body>
 </html>
