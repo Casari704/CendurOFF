@@ -1,13 +1,15 @@
 (function(){
 // ===============================================================
-// CendurOFF – Roadbook planner (roadbook-planner.html), v2.0
+// CendurOFF – Roadbook planner (roadbook-planner.html), v2.1
 //
 // Samostatná stránka: trasy jen ČTE (/api/routes), roadbook ukládá do vlastní
 // tabulky (/api/roadbooks/:id). Atlas ani Plánovač neovlivňuje.
 // ===============================================================
+// v2.1: výběr trasy z mapy, rozpracované roadbooky v paměti, obrácení směru,
+//       dotaz před stažením OSM s průběhem a zrušením, uložená OSM data v prohlížeči
 const RB = window.CendurRB;
 const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
-const LAST_KEY = 'cenduroff.rb.lastRoute';
+const LAST_KEY = 'cenduroff.rb.lastRoute';   // jen pro informaci, trasa se po otevření stránky vybírá na mapě
 const SHARED_BASE_KEY = 'baseMap';
 
 // ---------------------------------------------------------------
@@ -32,8 +34,24 @@ async function api(url, options){
 }
 const $ = id => document.getElementById(id);
 const esc = RB.esc;
-function busy(text){ $('rb-busy-text').textContent = text || 'Pracuji…'; $('rb-busy').classList.add('open'); }
-function unbusy(){ $('rb-busy').classList.remove('open'); }
+let busyCancel = null;
+function busy(text, onCancel){
+  $('rb-busy-text').textContent = text || 'Pracuji…';
+  busyCancel = onCancel || null;
+  $('rb-busy-cancel').hidden = !onCancel;
+  $('rb-busy').classList.add('open');
+}
+function unbusy(){ $('rb-busy').classList.remove('open'); busyCancel = null; }
+$('rb-busy-cancel').addEventListener('click', () => { if(busyCancel) busyCancel(); });
+// nabídka „Nástroje ▾“
+(function moreMenu(){
+  const btn = $('rb-more-btn'), list = $('rb-more-list');
+  const set = open => { list.hidden = !open; btn.setAttribute('aria-expanded', open ? 'true' : 'false'); };
+  btn.addEventListener('click', e => { e.stopPropagation(); set(list.hidden); });
+  list.addEventListener('click', () => set(false));
+  document.addEventListener('click', e => { if(!list.hidden && !list.contains(e.target)) set(false); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') set(false); });
+})();
 function openModal(id){ $(id).classList.add('open'); }
 function closeModal(id){ $(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(ov => {
@@ -57,12 +75,10 @@ let saved = false;            // existuje roadbook v DB?
 let settings = { minAngle: 30 };
 let filter = 'all';
 let addMode = false;
+let pickMode = true;          // výběr trasy na mapě
+const sessions = new Map();   // route_id -> rozpracovaný stav (přepnutí na jinou trasu nic neztratí)
+const DRAFT_PREFIX = 'cenduroff.rb.draft.';
 
-// Hlavička: stránka není v menu (zatím schovaná), jen přepíšeme název u loga
-(function patchHeader(){
-  const sub = document.querySelector('header.topbar .brand-sub');
-  if(sub) sub.textContent = 'Roadbook planner';
-})();
 
 // ---------------------------------------------------------------
 // Mapa
@@ -92,18 +108,18 @@ let routeLine = null, routeHit = null;
 const markerLayer = L.layerGroup().addTo(map);
 const markers = new Map();
 
-function drawRoute(){
+function drawRoute(fit){
   if(routeLine) map.removeLayer(routeLine);
   if(routeHit) map.removeLayer(routeHit);
   const ll = R.lat.map((la, i) => [la, R.lon[i]]);
   routeLine = L.polyline(ll, { color:'#4F7048', weight:6, opacity:.95 }).addTo(map);
   // širší neviditelná čára pro snadné klikání
   routeHit = L.polyline(ll, { color:'#000', weight:22, opacity:0, bubblingMouseEvents:false }).addTo(map);
-  routeHit.on('click', e => { if(canEdit) addAt(e.latlng); });
-  map.fitBounds(routeLine.getBounds(), { padding:[30, 30] });
+  routeHit.on('click', e => { if(canEdit && !pickMode) addAt(e.latlng); });
+  if(fit !== false) map.fitBounds(routeLine.getBounds(), { padding:[30, 30] });
 }
 map.on('click', e => {
-  if(!addMode || !R) return;
+  if(!addMode || !R || pickMode) return;
   addAt(e.latlng);
 });
 $('rb-add').addEventListener('click', () => {
@@ -171,7 +187,11 @@ function renderList(){
   fb[2].textContent = 'Ruční / upravené (' + nMan + ')';
   const list = vis.filter(it => filter === 'all' || (filter === 'review' ? it.review : (it.src === 'manual' || it.edited)));
   if(!R){ return; }
-  if(!list.length){ $('rb-rows').innerHTML = '<div class="rb-empty">' + (filter === 'all' ? 'Roadbook je prázdný.' : 'Nic takového tu není.') + '</div>'; return; }
+  if(!list.length){
+    $('rb-rows').innerHTML = '<div class="rb-empty">' + (filter === 'all' ? 'Roadbook zatím není vygenerovaný.' + (canEdit ? '<br><br><button class="btn-rb go" type="button" id="rb-empty-gen">Vygenerovat roadbook</button>' : '') : 'Nic takového tu není.') + '</div>';
+    const eg = $('rb-empty-gen'); if(eg) eg.addEventListener('click', async () => { const c = await askGenerate('new'); if(c) await runGenerate(c, false, false); });
+    return;
+  }
   $('rb-rows').innerHTML = list.map(it => '<button type="button" class="rb-row' + (it.id === selId ? ' on' : '') + '" data-id="' + it.id + '">' +
     '<span class="n">#' + it.n + '</span><span class="km">' + RB.fmtKm(it.s) + '</span>' + RB.tulipSVG(it, 42) +
     '<span class="tx"><b>' + (it.danger ? RB.DANGER[it.danger].mark + ' ' : '') + esc(RB.label(it)) + '</b><span>' + esc(RB.subLabel(it)) + '</span></span>' +
@@ -192,7 +212,22 @@ function select(id, pan){
 // Editor instrukce
 // ---------------------------------------------------------------
 function touch(it){ if(it.src === 'auto') it.edited = true; markDirty(); }
-function markDirty(){ dirty = true; renderStatus(); }
+function markDirty(){ dirty = true; renderStatus(); saveDraftSoon(); }
+// neuložený roadbook se průběžně ukládá i do prohlížeče (přežije zavření stránky)
+let draftTimer = null;
+function saveDraftSoon(){
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraftNow, 800);
+}
+function saveDraftNow(){
+  if(!route || !canEdit) return;
+  try{
+    if(dirty) localStorage.setItem(DRAFT_PREFIX + route.id, JSON.stringify({ t: Date.now(), items: cleanItems(), settings, status }));
+    else localStorage.removeItem(DRAFT_PREFIX + route.id);
+  }catch(e){}
+}
+function hasDraft(id){ try{ return !!localStorage.getItem(DRAFT_PREFIX + id); }catch(e){ return false; } }
+function readDraft(id){ try{ return JSON.parse(localStorage.getItem(DRAFT_PREFIX + id) || 'null'); }catch(e){ return null; } }
 
 function tulipEditorSVG(it){
   const g = RB.tulipGeom(it.exit, it.sides, it.round);
@@ -337,7 +372,10 @@ function renderStatus(){
   else { el.className = 'rb-badge draft'; el.textContent = 'ROADBOOK NOT READY'; }
   $('rb-info').textContent = RB.fmtKm(R ? R.total : 0) + ' km' + (dirty ? ' · neuložené změny' : '');
   $('rb-ready').textContent = status === 'ready' ? 'Vrátit na NOT ready' : 'Označit READY';
-  ['rb-save','rb-ready','rb-regen','rb-add'].forEach(id => { $(id).hidden = !canEdit; });
+  ['rb-save','rb-ready','rb-regen','rb-reverse'].forEach(id => { $(id).hidden = !canEdit; });
+  $('rb-more-btn').disabled = !route;
+  $('rb-add').hidden = !canEdit || pickMode;
+  $('rb-reverse').textContent = settings.reversed ? '⇄ Směr: obrácený' : '⇄ Obrátit směr';
   $('rb-save').disabled = !dirty && saved;
   $('rb-navi-link').href = 'roadbook-navi.html' + (route ? '?trasa=' + route.id : '');
 }
@@ -359,7 +397,8 @@ async function save(newStatus){
       body: JSON.stringify({ status: st, data: { v: 1, settings, items: cleanItems() } }) });
     status = r.status; saved = true; dirty = false;
     rbSummary[route.id] = { route_id: route.id, status: r.status, stale: false };
-    fillRouteSelect(); renderStatus();
+    try{ localStorage.removeItem(DRAFT_PREFIX + route.id); }catch(e){}
+    fillRouteSelect(); renderStatus(); drawAllRoutes();
     toast(st === 'ready' ? 'Uloženo – roadbook je READY.' : 'Roadbook uložen.');
     return true;
   }catch(e){ toast(e.message, 5000); return false; }
@@ -372,102 +411,276 @@ $('rb-ready').addEventListener('click', async () => {
   if(rev && !confirm(rev + ' ' + (rev === 1 ? 'místo je' : 'míst je') + ' označeno „ke kontrole“. Přesto označit roadbook jako READY?')) return;
   await save('ready');
 });
-window.addEventListener('beforeunload', e => { if(dirty && canEdit){ e.preventDefault(); e.returnValue = ''; } });
+// rozpracovaný roadbook se ukládá do prohlížeče, takže zavření stránky o nic nepřipraví
+window.addEventListener('beforeunload', () => { if(dirty) saveDraftNow(); });
 
 // ---------------------------------------------------------------
 // Generování
 // ---------------------------------------------------------------
-async function generateFresh(opts){
-  busy('Hledám zatáčky…');
+// Uložená OSM data pro trasu (IndexedDB) – stáhnou se jednou, pak je generování okamžité
+function osmKey(){ return RB.routeKey(route.id, route.points); }
+async function cachedOsm(){ return route ? await RB.store.get(osmKey()) : null; }
+
+// Stažení OSM s průběhem a tlačítkem Zrušit. Vrací data, nebo null (zrušeno / chyba).
+async function downloadOsmUi(){
+  const ctl = new AbortController();
+  const t0 = Date.now();
+  let last = { chunk: 1, chunks: 1, totalBytes: 0 };
+  const show = () => {
+    const sec = Math.round((Date.now() - t0) / 1000);
+    $('rb-busy-text').innerHTML = 'Stahuji cesty z OpenStreetMap…<br><b>dotaz ' + last.chunk + ' / ' + last.chunks + '</b> · staženo ' +
+      (last.totalBytes / 1048576).toFixed(2).replace('.', ',') + ' MB · ' + sec + ' s<br><small>Server nejdřív data připraví (to trvá nejdéle), pak je teprve posílá.</small>';
+  };
+  busy('', () => ctl.abort());
+  show();
+  const tick = setInterval(show, 1000);
   try{
-    const r = await RB.generate(route.points, { minAngle: settings.minAngle, useOsm: opts.useOsm !== false, onProgress: t => { $('rb-busy-text').textContent = t; } });
-    if(r.osmError) toast('OpenStreetMap teď neodpovídá – roadbook je jen ze zatáček GPX. Zkus „Vygenerovat znovu“ později.', 6500);
-    r.items.osmFailed = !!r.osmError && opts.useOsm !== false;
-    return r.items;
-  } finally { unbusy(); }
+    const osm = await RB.downloadOsm(R, { signal: ctl.signal, onProgress: p => { last = p; show(); } });
+    await RB.store.set(osmKey(), osm);
+    return osm;
+  }catch(e){
+    if(e.name === 'AbortError') toast('Stahování zrušeno.', 3000);
+    else toast('OpenStreetMap teď neodpovídá (' + e.message + '). Zkus to později přes „Vygenerovat znovu“.', 6500);
+    return null;
+  }finally{ clearInterval(tick); unbusy(); }
 }
-$('rb-regen').addEventListener('click', () => {
-  if(!route) return toast('Nejdřív vyber trasu.');
-  $('rb-minangle').value = String(settings.minAngle || 30);
-  openModal('rb-regen-overlay');
-});
-async function regenerate(keep){
-  closeModal('rb-regen-overlay');
-  settings.minAngle = Number($('rb-minangle').value) || 30;
-  const fresh = await generateFresh({ useOsm: $('rb-useosm').checked });
-  // když OpenStreetMap neodpoví, stávající instrukce jen posuneme na trasu (ať se neztratí křižovatky)
-  items = keep ? (fresh.osmFailed ? RB.reproject(R, items) : RB.remap(R, items, fresh)) : fresh;
-  selId = null; markDirty(); renderAll();
+
+// Dialog „Vygenerovat roadbook“: zeptá se, jestli stahovat z OSM (s odhadem), nebo jen z GPX.
+// mode: 'new' (trasa bez roadbooku), 'regen' (tlačítko), 'stale' (trasa se změnila), 'reverse'
+function askGenerate(mode){
+  return new Promise(async resolve => {
+    const cached = await cachedOsm();
+    const est = RB.estimateOsm(R);
+    const intro = {
+      new: 'Tahle trasa ještě nemá roadbook. Vygeneruju ho automaticky a pak ho doladíš.',
+      regen: 'Roadbook se vygeneruje znovu.',
+      stale: 'Trasa se od uložení roadbooku změnila. Roadbook přepočítám podle nové trasy – tvoje úpravy zůstanou, místa mimo trasu označím „ke kontrole“.',
+      reverse: 'Směr trasy se obrátí (start ↔ cíl). Roadbook se vygeneruje pro nový směr; tvoje ruční úpravy zůstanou, ale označím je „ke kontrole“ (šipky v nich teď míří opačně).'
+    }[mode];
+    $('rb-gen-intro').textContent = intro;
+    $('rb-gen-keep-box').hidden = mode !== 'regen';
+    $('rb-minangle').value = String(settings.minAngle || 30);
+    const osmInfo = cached
+      ? 'Data z OpenStreetMap pro tuhle trasu už máš uložená v prohlížeči (' + new Date(cached.t).toLocaleDateString('cs-CZ') + ', ' + ((cached.bytes || 0) / 1048576).toFixed(2).replace('.', ',') + ' MB) – generování bude okamžité.'
+      : 'Křižovatky, brody, závory, přejezdy a benzínky se berou z OpenStreetMap. Trasa ' + est.km.toFixed(1).replace('.', ',') + ' km = ' + est.queries + ' ' + (est.queries === 1 ? 'dotaz' : est.queries < 5 ? 'dotazy' : 'dotazů') +
+        ' na server, obvykle ' + est.mbLow.toFixed(1).replace('.', ',') + '–' + est.mbHigh.toFixed(1).replace('.', ',') + ' MB, trvá to od pár vteřin po minutu (podle vytížení serveru). Stahování jde kdykoli zrušit.';
+    $('rb-gen-osm').textContent = osmInfo;
+    $('rb-gen-osm-btn').textContent = cached ? 'Vygenerovat (s uloženými daty OSM)' : 'Stáhnout z OSM a vygenerovat';
+    $('rb-gen-redl').hidden = !cached;
+    const done = v => { closeModal('rb-gen-overlay'); cleanup(); resolve(v); };
+    const onOsm = () => done({ osm: cached ? 'cached' : 'download' });
+    const onRedl = () => done({ osm: 'download' });
+    const onGpx = () => done({ osm: 'none' });
+    const onCancel = e => { if(e.target === $('rb-gen-overlay') || e.target.closest('[data-close]')) done(null); };
+    function cleanup(){
+      $('rb-gen-osm-btn').removeEventListener('click', onOsm);
+      $('rb-gen-redl').removeEventListener('click', onRedl);
+      $('rb-gen-gpx').removeEventListener('click', onGpx);
+      $('rb-gen-overlay').removeEventListener('click', onCancel);
+    }
+    $('rb-gen-osm-btn').addEventListener('click', onOsm);
+    $('rb-gen-redl').addEventListener('click', onRedl);
+    $('rb-gen-gpx').addEventListener('click', onGpx);
+    $('rb-gen-overlay').addEventListener('click', onCancel);
+    openModal('rb-gen-overlay');
+  });
+}
+
+// Vygeneruje roadbook podle volby z dialogu. keep = přenést ruční úpravy.
+async function runGenerate(choice, keep, markReview){
+  settings.minAngle = Number($('rb-minangle').value) || settings.minAngle || 30;
+  let osm = null;
+  if(choice.osm === 'cached') osm = await cachedOsm();
+  else if(choice.osm === 'download'){
+    osm = await downloadOsmUi();
+    // zrušeno / chyba: stávající roadbook necháme být; nový (prázdný) uděláme aspoň ze zatáček GPX
+    if(!osm && keep && items.length) return;
+  }
+  const wantedOsm = choice.osm !== 'none';
+  busy('Hledám zatáčky a křižovatky…');
+  let r;
+  try{ r = await RB.generate(route.points, { minAngle: settings.minAngle, osm, reversed: !!settings.reversed }); }
+  finally{ unbusy(); }
+  const fresh = r.items;
+  if(keep && items.length){
+    // když OSM chybělo (zrušeno / chyba), stávající instrukce jen posuneme na trasu – ať se neztratí křižovatky
+    items = (wantedOsm && !osm && !markReview) ? RB.reproject(R, items) : RB.remap(R, items, fresh, { markReview });
+  } else {
+    items = fresh;
+  }
+  selId = null; markDirty(); renderAll(); drawAllRoutes();
   const rev = RB.visible(items).filter(i => i.review).length;
-  toast('Roadbook vygenerován' + (keep ? ' – tvoje úpravy zůstaly' : '') + (rev ? '. Ke kontrole: ' + rev : '') + '.', 4500);
+  toast('Roadbook vygenerován' + (osm ? '' : ' jen ze zatáček GPX') + (keep ? ' – tvoje úpravy zůstaly' : '') + (rev ? '. Ke kontrole: ' + rev : '') + '.', 5000);
 }
-$('rb-regen-keep').addEventListener('click', () => regenerate(true));
-$('rb-regen-fresh').addEventListener('click', () => { if(confirm('Opravdu zahodit všechny ruční úpravy a začít od nuly?')) regenerate(false); });
+
+$('rb-regen').addEventListener('click', async () => {
+  if(!route) return toast('Nejdřív vyber trasu.');
+  const choice = await askGenerate('regen');
+  if(!choice) return;
+  const keep = document.querySelector('input[name=rb-gen-keep]:checked').value === 'keep';
+  if(!keep && !confirm('Opravdu zahodit všechny ruční úpravy a začít od nuly?')) return;
+  await runGenerate(choice, keep, false);
+});
+
+// obrácení směru (start ↔ cíl) – uloží se k roadbooku, NAVI pak jede opačně
+$('rb-reverse').addEventListener('click', async () => {
+  if(!route || !canEdit) return;
+  const choice = await askGenerate('reverse');
+  if(!choice) return;
+  settings.reversed = !settings.reversed;
+  R = RB.prepareRoute(route.points, settings.reversed);
+  drawRoute(false);
+  await runGenerate(choice, true, true);
+  toast(settings.reversed ? 'Směr obrácen – start je teď na původním konci trasy.' : 'Směr vrácen na původní.', 4500);
+});
 
 // ---------------------------------------------------------------
 // Otevření trasy
 // ---------------------------------------------------------------
 function statusText(id){
-  const s = rbSummary[id];
-  if(!s) return '';
-  return s.status === 'ready' ? ' · READY' : ' · NOT ready';
+  const parts = [];
+  const sm = rbSummary[id];
+  if(sm) parts.push(sm.status === 'ready' ? 'READY' : 'NOT ready');
+  const se = sessions.get(id);
+  if((se && se.dirty) || hasDraft(id)) parts.push('rozpracováno');
+  return parts.length ? ' · ' + parts.join(' · ') : '';
 }
 function fillRouteSelect(){
   const sel = $('rb-route'), cur = route ? String(route.id) : sel.value;
   const mine = currentUser ? routes.filter(r => r.owner_id === currentUser.id) : [];
   const others = routes.filter(r => !currentUser || r.owner_id !== currentUser.id);
   const opt = r => '<option value="' + r.id + '">' + esc(r.name) + ' (' + (+r.distance_km).toFixed(1).replace('.', ',') + ' km)' + statusText(r.id) + '</option>';
-  sel.innerHTML = '<option value="">— vyber trasu —</option>' +
+  sel.innerHTML = '<option value="">— vyber trasu (nebo klikni na mapě) —</option>' +
     (mine.length ? '<optgroup label="Moje trasy">' + mine.map(opt).join('') + '</optgroup>' : '') +
     (others.length ? '<optgroup label="' + (currentUser && currentUser.role === 'admin' ? 'Ostatní trasy (admin)' : 'Ostatní trasy (jen pro čtení)') + '">' + others.map(opt).join('') + '</optgroup>' : '');
   sel.value = cur || '';
 }
 $('rb-route').addEventListener('change', e => {
   const id = Number(e.target.value);
-  if(!id) return;
-  if(dirty && canEdit && !confirm('Máš neuložené změny roadbooku. Opravdu otevřít jinou trasu?')){ e.target.value = route ? String(route.id) : ''; return; }
-  openRoute(id);
+  if(id) openRoute(id);
 });
+
+// --- všechny trasy na mapě: výběr kliknutím ---
+const allLayer = L.layerGroup().addTo(map);
+function routeColor(id){
+  const sm = rbSummary[id];
+  if(sm && sm.status === 'ready') return '#2E7D32';
+  if(sm) return '#E07B00';
+  return '#5A5A5A';
+}
+function drawAllRoutes(){
+  allLayer.clearLayers();
+  routes.forEach(r => {
+    if(!Array.isArray(r.points) || r.points.length < 2) return;
+    if(route && r.id === route.id && !pickMode) return;
+    const ll = r.points.filter((p, i) => i % 3 === 0 || i === r.points.length - 1).map(p => [p[0], p[1]]);
+    const draft = (sessions.get(r.id) && sessions.get(r.id).dirty) || hasDraft(r.id);
+    const isCur = route && r.id === route.id;
+    if(pickMode){
+      const line = L.polyline(ll, { color: routeColor(r.id), weight: isCur ? 7 : 5, opacity: .9, dashArray: draft ? '10 8' : null });
+      const hit = L.polyline(ll, { color:'#000', weight: 18, opacity: 0, bubblingMouseEvents:false });
+      const sm = rbSummary[r.id];
+      const tip = '<b>' + esc(r.name) + '</b><br>' + (+r.distance_km).toFixed(1).replace('.', ',') + ' km · ' +
+        (sm ? (sm.status === 'ready' ? 'Roadbook READY' : 'Roadbook NOT ready') : 'bez roadbooku') + (draft ? ' · rozpracováno' : '') + (isCur ? ' · otevřená' : '');
+      hit.bindTooltip(tip, { sticky: true });
+      hit.on('mouseover', () => line.setStyle({ weight: 8 }));
+      hit.on('mouseout', () => line.setStyle({ weight: isCur ? 7 : 5 }));
+      hit.on('click', () => openRoute(r.id));
+      line.addTo(allLayer); hit.addTo(allLayer);
+    } else {
+      // ostatní trasy jen jako slabé, neklikatelné pozadí
+      L.polyline(ll, { color:'#5A5A5A', weight: 3, opacity: .28, interactive: false }).addTo(allLayer);
+    }
+  });
+}
+function setPickMode(on){
+  pickMode = on;
+  document.body.classList.toggle('rb-picking', on);
+  $('rb-pick').textContent = on ? (route ? '✕ Zpět k roadbooku' : 'Vyber trasu na mapě') : '🗺 Vybrat jinou trasu';
+  $('rb-pick').disabled = on && !route;
+  $('rb-map-hint').textContent = on
+    ? 'Klikni na trasu na mapě. Zelená = Roadbook READY, oranžová = NOT ready, šedá = bez roadbooku, čárkovaná = rozpracováno (neuloženo).'
+    : 'Klikni na trasu – vloží se nová instrukce. Body instrukcí jde přetáhnout po trase.';
+  $('rb-add').hidden = on || !canEdit;
+  markerLayer.eachLayer(m => m.setOpacity && m.setOpacity(on ? 0.35 : 1));
+  if(routeLine) routeLine.setStyle({ opacity: on ? 0.35 : .95 });
+  drawAllRoutes();
+  if(on && routes.length){
+    const all = routes.filter(r => Array.isArray(r.points) && r.points.length > 1).map(r => L.polyline(r.points.map(p => [p[0], p[1]])).getBounds());
+    if(all.length){ let b = all[0]; all.slice(1).forEach(x => b = b.extend(x)); if(!route) map.fitBounds(b, { padding:[30, 30] }); }
+  }
+}
+$('rb-pick').addEventListener('click', () => {
+  if(pickMode){ if(route){ setPickMode(false); if(routeLine) map.fitBounds(routeLine.getBounds(), { padding:[30, 30] }); } }
+  else setPickMode(true);
+});
+
+function snapshot(){
+  if(!route) return;
+  sessions.set(route.id, { items, status, saved, dirty, settings, canEdit });
+  saveDraftNow();
+}
 
 async function openRoute(id){
   const r = routes.find(x => x.id === id);
   if(!r){ toast('Trasa nenalezena.'); return; }
-  route = r; selId = null; dirty = false;
+  if(route && route.id === id && !pickMode) return;
+  if(route && route.id === id && pickMode){ setPickMode(false); return; }
+  snapshot();
+  route = r; selId = null;
+  $('rb-route').value = String(id);
   try{ localStorage.setItem(LAST_KEY, String(id)); }catch(e){}
   try{ history.replaceState(null, '', location.pathname + '?trasa=' + id); }catch(e){}
-  try{ R = RB.prepareRoute(r.points); }catch(e){ toast(e.message); return; }
-  drawRoute();
+
+  // 1) rozpracovaný stav z téhle návštěvy stránky – bez načítání
+  const se = sessions.get(id);
+  if(se){
+    ({ items, status, saved, dirty, settings, canEdit } = se);
+    R = RB.prepareRoute(r.points, settings.reversed);
+    drawRoute(true); setPickMode(false); renderAll();
+    toast('Otevřen rozpracovaný roadbook.', 2500);
+    return;
+  }
+
+  // 2) roadbook ze serveru
   let res = null;
   try{ busy('Načítám roadbook…'); res = await api('/api/roadbooks/' + id); }
   catch(e){ toast('Roadbook se nepodařilo načíst: ' + e.message, 5000); res = { roadbook: null, can_edit: false }; }
   finally{ unbusy(); }
   canEdit = !!res.can_edit;
-  if(res.roadbook){
-    saved = true;
-    status = res.roadbook.status;
-    settings = Object.assign({ minAngle: 30 }, (res.roadbook.data && res.roadbook.data.settings) || {});
-    items = ((res.roadbook.data && res.roadbook.data.items) || []).map(x => Object.assign({ sides: [], icons: [] }, x));
-    if(res.roadbook.stale){
-      if(canEdit){
-        toast('Trasa se od uložení roadbooku změnila – přegeneruji a zachovám tvoje úpravy…', 5000);
-        const fresh = await generateFresh({ useOsm: true });
-        items = fresh.osmFailed ? RB.reproject(R, items) : RB.remap(R, items, fresh);
-        status = 'draft'; dirty = true;
-        const rev = RB.visible(items).filter(i => i.review).length;
-        toast('Roadbook přepočítán podle nové trasy' + (rev ? ' – zkontroluj ' + rev + ' označených míst' : '') + '. Nezapomeň uložit.', 7000);
-      } else {
-        toast('Trasa se od uložení roadbooku změnila – roadbook čeká na kontrolu autorem.', 5000);
-      }
-    } else {
-      RB.recompute(R, items);
-    }
-  } else {
-    saved = false; status = 'draft'; settings = { minAngle: 30 };
-    items = await generateFresh({ useOsm: true });
-    dirty = canEdit;
-    if(canEdit) toast('Roadbook byl vygenerován automaticky. Dolaď ho a ulož.', 5000);
+  const rb = res.roadbook;
+  settings = Object.assign({ minAngle: 30, reversed: false }, (rb && rb.data && rb.data.settings) || {});
+  saved = !!rb; status = rb ? rb.status : 'draft'; dirty = false;
+  items = rb ? ((rb.data && rb.data.items) || []).map(x => Object.assign({ sides: [], icons: [] }, x)) : [];
+
+  // 3) neuložený rozpracovaný roadbook z prohlížeče (z minula)
+  const dr = canEdit ? readDraft(id) : null;
+  const savedT = rb && rb.updated_at ? new Date(rb.updated_at).getTime() : 0;
+  if(dr && dr.t > savedT && Array.isArray(dr.items)){
+    items = dr.items.map(x => Object.assign({ sides: [], icons: [] }, x));
+    settings = Object.assign({ minAngle: 30, reversed: false }, dr.settings || {});
+    status = dr.status || status; dirty = true;
+    toast('Obnoven neuložený rozpracovaný roadbook z ' + new Date(dr.t).toLocaleString('cs-CZ') + '.', 5000);
   }
+  R = RB.prepareRoute(r.points, settings.reversed);
+  drawRoute(true); setPickMode(false);
+  if(items.length) RB.recompute(R, items);
   renderAll();
+
+  if(rb && rb.stale && !dirty){
+    if(!canEdit){ toast('Trasa se od uložení roadbooku změnila – roadbook čeká na kontrolu autorem.', 5000); return; }
+    status = 'draft';
+    const choice = await askGenerate('stale');
+    if(choice) await runGenerate(choice, true, false);
+    else { items = RB.reproject(R, items); markDirty(); renderAll(); }
+    return;
+  }
+  if(!rb && !dirty){
+    if(!canEdit){ renderAll(); return; }
+    const choice = await askGenerate('new');
+    if(choice) await runGenerate(choice, false, false);
+    else renderAll();
+  }
 }
 
 function renderAll(){ renderList(); drawMarkers(); renderEditor(); renderStatus(); }
@@ -533,10 +746,10 @@ document.addEventListener('keydown', e => { if(e.key === 'Escape') document.quer
   }catch(e){ toast('Trasy se nepodařilo načíst: ' + e.message, 6000); }
   fillRouteSelect();
   renderStatus();
-  const params = new URLSearchParams(location.search);
-  let id = Number(params.get('trasa'));
-  if(!id){ try{ id = Number(localStorage.getItem(LAST_KEY)); }catch(e){} }
-  if(id && routes.some(r => r.id === id)){ $('rb-route').value = String(id); openRoute(id); }
+  setPickMode(true);
+  // přímý odkaz ?trasa=… otevře trasu rovnou; jinak se začíná výběrem na mapě
+  const id = Number(new URLSearchParams(location.search).get('trasa'));
+  if(id && routes.some(r => r.id === id)) openRoute(id);
 })();
 
 })();

@@ -123,8 +123,10 @@
   // Trasa: převzorkování po STEP metrech + lokální souřadnice v metrech
   // =============================================================
   const STEP = 5;
-  RB.prepareRoute = function(points){
+  // reversed = trasa obráceně (start a cíl prohozené)
+  RB.prepareRoute = function(points, reversed){
     const raw = (points || []).filter(p => p && isFinite(p[0]) && isFinite(p[1])).map(p => [+p[0], +p[1]]);
+    if(reversed) raw.reverse();
     if(raw.length < 2) throw new Error('Trasa nemá dost bodů.');
     // odstraní duplicitní body
     const pts = [raw[0]];
@@ -175,6 +177,19 @@
     return (Math.atan2(R.sx[b]-R.sx[a], R.sy[b]-R.sy[a]) / D2R + 360) % 360;
   };
   // nejbližší místo na trase; sFrom/sTo omezí hledání na úsek (pro NAVI)
+  // první poloha při startu jízdy: u okruhu (start a cíl u sebe) vybere místo
+  // nejblíž ZAČÁTKU trasy, ne konec
+  RB.projectInitial = function(R, lat, lon){
+    const best = RB.project(R, lat, lon);
+    const px = lon * R.kx, py = lat * R.ky, lim = best.dist + 40;
+    for(let i = 0; i < R.n - 1; i++){
+      const ax = R.x[i], ay = R.y[i], dx = R.x[i+1] - ax, dy = R.y[i+1] - ay, L2 = dx*dx + dy*dy;
+      let t = L2 > 0 ? ((px-ax)*dx + (py-ay)*dy) / L2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const d = Math.hypot(px - (ax + dx*t), py - (ay + dy*t));
+      if(d <= lim) return { dist: d, s: R.s[i] + (R.s[i+1] - R.s[i]) * t, i };
+    }
+    return best;
+  };
   RB.project = function(R, lat, lon, sFrom, sTo){
     const px = lon * R.kx, py = lat * R.ky;
     const i0 = sFrom == null ? 0 : Math.max(0, Math.floor(sFrom / R.step) - 1);
@@ -250,53 +265,157 @@
   // OpenStreetMap (Overpass): cesty kolem trasy + body zájmu
   // =============================================================
   const OVERPASS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
-  async function overpass(q){
-    if(window.CendurRegion && typeof window.CendurRegion.overpass === 'function') return window.CendurRegion.overpass(q);
+  const OVERPASS_TIMEOUT = 90000;
+  const abortErr = () => { const e = new Error('Stahování zrušeno.'); e.name = 'AbortError'; return e; };
+
+  // jeden dotaz na Overpass; průběh hlásí staženými bajty, jde zrušit (signal)
+  async function overpass(q, signal, onBytes){
     let last = null;
     for(const url of OVERPASS){
+      if(signal && signal.aborted) throw abortErr();
+      const ctl = new AbortController();
+      const onAbort = () => ctl.abort();
+      if(signal) signal.addEventListener('abort', onAbort);
+      const timer = setTimeout(() => ctl.abort(), OVERPASS_TIMEOUT);
       try{
-        const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded' }, body:'data=' + encodeURIComponent(q) });
+        const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded' }, body:'data=' + encodeURIComponent(q), signal: ctl.signal });
         if(!res.ok) throw new Error('server ' + res.status);
-        return await res.json();
-      }catch(e){ last = e; }
+        let text = '';
+        if(res.body && res.body.getReader){
+          const reader = res.body.getReader(), dec = new TextDecoder();
+          let got = 0;
+          for(;;){
+            const { done, value } = await reader.read();
+            if(done) break;
+            got += value.length; text += dec.decode(value, { stream: true });
+            if(onBytes) onBytes(got);
+          }
+          text += dec.decode();
+        } else { text = await res.text(); if(onBytes) onBytes(text.length); }
+        const json = JSON.parse(text);
+        if(json.remark && /runtime error|timed out|out of memory/i.test(json.remark) && !(json.elements || []).length) throw new Error('server přetížený');
+        return { json, bytes: text.length };
+      }catch(e){
+        if(signal && signal.aborted) throw abortErr();
+        last = (e && e.name === 'AbortError') ? new Error('vypršel čas') : e;
+      }finally{
+        clearTimeout(timer);
+        if(signal) signal.removeEventListener('abort', onAbort);
+      }
     }
     throw last || new Error('Overpass nedostupný');
   }
-  async function fetchOsm(R, onProgress){
-    // body trasy po ~80 m, po kusech (~12 km), ať jsou dotazy malé
-    const coords = [];
-    for(let s = 0; s < R.total; s += 80){ const p = RB.pointAt(R, s); coords.push(p[0].toFixed(5) + ',' + p[1].toFixed(5)); }
-    const last = RB.pointAt(R, R.total); coords.push(last[0].toFixed(5) + ',' + last[1].toFixed(5));
-    const CH = 150, chunks = [];
-    for(let i = 0; i < coords.length - 1; i += CH) chunks.push(coords.slice(i, Math.min(coords.length, i + CH + 1)));
-    const nodes = new Map(), ways = new Map(), pois = new Map();
+
+  // zjednodušení trasy (Douglas–Peucker) – pro dotaz stačí body, které drží tvar trasy;
+  // "around" v Overpassu bere úsečky mezi body, takže to nic nevynechá
+  function simplifyIdx(R, tol){
+    const keep = new Uint8Array(R.n); keep[0] = 1; keep[R.n - 1] = 1;
+    const stack = [[0, R.n - 1]];
+    while(stack.length){
+      const [a, b] = stack.pop();
+      let md = 0, mi = -1;
+      const ax = R.x[a], ay = R.y[a], dx = R.x[b] - ax, dy = R.y[b] - ay, L = Math.hypot(dx, dy) || 1;
+      for(let i = a + 1; i < b; i++){
+        const d = Math.abs(dy * (R.x[i] - ax) - dx * (R.y[i] - ay)) / L;
+        if(d > md){ md = d; mi = i; }
+      }
+      if(md > tol && mi > 0){ keep[mi] = 1; stack.push([a, mi], [mi, b]); }
+    }
+    const out = [];
+    for(let i = 0; i < R.n; i++) if(keep[i]) out.push(i);
+    return out;
+  }
+  function osmChunks(R){
+    const idx = simplifyIdx(R, 8);
+    const pts = idx.map(i => R.lat[i].toFixed(5) + ',' + R.lon[i].toFixed(5));
+    const CH = 350, chunks = [];
+    for(let i = 0; i < pts.length - 1; i += CH) chunks.push(pts.slice(i, Math.min(pts.length, i + CH + 1)));
+    return chunks.length ? chunks : [pts];
+  }
+  // odhad pro dotaz „stáhnout?“: počet dotazů a hrubý rozsah dat
+  RB.estimateOsm = function(R){
+    const km = R.total / 1000, q = osmChunks(R).length;
+    return { km, queries: q, mbLow: Math.max(0.1, km * 0.01), mbHigh: Math.max(0.5, km * 0.06) };
+  };
+
+  // stáhne cesty kolem trasy a body zájmu; výsledek je kompaktní (jde uložit do prohlížeče)
+  // opts: { signal, onProgress({ chunk, chunks, bytes, totalBytes }) }
+  RB.downloadOsm = async function(R, opts){
+    opts = opts || {};
+    const chunks = osmChunks(R);
+    const nodes = {}, ways = {}, pois = {};
+    let total = 0;
     for(let c = 0; c < chunks.length; c++){
-      if(onProgress) onProgress(c + 1, chunks.length);
       const C = chunks[c].join(',');
-      const q = `[out:json][timeout:90];
-way["highway"](around:20,${C})->.w;
-.w out body;
-.w >;
-out skel qt;
+      const q = `[out:json][timeout:80];
+way["highway"](around:20,${C});
+out body geom qt;
 (node["ford"](around:25,${C});
  node["barrier"~"^(gate|lift_gate|swing_gate|chain|bar)$"](around:20,${C});
  node["railway"="level_crossing"](around:20,${C});
  node["amenity"="fuel"](around:70,${C});
  way["amenity"="fuel"](around:70,${C}););
-out center tags;`;
-      const d = await overpass(q);
-      (d.elements || []).forEach(el => {
-        if(el.type === 'way' && el.nodes && el.tags && el.tags.highway) ways.set(el.id, el);
-        else if(el.type === 'node' && !el.tags) { if(!nodes.has(el.id)) nodes.set(el.id, el); }
-        if(el.tags && (el.type === 'node' || el.center) && !(el.type === 'way' && el.tags.highway)){
-          const lat = el.lat != null ? el.lat : el.center.lat, lon = el.lon != null ? el.lon : el.center.lon;
-          pois.set(el.type + el.id, { lat, lon, tags: el.tags });
-          if(el.type === 'node' && !nodes.has(el.id)) nodes.set(el.id, { id: el.id, lat, lon });
+out center tags qt;`;
+      const report = b => opts.onProgress && opts.onProgress({ chunk: c + 1, chunks: chunks.length, bytes: b, totalBytes: total + b });
+      report(0);
+      const { json, bytes } = await overpass(q, opts.signal, report);
+      total += bytes;
+      (json.elements || []).forEach(el => {
+        const t = el.tags || {};
+        if(el.type === 'way' && t.highway && el.nodes && el.geometry){
+          el.nodes.forEach((id, k) => { const g = el.geometry[k]; if(g) nodes[id] = [+g.lat.toFixed(6), +g.lon.toFixed(6)]; });
+          const tags = {};
+          ['highway','tracktype','surface','service','junction','bridge','ford'].forEach(k => { if(t[k]) tags[k] = t[k]; });
+          ways[el.id] = { n: el.nodes, t: tags };
+        } else if(el.tags){
+          const lat = el.lat != null ? el.lat : el.center && el.center.lat, lon = el.lon != null ? el.lon : el.center && el.center.lon;
+          if(lat == null) return;
+          const tags = {};
+          ['ford','barrier','railway','amenity','name'].forEach(k => { if(t[k]) tags[k] = t[k]; });
+          pois[el.type + el.id] = { lat: +lat.toFixed(6), lon: +lon.toFixed(6), tags };
         }
       });
     }
-    return { nodes, ways: Array.from(ways.values()), pois: Array.from(pois.values()) };
+    return { v: 1, t: Date.now(), bytes: total,
+      nodes: Object.keys(nodes).map(id => [+id, nodes[id][0], nodes[id][1]]),
+      ways: Object.keys(ways).map(id => ({ id: +id, nodes: ways[id].n, tags: ways[id].t })),
+      pois: Object.values(pois) };
+  };
+  function hydrateOsm(c){
+    const nodes = new Map();
+    (c.nodes || []).forEach(n => nodes.set(n[0], { id: n[0], lat: n[1], lon: n[2] }));
+    return { nodes, ways: c.ways || [], pois: c.pois || [] };
   }
+
+  // --- jednoduché úložiště v prohlížeči (IndexedDB) pro stažená OSM data ---
+  RB.store = (function(){
+    let dbp = null;
+    function db(){
+      if(dbp) return dbp;
+      dbp = new Promise((res, rej) => {
+        if(!window.indexedDB) return rej(new Error('no idb'));
+        const r = indexedDB.open('cenduroff-roadbook', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('kv');
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+      dbp.catch(() => { dbp = null; });
+      return dbp;
+    }
+    function tx(mode, fn){ return db().then(d => new Promise((res, rej) => { const t = d.transaction('kv', mode); const st = t.objectStore('kv'); const r = fn(st); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); })); }
+    return {
+      get: k => tx('readonly', st => st.get(k)).catch(() => null),
+      set: (k, v) => tx('readwrite', st => st.put(v, k)).catch(() => null),
+      del: k => tx('readwrite', st => st.delete(k)).catch(() => null)
+    };
+  })();
+  // otisk trasy pro klíč cache (stejná trasa = stejná data)
+  RB.routeKey = function(routeId, points){
+    let h = 0;
+    const str = (points || []).length + ':' + (points || []).filter((p, i) => i % 7 === 0).map(p => (+p[0]).toFixed(5) + (+p[1]).toFixed(5)).join('');
+    for(let i = 0; i < str.length; i++){ h = ((h << 5) - h + str.charCodeAt(i)) | 0; }
+    return 'osm:' + routeId + ':' + (h >>> 0).toString(36);
+  };
 
   const ROAD_PAVED = ['motorway','motorway_link','trunk','trunk_link','primary','primary_link','secondary','secondary_link','tertiary','tertiary_link','unclassified','residential','living_street','service'];
   const UNPAVED = /gravel|dirt|ground|unpaved|compacted|fine_gravel|grass|sand|earth|mud|pebblestone|rock/;
@@ -448,18 +567,17 @@ out center tags;`;
     }, extra || {});
   }
 
-  // opts: { minAngle, useOsm, onProgress(text) }
+  // opts: { minAngle, osm (stažená data z RB.downloadOsm, nebo null = jen z GPX), reversed }
   RB.generate = async function(points, opts){
     opts = opts || {};
     const minAngle = opts.minAngle || 30;
-    const R = RB.prepareRoute(points);
+    const R = RB.prepareRoute(points, opts.reversed);
     let items = detectTurns(R, minAngle).map(t => newItem(R, t.s, { exit: t.exit }));
     let osmOk = false, osmError = null;
-    if(opts.useOsm !== false){
+    if(opts.osm){
       try{
-        const osm = await fetchOsm(R, (i, n) => opts.onProgress && opts.onProgress('Stahuji cesty z OpenStreetMap ' + i + '/' + n + '…'));
+        const osm = hydrateOsm(opts.osm);
         osmOk = true;
-        if(opts.onProgress) opts.onProgress('Hledám křižovatky…');
         findJunctions(R, osm).forEach(j => {
           const near = items.find(it => Math.abs(it.s - j.s) < 30);
           if(near){
@@ -526,15 +644,18 @@ out center tags;`;
   // nebo po „Vygenerovat znovu“). Ručně přidané a upravené instrukce zůstanou;
   // co už na trase neleží, dostane příznak „ke kontrole“. Smazané automatické
   // instrukce zůstávají potlačené.
-  RB.remap = function(R, oldItems, freshItems){
+  // opts.markReview: všechny přenesené ruční úpravy označit „ke kontrole“ (např. po obrácení směru)
+  RB.remap = function(R, oldItems, freshItems, opts){
+    opts = opts || {};
     const keep = [], suppress = [];
     (oldItems || []).forEach(o => {
       if(!(o.src === 'manual' || o.edited || o.deleted)) return;
+      if(o.kind && opts.markReview) return;   // po obrácení směru jsou start a cíl nové
       const p = RB.project(R, o.lat, o.lon);
       const on = p.dist <= 25;
       if(o.deleted){ if(on) { const q = RB.pointAt(R, p.s); suppress.push(Object.assign({}, o, { s: p.s, lat: +q[0].toFixed(6), lon: +q[1].toFixed(6) })); } return; }
       const q = on ? RB.pointAt(R, p.s) : null;
-      const it = Object.assign({}, o, { s: p.s, review: !on || !!o.review });
+      const it = Object.assign({}, o, { s: p.s, review: !on || !!o.review || !!opts.markReview });
       if(q){ it.lat = +q[0].toFixed(6); it.lon = +q[1].toFixed(6); }
       keep.push(it);
       if(o.src === 'auto') suppress.push(it);

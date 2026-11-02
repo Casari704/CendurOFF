@@ -1,6 +1,6 @@
 (function(){
 // ===============================================================
-// CendurOFF – Roadbook NAVI (roadbook-navi.html), v2.0
+// CendurOFF – Roadbook NAVI (roadbook-navi.html), v2.1
 //
 // Jízda podle roadbooku: poloha z GPS se promítá na trasu, z toho počítadlo km,
 // odpočet do další instrukce a posun krabiček (nové přijíždějí shora, aktuální je
@@ -15,6 +15,8 @@ const OFF_ROUTE_M = 50;        // dál od trasy = upozornění „mimo trasu“
 const PASS_M = 8;              // instrukce je projetá, když jsme za ní o tolik metrů
 const WARN_M = 100;            // zavibrovat 100 m před instrukcí
 const BACK_WINDOW = 200, FWD_WINDOW = 1500;   // kde hledat polohu na trase vůči minulé
+const STEP_M = 50;             // korekce počítadla tlačítky ±
+const MANUAL_MS = 4000;        // po ručním posunu roadbooku se za tolik ms vrátí k aktuální instrukci
 
 function toast(msg, ms){
   const t = $('toast'); t.textContent = msg; t.style.display = 'block';
@@ -34,7 +36,6 @@ async function api(url, options){
 }
 function busy(text){ $('rb-busy-text').textContent = text || 'Pracuji…'; $('rb-busy').classList.add('open'); }
 function unbusy(){ $('rb-busy').classList.remove('open'); }
-(function patchHeader(){ const sub = document.querySelector('header.topbar .brand-sub'); if(sub) sub.textContent = 'Roadbook NAVI'; })();
 
 // ---------------------------------------------------------------
 // Výběr trasy
@@ -52,9 +53,63 @@ function renderSelect(){
     '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">' + g[1].map(r =>
       '<button type="button" class="nv-route" data-id="' + r.id + '"><b>' + esc(r.name) + '</b><span>' + (+r.distance_km).toFixed(1).replace('.', ',') + ' km</span><span class="rb-badge ' + g[2] + '">' + g[3] + '</span></button>').join('') + '</div>').join('') ||
     '<p class="sub">Žádná trasa.</p>';
-  $('nv-list').querySelectorAll('.nv-route').forEach(b => b.addEventListener('click', () => startRide(Number(b.dataset.id))));
+  $('nv-list').querySelectorAll('.nv-route').forEach(b => b.addEventListener('click', () => pickRoute(Number(b.dataset.id), true)));
+  if(picked) { const b = $('nv-list').querySelector('.nv-route[data-id="' + picked + '"]'); if(b) b.classList.add('on'); }
 }
 $('nv-search').addEventListener('input', renderSelect);
+
+// --- mapa tras na výběrové obrazovce ---
+let selMap = null, selLayer = null, picked = null;
+function statusColor(id){ const sm = sums[id]; return sm ? (sm.status === 'ready' ? '#2E7D32' : '#E07B00') : '#5A5A5A'; }
+function drawSelectMap(){
+  if(!selMap){
+    selMap = L.map('nv-map', { zoomControl:true }).setView([49.87, 17.87], 9);
+    L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', { maxZoom:19, maxNativeZoom:20, attribution:'© OpenStreetMap contributors, CyclOSM' }).addTo(selMap);
+    selLayer = L.layerGroup().addTo(selMap);
+  }
+  selLayer.clearLayers();
+  let bounds = null;
+  routes.forEach(r => {
+    if(!Array.isArray(r.points) || r.points.length < 2) return;
+    const ll = r.points.filter((p, i) => i % 3 === 0 || i === r.points.length - 1).map(p => [p[0], p[1]]);
+    const on = picked === r.id;
+    const line = L.polyline(ll, { color: statusColor(r.id), weight: on ? 8 : 5, opacity: picked && !on ? 0.45 : 0.9 }).addTo(selLayer);
+    const hit = L.polyline(ll, { color:'#000', weight: 20, opacity: 0, bubblingMouseEvents:false }).addTo(selLayer);
+    hit.bindTooltip(esc(r.name), { sticky: true });
+    hit.on('click', () => pickRoute(r.id, false));
+    const b = line.getBounds(); bounds = bounds ? bounds.extend(b) : b;
+  });
+  if(bounds && !picked) selMap.fitBounds(bounds, { padding:[20, 20] });
+  setTimeout(() => selMap.invalidateSize(), 60);
+}
+// vybraná trasa: karta s tlačítkem „Jet“ (GPS se zapne až klepnutím)
+function pickRoute(id, fromList){
+  const r = routes.find(x => x.id === id);
+  if(!r) return;
+  picked = id;
+  const sm = sums[id];
+  $('nv-pick-name').textContent = r.name;
+  $('nv-pick-km').textContent = (+r.distance_km).toFixed(1).replace('.', ',') + ' km';
+  const bd = $('nv-pick-badge');
+  bd.className = 'rb-badge ' + (sm ? (sm.status === 'ready' ? 'ready' : 'draft') : 'none');
+  bd.textContent = sm ? (sm.status === 'ready' ? 'READY' : 'NOT READY') : 'BEZ ROADBOOKU';
+  $('nv-pick-note').textContent = sm
+    ? (sm.status === 'ready' ? 'Roadbook je zkontrolovaný. Směr jízdy je daný roadbookem (obrací se v Roadbook planneru).' : 'Roadbook je rozpracovaný (NOT ready) – nemusí být úplný. Směr je daný roadbookem.')
+    : 'Roadbook se vygeneruje jen ze zatáček GPX (bez křižovatek). Úplný roadbook připrav v Roadbook planneru.';
+  $('nv-pick-rev-box').hidden = !!sm;
+  $('nv-pick-rev').checked = false;
+  $('nv-pick').classList.add('open');
+  drawSelectMap();
+  renderSelect();
+  if(fromList){
+    const r0 = routes.find(x => x.id === id);
+    if(r0) selMap.fitBounds(L.polyline(r0.points.map(p => [p[0], p[1]])).getBounds(), { padding:[20, 20] });
+    $('nv-map').scrollIntoView({ block:'start', behavior:'smooth' });
+  } else {
+    $('nv-pick').scrollIntoView({ block:'nearest', behavior:'smooth' });
+  }
+}
+$('nv-pick-go').addEventListener('click', () => { if(picked) startRide(picked, $('nv-pick-rev').checked); });
 
 // ---------------------------------------------------------------
 // Jízda – stav
@@ -69,19 +124,20 @@ let heading = null, speed = 0;
 
 function odo(){ return prog == null ? 0 : Math.max(0, Math.min(R.total, prog + offset)); }
 
-async function startRide(id){
+async function startRide(id, reverseNoRb){
   const r = routes.find(x => x.id === id);
   if(!r) return;
   route = r;
-  try{ R = RB.prepareRoute(r.points); }catch(e){ toast(e.message); return; }
-  let items = null;
+  let items = null, reversed = false;
   try{
     busy('Načítám roadbook…');
     const res = await api('/api/roadbooks/' + id);
     if(res.roadbook && res.roadbook.data && Array.isArray(res.roadbook.data.items)){
+      reversed = !!(res.roadbook.data.settings && res.roadbook.data.settings.reversed);
+      R = RB.prepareRoute(r.points, reversed);
       items = res.roadbook.data.items.map(x => Object.assign({ sides: [], icons: [] }, x));
       if(res.roadbook.stale){
-        // trasa se změnila – instrukce přeneseme na novou geometrii, ať km sedí
+        // trasa se změnila – instrukce jen posuneme na novou trasu, ať km sedí
         items = RB.reproject(R, items);
         toast('Pozor: trasa se od uložení roadbooku změnila, roadbook není zkontrolovaný.', 6000);
       } else if(res.roadbook.status !== 'ready'){
@@ -89,20 +145,24 @@ async function startRide(id){
       }
     }
     if(!items){
-      $('rb-busy-text').textContent = 'Generuji roadbook…';
-      const g = await RB.generate(r.points, { useOsm: true, onProgress: t => { $('rb-busy-text').textContent = t; } });
+      reversed = !!reverseNoRb;
+      R = RB.prepareRoute(r.points, reversed);
+      // bez stahování: použijí se jen OSM data, která už jsou v prohlížeči z Roadbook planneru
+      const osm = await RB.store.get(RB.routeKey(r.id, r.points));
+      const g = await RB.generate(r.points, { osm, reversed });
       items = g.items;
-      toast('Roadbook vygenerován automaticky – není zkontrolovaný.', 5000);
+      toast(osm ? 'Roadbook vygenerován automaticky (nezkontrolovaný).' : 'Roadbook jen ze zatáček GPX (bez křižovatek) – úplný připrav v Roadbook planneru.', 5500);
     }
   }catch(e){
     toast('Roadbook se nepodařilo načíst: ' + e.message, 6000); unbusy(); return;
   }finally{ unbusy(); }
   RB.recompute(R, items);
   vis = RB.visible(items);
-  prog = null; offset = 0; curIdx = -1; warned = {}; heading = null; speed = 0;
+  prog = null; offset = 0; curIdx = -1; warned = {}; heading = null; speed = 0; manualUntil = 0;
   $('nv-ride').classList.add('open');
   try{ history.replaceState(null, '', location.pathname + '?trasa=' + id); }catch(e){}
   setupMaps();
+  buildCards();
   render(true);
   requestWakeLock();
   if($('nv-simopt').checked) startSim(); else startGps();
@@ -117,8 +177,8 @@ function stopRide(){
   try{ history.replaceState(null, '', location.pathname); }catch(e){}
 }
 $('nv-end').addEventListener('click', () => { if(confirm('Ukončit jízdu podle roadbooku?')) stopRide(); });
-$('nv-minus').addEventListener('click', () => { offset -= 10; render(false); });
-$('nv-plus').addEventListener('click', () => { offset += 10; render(false); });
+$('nv-minus').addEventListener('click', () => { offset -= STEP_M; manualUntil = 0; render(false); });
+$('nv-plus').addEventListener('click', () => { offset += STEP_M; manualUntil = 0; render(false); });
 
 async function requestWakeLock(){
   if(!('wakeLock' in navigator)) return;
@@ -145,13 +205,19 @@ function startGps(){
 }
 
 function onPosition(lat, lon){
-  let p = prog == null ? null : RB.project(R, lat, lon, Math.max(0, prog - BACK_WINDOW), Math.min(R.total, prog + FWD_WINDOW));
-  if(!p || p.dist > 40){
+  // první poloha: místo na trase nejblíž ZAČÁTKU (u okruhu je start i cíl na stejném místě);
+  // když jsme od trasy daleko, začínáme na startu
+  if(prog == null){
+    const p0 = RB.projectInitial(R, lat, lon);
+    prog = p0.dist > 300 ? 0 : p0.s;
+  }
+  let p = RB.project(R, lat, lon, Math.max(0, prog - BACK_WINDOW), Math.min(R.total, prog + FWD_WINDOW));
+  if(p.dist > 40){
     const g = RB.project(R, lat, lon);
     if(!p || g.dist + 15 < p.dist) p = g;
   }
   const off = p.dist > OFF_ROUTE_M;
-  if(!off || prog == null) prog = p.s;
+  if(!off) prog = p.s;
   // mimo trasu
   if(off){
     const q = RB.pointAt(R, p.s);
@@ -234,15 +300,54 @@ $('nv-bigmap-close').addEventListener('click', () => $('nv-bigmap').classList.re
 // ---------------------------------------------------------------
 // Vykreslení roadbooku
 // ---------------------------------------------------------------
-function cardHTML(it, cls){
+function cardHTML(it){
   const icons = (it.icons || []).map(k => RB.iconSVG(k, 26)).join('');
-  return '<div class="nv-card ' + cls + '">' +
+  return '<div class="nv-card next" data-i="' + (it.n - 1) + '">' +
     '<div class="nv-c1"><div class="n">#' + it.n + '</div><div class="t">' + RB.fmtKm(it.s) + '</div><div class="p">' + RB.fmtKm(it.par) + '</div></div>' +
     '<div class="nv-c2">' + RB.tulipSVG(it, 118) + '</div>' +
     '<div class="nv-c3"><div class="ic">' + RB.dangerHTML(it.danger) + icons + '</div>' +
     '<div class="l">' + esc(RB.label(it)) + '</div><div class="s">' + esc(RB.subLabel(it)) + '</div>' +
     (it.kind === 'finish' ? '' : '<div class="cap">' + (it.cap || 0) + '°</div>') + '</div></div>';
 }
+// celý roadbook najednou: nahoře cíl, dole start; posouvá se buď sám (podle polohy), nebo prstem
+let cards = [], manualUntil = 0, progScrollUntil = 0;
+function buildCards(){
+  let h = '';
+  for(let i = vis.length - 1; i >= 0; i--) h += cardHTML(vis[i]);
+  $('nv-rows-inner').innerHTML = h;
+  cards = [];
+  $('nv-rows-inner').querySelectorAll('.nv-card').forEach(el => { cards[Number(el.dataset.i)] = el; });
+  const box = $('nv-rows');
+  box.scrollTop = box.scrollHeight;
+}
+// cílová poloha posuvu: aktuální krabička dole, pod ní napůl vidět poslední projetá
+function targetScroll(){
+  const box = $('nv-rows'), el = cards[curIdx];
+  if(!el) return box.scrollHeight;
+  const peek = curIdx > 0 ? 70 : 0;
+  return Math.max(0, Math.min(box.scrollHeight - box.clientHeight, el.offsetTop + el.offsetHeight + peek - box.clientHeight));
+}
+function autoScroll(smooth){
+  const box = $('nv-rows'), t = targetScroll();
+  if(Math.abs(box.scrollTop - t) < 2) return;
+  progScrollUntil = Date.now() + (smooth ? 700 : 80);
+  if(smooth && box.scrollTo) box.scrollTo({ top: t, behavior: 'smooth' }); else box.scrollTop = t;
+}
+// ruční posun prstem: na chvíli vypne automatické posouvání
+(function manualScroll(){
+  const box = $('nv-rows');
+  const touchNow = () => { manualUntil = Date.now() + MANUAL_MS; };
+  ['touchstart', 'pointerdown', 'wheel'].forEach(ev => box.addEventListener(ev, touchNow, { passive: true }));
+  box.addEventListener('scroll', () => { if(Date.now() > progScrollUntil) manualUntil = Date.now() + MANUAL_MS; }, { passive: true });
+  setInterval(() => {
+    if(!$('nv-ride').classList.contains('open')) return;
+    const left = manualUntil - Date.now();
+    $('nv-manual').classList.toggle('open', left > 0);
+    if(left > 0) $('nv-manual-s').textContent = Math.ceil(left / 1000);
+    else if(manualUntil){ manualUntil = 0; autoScroll(true); }
+  }, 250);
+})();
+
 function render(force){
   if(!R) return;
   const o = odo();
@@ -252,12 +357,8 @@ function render(force){
   if(prog == null) idx = Math.min(1, vis.length - 1);
   if(force || idx !== curIdx){
     curIdx = idx;
-    const from = Math.max(0, idx - 1), to = Math.min(vis.length - 1, idx + 5);
-    let h = '';
-    for(let i = to; i >= from; i--) h += cardHTML(vis[i], i < idx ? 'done' : i === idx ? 'cur' : 'next');
-    // poslední projetá krabička je napůl schovaná dole; když žádná není, nic neschováváme
-    $('nv-rows-inner').style.marginBottom = from < idx ? '' : '0';
-    $('nv-rows-inner').innerHTML = h;
+    cards.forEach((el, i) => { if(el) el.className = 'nv-card ' + (i < idx ? 'done' : i === idx ? 'cur' : 'next'); });
+    if(Date.now() > manualUntil) autoScroll(!force);
   }
   const nx = vis[idx], pv = vis[idx - 1];
   const dist = nx ? Math.max(0, nx.s - o) : 0;
@@ -274,6 +375,7 @@ function render(force){
     if(dist <= WARN_M && !warned[nx.id]){ warned[nx.id] = 1; try{ navigator.vibrate([150, 80, 150]); }catch(e){} }
   }
 }
+window.addEventListener('resize', () => { if($('nv-ride').classList.contains('open') && Date.now() > manualUntil) setTimeout(() => autoScroll(false), 100); });
 
 // ---------------------------------------------------------------
 // Start stránky
@@ -303,12 +405,10 @@ function render(force){
     (s || []).forEach(x => { sums[x.route_id] = x; });
   }catch(e){ $('nv-list').innerHTML = '<p class="sub">Trasy se nepodařilo načíst: ' + esc(e.message) + '</p>'; return; }
   renderSelect();
+  drawSelectMap();
+  // přímý odkaz z planneru: jízdu nespouštíme sami (GPS chce klepnutí), jen trasu vybereme
   const id = Number(new URLSearchParams(location.search).get('trasa'));
-  if(id && routes.some(r => r.id === id)){
-    // přímý odkaz z planneru: jízdu nespouštíme sami (GPS chce klepnutí), jen trasu zvýrazníme
-    const b = $('nv-list').querySelector('.nv-route[data-id="' + id + '"]');
-    if(b){ b.style.boxShadow = '0 0 0 4px #F5B700'; b.scrollIntoView({ block:'center' }); }
-  }
+  if(id && routes.some(r => r.id === id)) pickRoute(id, true);
 })();
 
 })();

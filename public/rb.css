@@ -128,7 +128,7 @@ body.rb-adding #rb-map{cursor:crosshair;}
 .rb-legend .cell span{font-size:0.72rem;color:#444;}
 .rb-busy{position:fixed;inset:0;background:rgba(17,17,17,.45);z-index:2500;display:none;align-items:center;justify-content:center;}
 .rb-busy.open{display:flex;}
-.rb-busy div{background:#fff;border-radius:10px;padding:18px 22px;font-weight:700;max-width:80vw;text-align:center;border:3px solid #111;}
+.rb-busy > div{background:#fff;border-radius:10px;padding:18px 22px;font-weight:700;max-width:80vw;text-align:center;border:3px solid #111;}
 
 @media (max-width:1100px){
   #rb-list{width:300px;}
@@ -169,8 +169,12 @@ body.rb-navi{background:#111;}
 #nv-odo .row2 strong{color:#fff;}
 #nv-mini{width:116px;height:116px;flex:none;border-radius:12px;overflow:hidden;border:2px solid #3A3A3A;background:#E8E1CC;}
 #nv-mini .leaflet-control-container{display:none;}
-#nv-rows{flex:1;min-height:0;overflow:hidden;background:#fff;display:flex;flex-direction:column;justify-content:flex-end;color:#111;}
-#nv-rows-inner{margin-bottom:-70px;transition:transform .25s;}
+#nv-rows{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;background:#fff;color:#111;position:relative;
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;}
+#nv-rows::-webkit-scrollbar{display:none;}
+#nv-rows-inner{min-height:100%;display:flex;flex-direction:column;justify-content:flex-end;}
+#nv-manual{position:absolute;left:50%;transform:translateX(-50%);top:146px;z-index:6;background:#111;color:#F5B700;border:2px solid #F5B700;border-radius:18px;padding:5px 14px;font-weight:800;font-size:14px;display:none;white-space:nowrap;}
+#nv-manual.open{display:block;}
 .nv-card{height:150px;display:grid;grid-template-columns:96px 132px minmax(0,1fr);border-top:3px solid #111;box-sizing:border-box;background:#fff;}
 .nv-card.done{opacity:.35;}
 .nv-card.cur{background:var(--rb-amber-soft);box-shadow:inset 0 0 0 5px var(--rb-amber);}
@@ -220,7 +224,7 @@ body.rb-navi{background:#111;}
   #nv-odo .row2{flex-direction:column;gap:0;font-size:14px;}
   #nv-mini{width:110px;height:110px;}
   #nv-rows{grid-column:2;grid-row:1 / span 3;}
-  #nv-rows-inner{margin-bottom:-90px;}
+  #nv-manual{top:8px;left:calc(300px + (100% - 300px)/2);}
   .nv-card{grid-template-columns:104px 136px minmax(0,1fr);}
   #nv-next{grid-column:1;grid-row:2;height:auto;border-radius:10px;margin:0 10px;flex-direction:column;align-items:stretch;justify-content:center;gap:4px;padding:8px 12px;}
   #nv-next .b{align-items:stretch;}
@@ -232,3 +236,21 @@ body.rb-navi{background:#111;}
   #nv-wait{top:0;left:300px;}
   #nv-sim{bottom:10px;right:10px;}
 }
+
+/* v2.1: výběr trasy na mapě (NAVI) */
+#nv-map{height:46vh;min-height:260px;border:2px solid #111;border-radius:10px;overflow:hidden;}
+#nv-pick{border:3px solid #111;border-radius:10px;background:#fff;padding:12px 14px;display:none;flex-direction:column;gap:8px;}
+#nv-pick.open{display:flex;}
+#nv-pick .t{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+#nv-pick .t b{font-size:1.15rem;flex:1;}
+#nv-pick .go{min-height:52px;font-size:1.05rem;}
+#nv-pick .note{font-size:0.85rem;color:#444;}
+#nv-pick label{margin:0;display:flex;align-items:center;gap:8px;font-size:0.92rem;color:#111;}
+#nv-pick label[hidden]{display:none;}
+.nv-route.on{box-shadow:0 0 0 4px #F5B700;}
+body.rb-picking #rb-map{cursor:pointer;}
+
+.rb-more{position:relative;display:inline-flex;}
+.rb-more-list{position:absolute;right:0;top:calc(100% + 6px);z-index:1600;background:#fff;border:2px solid #111;border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;min-width:230px;box-shadow:0 10px 28px rgba(0,0,0,.25);}
+.rb-more-list[hidden]{display:none;}
+.rb-more-list .btn-rb{justify-content:flex-start;width:100%;}
