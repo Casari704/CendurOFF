@@ -51,3 +51,17 @@ CREATE TABLE IF NOT EXISTS reviews (
 CREATE INDEX IF NOT EXISTS idx_routes_owner ON routes(owner_id);
 CREATE INDEX IF NOT EXISTS idx_photos_route ON photos(route_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_route ON reviews(route_id);
+
+-- Roadbook (v2.0): jeden roadbook na trasu. Zakládá ho sám server (roadbook-api.js),
+-- stávající tabulky se nemění. route_fp = md5 bodů trasy v okamžiku uložení
+-- (když se GPX trasy později změní, roadbook se hlásí jako NOT ready).
+CREATE TABLE IF NOT EXISTS roadbooks (
+  id SERIAL PRIMARY KEY,
+  route_id INTEGER NOT NULL UNIQUE REFERENCES routes(id) ON DELETE CASCADE,
+  updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'draft',   -- 'draft' (NOT ready) / 'ready'
+  data JSONB NOT NULL,
+  route_fp TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
