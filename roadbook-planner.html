@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#111111">
+<link rel="apple-touch-icon" href="public/img/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
+<title>CendurOFF Roadbook planner</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="public/style.css?v=2.0">
+<link rel="stylesheet" href="public/rb.css?v=2.0">
+<style>body.auth-pending #app-screen{visibility:hidden;}</style>
+</head>
+<body class="rb-page rb-planner auth-pending">
+
+<div id="app-screen" style="display:flex;">
+  <header class="topbar" data-page="roadbook"></header>
+
+  <div id="rb-toolbar">
+    <label for="rb-route" class="sr-only" style="position:absolute;left:-9999px;">Trasa</label>
+    <select id="rb-route"><option value="">Načítám trasy…</option></select>
+    <span id="rb-status" class="rb-badge none">—</span>
+    <span class="rb-info" id="rb-info"></span>
+    <span class="spacer"></span>
+    <button class="btn-rb" id="rb-regen" type="button">Vygenerovat znovu</button>
+    <button class="btn-rb" id="rb-legend-btn" type="button">Legenda</button>
+    <button class="btn-rb" id="rb-print-btn" type="button">Tisk</button>
+    <a class="btn-rb" id="rb-navi-link" href="roadbook-navi.html">Roadbook NAVI</a>
+    <button class="btn-rb" id="rb-ready" type="button">Označit READY</button>
+    <button class="btn-rb go" id="rb-save" type="button">Uložit</button>
+  </div>
+
+  <main id="rb-main">
+    <section id="rb-list" aria-label="Seznam příkazů">
+      <div class="rb-list-head">
+        <h2>Příkazy <span id="rb-count" style="color:#555;font-weight:600"></span></h2>
+        <div class="rb-filters" id="rb-filters">
+          <button type="button" data-f="all" class="on">Vše</button>
+          <button type="button" data-f="review">Ke kontrole</button>
+          <button type="button" data-f="manual">Ruční / upravené</button>
+        </div>
+      </div>
+      <div id="rb-rows"><div class="rb-empty">Vyber nahoře trasu. Roadbook se k ní vygeneruje automaticky a pak ho tady doladíš.</div></div>
+    </section>
+
+    <section id="rb-mapwrap">
+      <div id="rb-map"></div>
+      <div id="rb-map-tools">
+        <button class="btn-rb go" id="rb-add" type="button">+ Přidat instrukci</button>
+        <span class="hint" id="rb-map-hint">Klikni na trasu – vloží se nová instrukce. Body instrukcí jde přetáhnout po trase.</span>
+      </div>
+      <select id="rb-base" aria-label="Podkladová mapa">
+        <option value="cyclosm">CyclOSM</option>
+        <option value="topo">Turistická</option>
+        <option value="osm">Základní</option>
+        <option value="sat">Satelit</option>
+      </select>
+    </section>
+
+    <section id="rb-editor" aria-label="Úprava instrukce">
+      <div class="rb-empty" id="rb-ed-empty">Klikni na instrukci v seznamu nebo na mapě.</div>
+      <div id="rb-ed" hidden></div>
+    </section>
+  </main>
+</div>
+
+<!-- ============ PŘEGENEROVÁNÍ ============ -->
+<div class="modal-overlay" id="rb-regen-overlay">
+  <div class="modal rb-modal" role="dialog" aria-modal="true" aria-labelledby="rb-regen-title">
+    <button class="detail-close" data-close type="button" aria-label="Zavřít">×</button>
+    <h2 id="rb-regen-title">Vygenerovat roadbook znovu</h2>
+    <p class="sub">Zatáčky se najdou z GPX, křižovatky, brody, závory, přejezdy a benzínky z OpenStreetMap.</p>
+    <label for="rb-minangle">Hlásit zatáčky od</label>
+    <select id="rb-minangle">
+      <option value="20">20° (víc instrukcí)</option>
+      <option value="30" selected>30° (doporučeno)</option>
+      <option value="45">45° (jen výrazné zatáčky)</option>
+    </select>
+    <label class="opt"><input type="checkbox" id="rb-useosm" checked> Hledat křižovatky a body v OpenStreetMap</label>
+    <div class="actions">
+      <button class="primary-btn" id="rb-regen-keep" type="button" style="margin-top:0">Přegenerovat a zachovat moje úpravy</button>
+      <button class="ghost-btn" id="rb-regen-fresh" type="button">Začít úplně od nuly</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TISK ============ -->
+<div class="modal-overlay" id="rb-print-overlay">
+  <div class="modal rb-modal" role="dialog" aria-modal="true" aria-labelledby="rb-print-title">
+    <button class="detail-close" data-close type="button" aria-label="Zavřít">×</button>
+    <h2 id="rb-print-title">Tisk roadbooku</h2>
+    <p class="sub">Otevře se tisková stránka – vytiskni ji, nebo ji v dialogu tisku ulož jako PDF. Čte se odspodu nahoru (start je dole).</p>
+    <label class="opt"><input type="radio" name="rb-pf" value="a5" checked> A5 – stránky, 6 instrukcí na stranu</label>
+    <label class="opt"><input type="radio" name="rb-pf" value="strip"> Nekonečný pás (plotr, tiskárna štítků / účtenek)</label>
+    <div id="rb-strip-opts" style="display:none;padding-left:26px">
+      <label for="rb-strip-w">Šířka pásu</label>
+      <select id="rb-strip-w">
+        <option value="58">58 mm</option>
+        <option value="62">62 mm</option>
+        <option value="80" selected>80 mm</option>
+        <option value="100">100 mm</option>
+        <option value="148">148 mm</option>
+      </select>
+    </div>
+    <label class="opt"><input type="checkbox" id="rb-p-legend" checked> Přidat legendu (jen použité symboly)</label>
+    <label class="opt"><input type="checkbox" id="rb-p-mono"> Jen černá (termotiskárna)</label>
+    <div class="actions">
+      <button class="ghost-btn" data-close type="button">Zrušit</button>
+      <button class="primary-btn" id="rb-print-go" type="button" style="margin-top:0">Otevřít tisk</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ LEGENDA ============ -->
+<div class="modal-overlay" id="rb-legend-overlay">
+  <div class="modal rb-legend-modal" role="dialog" aria-modal="true" aria-labelledby="rb-legend-title">
+    <button class="detail-close" data-close type="button" aria-label="Zavřít">×</button>
+    <h2 id="rb-legend-title">Katalog symbolů</h2>
+    <p class="sub">Všechny symboly, které se mohou objevit v roadbooku.</p>
+    <div class="rb-legend" id="rb-legend"></div>
+  </div>
+</div>
+
+<div class="rb-busy" id="rb-busy"><div id="rb-busy-text">Pracuji…</div></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="public/config.js?v=2.0"></script>
+<script src="public/header.js?v=2.0"></script>
+<script src="public/regiondata.js?v=2.0"></script>
+<script src="public/rb-core.js?v=2.0"></script>
+<script src="public/rb-planner.js?v=2.0"></script>
+</body>
+</html>

@@ -620,6 +620,11 @@ app.delete('/api/routes/:id', requireAuth, async (req, res) => {
 });
 
 // ---------------------------------------------------------------
+// Roadbook (v2.0) – samostatný modul s vlastní tabulkou a endpointy /api/roadbooks/...
+// ---------------------------------------------------------------
+require('./roadbook-api').mount(app, { pool, requireAuth, optionalAuth, canEdit });
+
+// ---------------------------------------------------------------
 // Handlery pro API chybějící cesty & statické soubory
 // ---------------------------------------------------------------
 app.use('/api', (req, res) => res.status(404).json({ error: 'Neznámý endpoint.' }));

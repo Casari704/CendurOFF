@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#111111">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="public/img/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
+<title>CendurOFF Roadbook NAVI</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="public/style.css?v=2.0">
+<link rel="stylesheet" href="public/rb.css?v=2.0">
+<style>body.auth-pending #app-screen{visibility:hidden;}</style>
+</head>
+<body class="rb-page rb-navi auth-pending">
+
+<div id="app-screen" style="display:flex;">
+  <header class="topbar" data-page="roadbook-navi"></header>
+
+  <!-- ============ VÝBĚR TRASY ============ -->
+  <section id="nv-select">
+    <div class="wrap">
+      <h1>Roadbook NAVI</h1>
+      <p class="sub">Vyber trasu a jeď podle roadbooku. Trasy bez uloženého roadbooku se vygenerují automaticky (nezkontrolované).</p>
+      <div class="nv-opts">
+        <label><input type="checkbox" id="nv-simopt"> Simulace jízdy (vyzkoušení u stolu, bez GPS)</label>
+        <a class="btn-rb" href="roadbook-planner.html">Roadbook planner</a>
+      </div>
+      <label for="nv-search" style="position:absolute;left:-9999px">Hledat trasu</label>
+      <input type="search" id="nv-search" placeholder="Hledat trasu…">
+      <div id="nv-list"><p class="sub">Načítám trasy…</p></div>
+    </div>
+  </section>
+</div>
+
+<!-- ============ JÍZDA ============ -->
+<div id="nv-ride" aria-live="polite">
+  <div id="nv-top">
+    <div id="nv-odo">
+      <div class="lb">KM CELKEM</div>
+      <div id="nv-km">0,00</div>
+      <div class="row2"><span>DÍLČÍ <strong id="nv-par">0,00</strong></span><span>CAP <strong id="nv-cap">—</strong></span></div>
+    </div>
+    <div id="nv-mini" role="img" aria-label="Minimapa: trasa a aktuální poloha"></div>
+  </div>
+  <div id="nv-rows"><div id="nv-rows-inner"></div></div>
+  <div id="nv-next">
+    <div class="a"><small>DALŠÍ ZA</small><div id="nv-dist">—</div></div>
+    <div class="b"><div id="nv-nextlabel"></div><div id="nv-bar"><i></i></div></div>
+  </div>
+  <div id="nv-btns">
+    <button type="button" id="nv-minus" aria-label="Odečíst 10 metrů z počítadla">−10 m</button>
+    <button type="button" id="nv-plus" aria-label="Přičíst 10 metrů k počítadlu">+10 m</button>
+    <button type="button" id="nv-mapbtn">Mapa</button>
+    <button type="button" id="nv-end" class="go">Konec</button>
+  </div>
+  <div id="nv-off"><svg id="nv-off-arrow" width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 18-7-4-7 4z" fill="#fff"/></svg><span id="nv-off-text">MIMO TRASU</span></div>
+  <div id="nv-wait">Čekám na GPS signál…</div>
+  <div id="nv-sim"><button type="button" id="nv-sim-pause">⏸ Pauza</button><button type="button" id="nv-sim-speed">30 km/h</button></div>
+  <div id="nv-bigmap"><div id="nv-bigmap-map"></div><button type="button" id="nv-bigmap-close">Zpět na roadbook</button></div>
+</div>
+
+<div class="rb-busy" id="rb-busy"><div id="rb-busy-text">Pracuji…</div></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="public/config.js?v=2.0"></script>
+<script src="public/header.js?v=2.0"></script>
+<script src="public/regiondata.js?v=2.0"></script>
+<script src="public/rb-core.js?v=2.0"></script>
+<script src="public/rb-navi.js?v=2.0"></script>
+</body>
+</html>

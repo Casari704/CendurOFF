@@ -11,6 +11,7 @@ vlastní doméně.
 
 ```
 server.js        – Express server: přihlašování, API pro trasy a fotky
+roadbook-api.js   – (v2.0) API a tabulka pro roadbooky
 db/schema.sql     – databázová struktura (spustí se automaticky při startu)
 public/           – frontend (statické soubory, servíruje je stejný server)
   index.html
@@ -26,6 +27,30 @@ public/           – frontend (statické soubory, servíruje je stejný server)
   uloží do PostgreSQL.
 - **Fotky**: vlastník trasy nahraje až 3 fotky (max 3 MB/kus), server je uloží
   do databáze a umí označit, která je hlavní.
+
+## Verze 2.0 – Roadbook (zatím samostatně, mimo menu)
+
+Dvě nové stránky, které **nijak nemění** Atlas ani Plánovač (trasy jen čtou):
+
+- `roadbook-planner.html` – **Roadbook planner**: vybereš trasu, roadbook se vygeneruje
+  automaticky (zatáčky z GPX + křižovatky, brody, závory, přejezdy a benzínky z OpenStreetMap)
+  a doladíš ho: tabulka příkazů, mapa (klik na trasu = nová instrukce, body jdou táhnout po
+  trase), editor instrukce (tulipán s tažením ramen, šablony křižovatek, ikony, nebezpečí
+  ! / !! / !!!, typ cesty, text). Stav **Roadbook READY / NOT ready**. Tisk na **A5** nebo na
+  **nekonečný pás** 58–148 mm (plotr, tiskárna štítků) – čte se odspodu nahoru, s legendou.
+- `roadbook-navi.html` – **Roadbook NAVI**: jízda podle roadbooku. Počítadlo km, dílčí km, CAP,
+  odpočet „DALŠÍ ZA“, krabičky (nové shora, aktuální dole), minimapa, upozornění „MIMO TRASU“,
+  korekce ±10 m, vibrace 100 m před instrukcí, režim na šířku. Volba **Simulace jízdy** pro
+  vyzkoušení u stolu bez GPS.
+
+Soubory: `roadbook-api.js` (backend, nová tabulka `roadbooks` + endpointy `/api/roadbooks`),
+`public/rb-core.js` (společné jádro), `public/rb-planner.js`, `public/rb-navi.js`, `public/rb.css`.
+Jediné zásahy do stávajících souborů: jeden řádek v `server.js` (připojení roadbook API) a
+nová tabulka na konci `db/schema.sql` (tabulku si server stejně založí sám).
+
+Pojistka: při uložení roadbooku se uloží otisk bodů trasy. Když se GPX trasy později změní
+(např. v Plánovači), roadbook se hlásí jako NOT ready; Roadbook planner ho při otevření
+přegeneruje, ruční úpravy zachová a místa, která už na trase neleží, označí „ke kontrole“.
 
 ## Lokální spuštění
 
