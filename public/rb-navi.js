@@ -64,7 +64,7 @@ function statusColor(id){ const sm = sums[id]; return sm ? (sm.status === 'ready
 function drawSelectMap(){
   if(!selMap){
     selMap = L.map('nv-map', { zoomControl:true }).setView([49.87, 17.87], 9);
-    L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', { maxZoom:19, maxNativeZoom:20, attribution:'© OpenStreetMap contributors, CyclOSM' }).addTo(selMap);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap contributors' }).addTo(selMap);
     selLayer = L.layerGroup().addTo(selMap);
   }
   selLayer.clearLayers();
