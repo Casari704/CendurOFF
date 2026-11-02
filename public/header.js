@@ -1,10 +1,12 @@
 // ---------------------------------------------------------------
-// Společná hlavička pro Atlas (index.html), Plánovač (planovac.html) a Merch (merch.html).
+// Společná hlavička pro Atlas (index.html), Plánovač (planovac.html), Merch (merch.html)
+// a od v2.0 i Roadbook planner / Roadbook NAVI. Všechny stránky jsou v jedné rolovací nabídce „Menu ▾“.
 //
 // Na stránce stačí prázdný <header class="topbar" data-page="atlas|planovac|merch"></header>
 // a načíst tento skript (po public/config.js). Skript doplní:
 //   - logo + název stránky u loga,
-//   - menu Atlas · Plánovač · Merch (vždy stejné pořadí a názvy, aktivní má zlatý obrys),
+//   - rolovací nabídka „Menu ▾“: Atlas · Plánovač · Merch · Roadbook planner · Roadbook NAVI
+//     (vždy stejné pořadí a názvy, aktivní stránka má zlatý obrys),
 //   - tlačítko „+ Nahrát trasu“ (jen v Atlasu), „O projektu“ a tlačítko uživatele,
 //   - okno „O projektu“ a okno „Můj účet“ (změna hesla + odhlášení).
 // Stránka pak zavolá CendurHeader.setUser(user) – nebo setUser(null) pro nepřihlášeného.
@@ -20,7 +22,14 @@
     { id:'planovac', label:'Plánovač', href:'planovac.html' },
     { id:'merch',    label:'Merch',    href:'merch.html' }
   ];
-  const current = PAGES.find(p=>p.id===page) || PAGES[0];
+  // stránky Roadbooku (v2.0)
+  const MENU_PAGES = [
+    { id:'roadbook',      label:'Roadbook planner', href:'roadbook-planner.html' },
+    { id:'roadbook-navi', label:'Roadbook NAVI',    href:'roadbook-navi.html' }
+  ];
+  // všechny stránky v jedné rolovací nabídce (od v2.0), roadbook oddělený čárou
+  const ALL_PAGES = PAGES.concat(MENU_PAGES.map((p, i)=>Object.assign({ sep: i === 0 }, p)));
+  const current = ALL_PAGES.find(p=>p.id===page) || PAGES[0];
 
   header.innerHTML = `
     <a class="brand-link" href="index.html" title="CendurOFF Atlas">
@@ -28,7 +37,12 @@
       <span class="brand">CendurOFF <span class="brand-sub">${current.label}</span></span>
     </a>
     <nav class="site-nav" aria-label="Hlavní menu">
-      ${PAGES.map(p=>`<a class="btn nav-link${p.id===page ? ' active' : ''}" href="${p.href}"${p.id===page ? ' aria-current="page"' : ''}>${p.label}</a>`).join('')}
+      <div class="nav-menu">
+        <button class="btn nav-link nav-menu-btn" id="nav-menu-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="nav-menu-list">Menu ▾</button>
+        <div class="nav-menu-list" id="nav-menu-list" role="menu" hidden>
+          ${ALL_PAGES.map(p=>`${p.sep ? '<div class="nav-menu-sep" role="separator"></div>' : ''}<a class="btn nav-link${p.id===page ? ' active' : ''}" role="menuitem" href="${p.href}"${p.id===page ? ' aria-current="page"' : ''}>${p.label}</a>`).join('')}
+        </div>
+      </div>
     </nav>
     <div class="site-actions">
       ${page==='atlas' ? '<button class="btn solid" id="open-upload" type="button">+ Nahrát trasu</button>' : ''}
@@ -36,6 +50,33 @@
       <button class="btn user-btn" id="user-chip" type="button" hidden></button>
       <a class="btn" id="login-link" href="index.html${page==='atlas' ? '' : '?next=' + encodeURIComponent(current.href)}" hidden>Přihlásit se</a>
     </div>`;
+
+  // --- nabídka „Menu ▾“ ---
+  if(!document.getElementById('nav-menu-style')){
+    document.head.insertAdjacentHTML('beforeend', `<style id="nav-menu-style">
+      .nav-menu{position:relative;display:inline-flex;}
+      .nav-menu-list{position:absolute;top:calc(100% + 6px);left:0;z-index:2100;min-width:190px;display:flex;flex-direction:column;gap:6px;
+        padding:8px;background:var(--bg-app,#172218);border:1px solid rgba(255,255,255,0.25);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,0.35);}
+      .nav-menu-list[hidden]{display:none;}
+      .nav-menu-list .btn{justify-content:flex-start;}
+      .nav-menu-sep{height:1px;background:rgba(255,255,255,0.2);margin:2px 0;}
+    </style>`);
+  }
+  const menuBtn = document.getElementById('nav-menu-btn');
+  const menuList = document.getElementById('nav-menu-list');
+  function setMenu(open){
+    menuList.hidden = !open;
+    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if(open){
+      // na úzkém displeji ať nabídka nevyjede mimo obrazovku
+      menuList.style.left = '0'; menuList.style.right = 'auto';
+      const r = menuList.getBoundingClientRect();
+      if(r.right > window.innerWidth - 8){ menuList.style.left = 'auto'; menuList.style.right = '0'; }
+    }
+  }
+  menuBtn.addEventListener('click', e=>{ e.stopPropagation(); setMenu(menuList.hidden); });
+  document.addEventListener('click', e=>{ if(!menuList.hidden && !menuList.contains(e.target)) setMenu(false); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !menuList.hidden){ setMenu(false); menuBtn.focus(); } });
 
   // --- okna (vloží se jen jednou) ---
   if(!document.getElementById('about-overlay')){
