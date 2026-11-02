@@ -55,6 +55,10 @@ ukládají v prohlížeči (další generování je okamžité). Tlačítko „O
 NAVI: začíná na začátku trasy (i u okruhu), korekce ±50 m, roadbook jde posouvat prstem a po
 4 s se sám vrátí k aktuální instrukci, výběr trasy z mapy.
 
+v2.2: stránka `faq.html` (nápověda ke všem funkcím, v Menu ▾), tlačítko navigace v Atlasu
+„Navigovat v Atlasu / Ukončit navigaci“, Roadbook planner jen pro počítač (na mobilu hláška,
+mimo Chrome upozornění), po přihlášení návrat i na roadbook stránky a FAQ.
+
 Pojistka: při uložení roadbooku se uloží otisk bodů trasy. Když se GPX trasy později změní
 (např. v Plánovači), roadbook se hlásí jako NOT ready; Roadbook planner ho při otevření
 přegeneruje, ruční úpravy zachová a místa, která už na trase neleží, označí „ke kontrole“.
