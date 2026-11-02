@@ -287,7 +287,7 @@ let pendingLinkId = routeIdFromUrl(); // trasa z odkazu, otevře se po přihlá�
 // Povolené jsou jen naše vlastní stránky, ať se odkaz nedá zneužít k přesměrování jinam.
 function nextPageAfterLogin(){
   const n = new URLSearchParams(location.search).get('next');
-  return (n && /^(planovac|merch)\.html(\?[^#]*)?$/.test(n)) ? n : null;
+  return (n && /^(planovac|merch|faq|roadbook-planner|roadbook-navi)\.html(\?[^#]*)?$/.test(n)) ? n : null;
 }
 function goNextIfAny(){
   const n = nextPageAfterLogin();
@@ -1532,7 +1532,7 @@ function enableCompass(){
   }
 }
 
-// Jedno tlačítko „Sleduji / Nesleduji polohu“:
+// Jedno tlačítko „Navigovat v Atlasu / Ukončit navigaci“ (dřív „Sleduji / Nesleduji polohu“):
 //  zapnuto  = sledovat polohu + mapa natočená podle směru jízdy + silnější čáry tras
 //  vypnuto  = mapa volně posouvatelná, sever nahoru, normální čáry (GPS a záznam běží dál)
 function setNavMode(on){
@@ -1551,7 +1551,7 @@ function setNavMode(on){
   setMapRotation(headingMode === 'heading');
   if(followMode && lastLatLng) setFollowView(lastLatLng, false);
   locateBtn.classList.toggle('active', navOn);
-  locateBtnLabel.textContent = navOn ? 'Sleduji polohu' : 'Nesleduji polohu';
+  locateBtnLabel.textContent = navOn ? 'Ukončit navigaci' : 'Navigovat v Atlasu';
   locateBtn.setAttribute('aria-pressed', navOn ? 'true' : 'false');
   document.body.classList.toggle('nav-on', navOn);
   // čáry tras a záznamu podle režimu

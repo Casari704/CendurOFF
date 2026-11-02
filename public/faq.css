@@ -1,0 +1,25 @@
+/* ---------- CendurOFF FAQ (faq.html) ---------- */
+html,body{height:auto;}
+body.faq-page{overflow:auto;background:var(--page);line-height:1.55;}
+body.faq-page header.topbar{position:sticky;top:0;}
+.f-wrap{max-width:900px;margin:0 auto;padding:28px 20px 60px;}
+.f-wrap h1{font-size:clamp(28px,4vw,40px);margin:0 0 6px;}
+.f-lead{margin:0 0 18px;color:var(--ink-soft);}
+.f-toc{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 26px;}
+.f-toc a{display:inline-block;padding:6px 12px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);text-decoration:none;font-weight:600;font-size:0.88rem;}
+.f-toc a:hover{border-color:var(--moss);color:var(--moss-dark);}
+.f-wrap section{margin:0 0 26px;scroll-margin-top:80px;}
+.f-wrap h2{font-size:1.35rem;margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid var(--ink);}
+.f-wrap details{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin:0 0 8px;padding:0 16px;}
+.f-wrap details[open]{padding-bottom:12px;border-color:var(--moss);}
+.f-wrap summary{cursor:pointer;font-family:'Exo 2',sans-serif;font-weight:700;font-size:1.02rem;padding:12px 0;list-style:none;display:flex;justify-content:space-between;gap:12px;}
+.f-wrap summary::-webkit-details-marker{display:none;}
+.f-wrap summary::after{content:'+';font-size:1.3rem;line-height:1;color:var(--moss);flex:none;}
+.f-wrap details[open] > summary::after{content:'−';}
+.f-wrap details p,.f-wrap details li{font-size:0.95rem;color:#2A352A;}
+.f-wrap details p{margin:4px 0 8px;}
+.f-wrap ul,.f-wrap ol{margin:4px 0 8px;padding-left:22px;}
+.f-wrap li{margin:3px 0;}
+.f-note{background:#FFF1C2;border:2px solid #F5B700;border-radius:8px;padding:10px 14px;margin:0 0 10px;font-size:0.95rem;}
+.c-tr{color:#1E9A45;}.c-ce{color:#C96F10;}.c-of{color:#C81D16;}
+.dg{display:inline-block;background:#C8191F;color:#fff;font-weight:800;padding:0 6px;border-radius:4px;font-family:'Exo 2',sans-serif;}

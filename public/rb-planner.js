@@ -462,7 +462,7 @@ function askGenerate(mode){
     $('rb-minangle').value = String(settings.minAngle || 30);
     const osmInfo = cached
       ? 'Data z OpenStreetMap pro tuhle trasu už máš uložená v prohlížeči (' + new Date(cached.t).toLocaleDateString('cs-CZ') + ', ' + ((cached.bytes || 0) / 1048576).toFixed(2).replace('.', ',') + ' MB) – generování bude okamžité.'
-      : 'Křižovatky, brody, závory, přejezdy a benzínky se berou z OpenStreetMap. Trasa ' + est.km.toFixed(1).replace('.', ',') + ' km = ' + est.queries + ' ' + (est.queries === 1 ? 'dotaz' : est.queries < 5 ? 'dotazy' : 'dotazů') +
+      : 'Stažení z OpenStreetMap může chvíli trvat, ale roadbook bude výrazně přesnější – doplní se křižovatky s odbočkami, typ cesty, brody, závory, přejezdy a benzínky (jen ze zatáček GPX tohle nepoznám). Trasa ' + est.km.toFixed(1).replace('.', ',') + ' km = ' + est.queries + ' ' + (est.queries === 1 ? 'dotaz' : est.queries < 5 ? 'dotazy' : 'dotazů') +
         ' na server, obvykle ' + est.mbLow.toFixed(1).replace('.', ',') + '–' + est.mbHigh.toFixed(1).replace('.', ',') + ' MB, trvá to od pár vteřin po minutu (podle vytížení serveru). Stahování jde kdykoli zrušit.';
     $('rb-gen-osm').textContent = osmInfo;
     $('rb-gen-osm-btn').textContent = cached ? 'Vygenerovat (s uloženými daty OSM)' : 'Stáhnout z OSM a vygenerovat';
@@ -719,7 +719,36 @@ document.addEventListener('keydown', e => { if(e.key === 'Escape') document.quer
 // ---------------------------------------------------------------
 // Start stránky
 // ---------------------------------------------------------------
+// Roadbook planner je jen pro počítač: na telefonu / tabletu bez myši ukáže hlášku
+function isMobileDevice(){
+  const fine = window.matchMedia && window.matchMedia('(any-pointer: fine)').matches;
+  const small = Math.min(screen.width || 0, screen.height || 0) < 700;
+  return !fine || small;
+}
+function isChromium(){
+  const ud = navigator.userAgentData;
+  if(ud && Array.isArray(ud.brands)) return ud.brands.some(b => /Chromium|Google Chrome|Microsoft Edge/.test(b.brand));
+  return /Chrome\//.test(navigator.userAgent) && !/Firefox|FxiOS/.test(navigator.userAgent);
+}
+function showMobileBlock(){
+  document.body.classList.remove('auth-pending');
+  document.body.classList.add('rb-mobile-blocked');
+  $('rb-toolbar').remove();
+  $('rb-main').innerHTML = '<div class="rb-mobile-msg"><h2>Roadbook planner je jen pro počítač</h2>' +
+    '<p>Plánování roadbooku potřebuje velkou obrazovku a myš, proto ho na mobilu nejde použít. Otevři ho na počítači – doporučujeme prohlížeč <b>Google Chrome</b>.</p>' +
+    '<p>Na mobilu můžeš podle hotového roadbooku jet v <b>Roadbook NAVI</b>.</p>' +
+    '<div class="rb-mobile-actions"><a class="btn-rb go" href="roadbook-navi.html">Otevřít Roadbook NAVI</a><a class="btn-rb" href="index.html">Zpět do Atlasu</a><a class="btn-rb" href="faq.html#rb-planner">Jak to funguje (FAQ)</a></div></div>';
+}
+
 (async function boot(){
+  if(isMobileDevice()){ showMobileBlock(); try{ const u = await api('/api/auth/me'); if(window.CendurHeader) window.CendurHeader.setUser(u); }catch(e){} return; }
+  if(!isChromium()){
+    let off = false; try{ off = localStorage.getItem('cenduroff.rb.chromeHint') === '0'; }catch(e){}
+    if(!off){
+      $('rb-toolbar').insertAdjacentHTML('afterend', '<div class="rb-browser-hint" id="rb-browser-hint">Roadbook planner je odladěný pro <b>Google Chrome</b> – v jiném prohlížeči se něco nemusí chovat správně. <button type="button" class="btn-rb" id="rb-browser-hint-x">Rozumím</button></div>');
+      $('rb-browser-hint-x').addEventListener('click', () => { $('rb-browser-hint').remove(); try{ localStorage.setItem('cenduroff.rb.chromeHint', '0'); }catch(e){} setTimeout(() => map.invalidateSize(), 50); });
+    }
+  }
   try{ currentUser = await api('/api/auth/me'); }catch(e){ currentUser = null; }
   if(!currentUser){
     let hops = [];
