@@ -263,3 +263,16 @@ body.rb-picking #rb-map{cursor:pointer;}
 .rb-mobile-actions{display:flex;flex-direction:column;gap:8px;margin-top:16px;}
 body.rb-mobile-blocked #rb-main{align-items:center;justify-content:center;padding:20px;overflow:auto;}
 .rb-browser-hint{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#FFF1C2;border-bottom:2px solid #F5B700;padding:6px 12px;font-size:0.9rem;}
+
+/* v2.5: offline */
+.nv-offbox{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.nv-offbox .note{font-size:0.82rem;color:#444;}
+.nv-off-ok{font-weight:700;color:#2E7D32;font-size:0.9rem;}
+.nv-offline-note{margin:0;background:#111;color:#F5B700;border-radius:8px;padding:8px 12px;font-weight:700;}
+.nv-offline-note[hidden]{display:none;}
+
+/* když je vidět „MIMO TRASU“, ruční posun se ukáže pod ním (ne přes něj) */
+#nv-off.open ~ #nv-manual{top:214px;}
+@media (orientation:landscape) and (max-height:600px){
+  #nv-off.open ~ #nv-manual{top:8px;}
+}
