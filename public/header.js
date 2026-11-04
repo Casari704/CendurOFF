@@ -31,10 +31,12 @@
     { id:'merch', label:'Merch',          href:'merch.html' },
     { id:'faq',   label:'FAQ – nápověda', href:'faq.html' }
   ];
+  // v2.9: Admin sekce není v Menu – je v okně uživatele (vedle „Odhlásit se“), jen pro adminy
+  const ADMIN_PAGE = { id:'admin', label:'Admin sekce', href:'admin.html' };
   const ALL_PAGES = PAGES
     .concat(MENU_PAGES.map((p, i)=>Object.assign({ sep: i === 0 }, p)))
     .concat(HELP_PAGES.map((p, i)=>Object.assign({ sep: i === 0 }, p)));
-  const current = ALL_PAGES.find(p=>p.id===page) || PAGES[0];
+  const current = ALL_PAGES.find(p=>p.id===page) || (page === 'admin' ? ADMIN_PAGE : PAGES[0]);
 
   header.innerHTML = `
     <a class="brand-link" href="index.html" title="CendurOFF Atlas">
@@ -64,6 +66,7 @@
         padding:8px;background:var(--bg-app,#172218);border:1px solid rgba(255,255,255,0.25);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,0.35);}
       .nav-menu-list[hidden]{display:none;}
       .nav-menu-list .btn{justify-content:flex-start;}
+      .nav-menu-list [hidden]{display:none;}
       .nav-menu-sep{height:1px;background:rgba(255,255,255,0.2);margin:2px 0;}
     </style>`);
   }
@@ -125,7 +128,10 @@
         <button class="primary-btn" type="submit" style="margin-top:0;">Změnit heslo</button>
       </div>
     </form>
-    <button class="logout-btn" id="logout-btn" type="button">Odhlásit se</button>
+    <div class="account-btns">
+      <a class="admin-btn" id="admin-btn" href="admin.html" style="display:none">Admin sekce</a>
+      <button class="logout-btn" id="logout-btn" type="button">Odhlásit se</button>
+    </div>
   </div>
 </div>`);
   }
@@ -160,7 +166,10 @@
       'Přihlášen(a) jako ' + user.displayName + (user.role==='admin' ? ' (admin)' : '');
     form.reset();
     document.getElementById('cp-msg').textContent = '';
+    document.getElementById('admin-btn').style.display = user.role==='admin' ? '' : 'none';
     accountOverlay.classList.add('open');
+    // roli ověřit čerstvě ze serveru (kdyby stránka měla uživatele bez role)
+    if(!user.role) api('/api/auth/me').then(u=>{ if(u){ user.role = u.role; document.getElementById('admin-btn').style.display = u.role==='admin' ? '' : 'none'; } }).catch(()=>{});
   });
   document.getElementById('account-close').addEventListener('click', ()=> accountOverlay.classList.remove('open'));
   document.getElementById('cp-cancel').addEventListener('click', ()=> accountOverlay.classList.remove('open'));
@@ -202,6 +211,8 @@
     userBtn.hidden = !user;
     loginLink.hidden = !!user;
     if(user) userBtn.textContent = user.displayName + (user.role==='admin' ? ' · admin' : '');
+    const ab = document.getElementById('admin-btn');
+    if(ab) ab.style.display = (user && user.role==='admin') ? '' : 'none';
     window.dispatchEvent(new Event('resize')); // hlavička mohla změnit výšku (mobil)
   }
 
