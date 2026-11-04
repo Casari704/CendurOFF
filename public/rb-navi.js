@@ -26,7 +26,9 @@ async function api(url, options){
   const o = Object.assign({ credentials:'include' }, options);
   let t = null; try{ t = localStorage.getItem('cenduroff.token'); }catch(e){}
   if(t) o.headers = Object.assign({}, o.headers, { Authorization:'Bearer ' + t });
-  const res = await fetch(API_URL + url, o);
+  let res;
+  try{ res = await fetch(API_URL + url, o); }
+  catch(err){ const e = new Error('Bez připojení k internetu.'); e.offline = true; throw e; }
   let data = null, isJson = false;
   try{ data = await res.json(); isJson = true; }catch(e){}
   if(!res.ok) throw new Error((data && data.error) || 'Něco se pokazilo.');
@@ -50,12 +52,61 @@ function renderSelect(){
   ];
   $('nv-list').innerHTML = groups.filter(g => g[1].length).map(g => '<h2>' + g[0] + '</h2>' +
     '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">' + g[1].map(r =>
-      '<button type="button" class="nv-route" data-id="' + r.id + '"><b>' + esc(r.name) + '</b><span>' + (+r.distance_km).toFixed(1).replace('.', ',') + ' km</span><span class="rb-badge ' + g[2] + '">' + g[3] + '</span></button>').join('') + '</div>').join('') ||
+      '<button type="button" class="nv-route" data-id="' + r.id + '"><b>' + esc(r.name) + (offlineIds.has(r.id) ? ' <span title="Uloženo v telefonu">📥</span>' : '') + '</b><span>' + (+r.distance_km).toFixed(1).replace('.', ',') + ' km</span><span class="rb-badge ' + g[2] + '">' + g[3] + '</span></button>').join('') + '</div>').join('') ||
     '<p class="sub">Žádná trasa.</p>';
   $('nv-list').querySelectorAll('.nv-route').forEach(b => b.addEventListener('click', () => pickRoute(Number(b.dataset.id), true)));
   if(picked) { const b = $('nv-list').querySelector('.nv-route[data-id="' + picked + '"]'); if(b) b.classList.add('on'); }
 }
 $('nv-search').addEventListener('input', renderSelect);
+
+// --- offline: trasy a roadbooky uložené v telefonu (v2.5) ---
+let offlineMode = false;            // bez signálu: pracuje se jen s uloženými trasami
+let offlineIds = new Set();
+const OFF_INDEX = 'offline:index';
+const offKey = id => 'offline:route:' + id;
+async function offlineIndex(){ return (await RB.store.get(OFF_INDEX)) || []; }
+async function refreshOfflineIds(){ offlineIds = new Set((await offlineIndex()).map(x => x.id)); }
+// uloží trasu + roadbook do telefonu (z API; když roadbook není, uloží jen trasu)
+async function saveOffline(id, quiet){
+  const r = routes.find(x => x.id === id);
+  if(!r) return false;
+  let rb = null;
+  try{ rb = (await api('/api/roadbooks/' + id)).roadbook || null; }
+  catch(e){ if(!quiet) toast('Roadbook se nepodařilo stáhnout: ' + e.message, 4500); return false; }
+  const rec = { route: { id: r.id, name: r.name, distance_km: r.distance_km, points: r.points, owner_id: r.owner_id }, roadbook: rb, savedAt: Date.now() };
+  await RB.store.set(offKey(id), rec);
+  // v aplikaci CendurOFF: kopie i pro Android Auto (roadbook na displeji motorky)
+  try{ if(window.CendurApp && window.CendurApp.storeRoadbook) window.CendurApp.storeRoadbook(id, JSON.stringify(rec)); }catch(e){}
+  const idx = (await offlineIndex()).filter(x => x.id !== id);
+  idx.push({ id: r.id, name: r.name, distance_km: r.distance_km, savedAt: rec.savedAt, status: rb ? rb.status : null });
+  await RB.store.set(OFF_INDEX, idx);
+  offlineIds.add(id);
+  return true;
+}
+async function removeOffline(id){
+  await RB.store.del(offKey(id));
+  try{ if(window.CendurApp && window.CendurApp.removeRoadbook) window.CendurApp.removeRoadbook(id); }catch(e){}
+  await RB.store.set(OFF_INDEX, (await offlineIndex()).filter(x => x.id !== id));
+  offlineIds.delete(id);
+}
+async function renderOfflineBox(id){
+  const box = $('nv-pick-off');
+  if(!box) return;
+  const idx = await offlineIndex();
+  const it = idx.find(x => x.id === id);
+  if(offlineMode){
+    box.innerHTML = it ? '<span class="nv-off-ok">✓ Uloženo v telefonu (' + new Date(it.savedAt).toLocaleDateString('cs-CZ') + ')</span>' : '';
+    return;
+  }
+  box.innerHTML = it
+    ? '<span class="nv-off-ok">✓ Uloženo v telefonu pro offline (' + new Date(it.savedAt).toLocaleString('cs-CZ', { day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit' }) + ')</span>' +
+      '<button type="button" class="btn-rb" id="nv-off-upd">Aktualizovat</button><button type="button" class="btn-rb warn" id="nv-off-del">Odebrat z telefonu</button>'
+    : '<button type="button" class="btn-rb" id="nv-off-save">📥 Uložit do telefonu pro offline</button><span class="note">Pak pojede i bez signálu (mapa jen tam, kde sis ji už prohlédl).</span>';
+  const sv = $('nv-off-save'), up = $('nv-off-upd'), dl = $('nv-off-del');
+  if(sv) sv.addEventListener('click', async () => { busy('Ukládám do telefonu…'); const ok = await saveOffline(id); unbusy(); if(ok){ toast('Trasa i roadbook jsou v telefonu – pojedou i bez signálu.'); renderOfflineBox(id); renderSelect(); } });
+  if(up) up.addEventListener('click', async () => { busy('Aktualizuji…'); const ok = await saveOffline(id); unbusy(); if(ok){ toast('Offline kopie aktualizována.'); renderOfflineBox(id); } });
+  if(dl) dl.addEventListener('click', async () => { await removeOffline(id); toast('Odebráno z telefonu.'); renderOfflineBox(id); renderSelect(); });
+}
 
 // --- mapa tras na výběrové obrazovce ---
 let selMap = null, selLayer = null, picked = null;
@@ -98,6 +149,7 @@ function pickRoute(id, fromList){
   $('nv-pick-rev-box').hidden = !!sm;
   $('nv-pick-rev').checked = false;
   $('nv-pick').classList.add('open');
+  renderOfflineBox(id);
   drawSelectMap();
   renderSelect();
   if(fromList){
@@ -130,7 +182,18 @@ async function startRide(id, reverseNoRb){
   let items = null, reversed = false;
   try{
     busy('Načítám roadbook…');
-    const res = await api('/api/roadbooks/' + id);
+    let res;
+    try{ res = offlineMode ? null : await api('/api/roadbooks/' + id); }
+    catch(e){ if(!e.offline) throw e; res = null; }
+    if(!res){
+      // bez signálu: roadbook z telefonu
+      const off = await RB.store.get(offKey(id));
+      if(!off) throw new Error('jsi offline a tahle trasa není uložená v telefonu');
+      res = { roadbook: off.roadbook };
+      toast('Offline – jedeš podle roadbooku uloženého v telefonu.', 3500);
+    } else if(offlineIds.has(id)){
+      saveOffline(id, true);   // máme signál → offline kopii rovnou obnovíme
+    }
     if(res.roadbook && res.roadbook.data && Array.isArray(res.roadbook.data.items)){
       reversed = !!(res.roadbook.data.settings && res.roadbook.data.settings.reversed);
       R = RB.prepareRoute(r.points, reversed);
@@ -197,6 +260,8 @@ function startGps(){
     speed = (c.speed != null && !isNaN(c.speed)) ? c.speed : 0;
     heading = (speed > 1.5 && c.heading != null && !isNaN(c.heading)) ? c.heading : null;
     onPosition(c.latitude, c.longitude);
+    // v2.5: počítání projetí tras (jen skutečná jízda, ne simulace)
+    if(window.CendurRides && currentUser) window.CendurRides.track(c.latitude, c.longitude, 'roadbook');
   }, err => {
     if(err && err.code === 1){ toast('Bez povolení polohy NAVI nefunguje.', 5000); return; }
     $('nv-wait').classList.add('open');
@@ -376,7 +441,36 @@ window.addEventListener('resize', () => { if($('nv-ride').classList.contains('op
 // Start stránky
 // ---------------------------------------------------------------
 (async function boot(){
-  try{ currentUser = await api('/api/auth/me'); }catch(e){ currentUser = null; }
+  await refreshOfflineIds();
+  try{ currentUser = await api('/api/auth/me'); try{ localStorage.setItem('cenduroff.rb.lastUser', JSON.stringify(currentUser)); }catch(e){} }
+  catch(e){
+    currentUser = null;
+    // bez signálu: pokračuj s trasami uloženými v telefonu (přihlášení se ověří, až bude signál)
+    if(e.offline && offlineIds.size){
+      offlineMode = true;
+      try{ currentUser = JSON.parse(localStorage.getItem('cenduroff.rb.lastUser') || 'null'); }catch(err){}
+    } else if(e.offline){
+      document.body.classList.remove('auth-pending');
+      $('nv-select').innerHTML = '<div class="wrap"><h1>Jsi offline</h1><p class="sub">V telefonu zatím nemáš uloženou žádnou trasu. Až budeš mít signál, otevři trasu v Roadbook NAVI a dej „📥 Uložit do telefonu pro offline“ – pak pojede i bez dat.</p></div>';
+      return;
+    }
+  }
+  if(offlineMode){
+    document.body.classList.remove('auth-pending');
+    if(window.CendurHeader) window.CendurHeader.setUser(currentUser);
+    const idx = await offlineIndex();
+    routes = []; sums = {};
+    for(const it of idx){
+      const rec = await RB.store.get(offKey(it.id));
+      if(!rec) continue;
+      routes.push(rec.route);
+      if(rec.roadbook) sums[it.id] = { route_id: it.id, status: rec.roadbook.status };
+    }
+    if(window.CendurRides) window.CendurRides.setRoutes(routes);
+    $('nv-offline-note').hidden = false;
+    renderSelect(); drawSelectMap();
+    return;
+  }
   if(!currentUser){
     let hops = [];
     try{ hops = JSON.parse(sessionStorage.getItem('rbAuthHops') || '[]').filter(t => Date.now() - t < 20000); }catch(e){}
@@ -397,8 +491,16 @@ window.addEventListener('resize', () => { if($('nv-ride').classList.contains('op
   try{
     const [list, s] = await Promise.all([ api('/api/routes'), api('/api/roadbooks').catch(() => []) ]);
     routes = list; sums = {};
+    if(window.CendurRides) window.CendurRides.setRoutes(routes);
     (s || []).forEach(x => { sums[x.route_id] = x; });
   }catch(e){ $('nv-list').innerHTML = '<p class="sub">Trasy se nepodařilo načíst: ' + esc(e.message) + '</p>'; return; }
+  // offline kopie: smazané trasy odebrat, ostatní na pozadí obnovit (máme signál)
+  (async () => {
+    for(const it of await offlineIndex()){
+      if(!routes.some(r => r.id === it.id)) await removeOffline(it.id);
+      else await saveOffline(it.id, true);
+    }
+  })();
   renderSelect();
   drawSelectMap();
   // přímý odkaz z planneru: jízdu nespouštíme sami (GPS chce klepnutí), jen trasu vybereme
