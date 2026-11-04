@@ -65,3 +65,23 @@ CREATE TABLE IF NOT EXISTS roadbooks (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- v2.5: smazané trasy zůstávají v archivu (vidí je jen admin), viz admin-api.js
+ALTER TABLE routes ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE routes ADD COLUMN IF NOT EXISTS deleted_by INTEGER;
+
+-- v2.5: projetí tras (aspoň 20 % trasy, nejvýš 1× za 24 h na uživatele a trasu)
+CREATE TABLE IF NOT EXISTS route_rides (
+  id SERIAL PRIMARY KEY,
+  route_id INTEGER NOT NULL REFERENCES routes(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  coverage REAL,
+  source TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_route_rides_route ON route_rides(route_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_route_rides_user ON route_rides(user_id, route_id, created_at);
+
+-- v2.9: poslední přihlášení / aktivita uživatele
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
