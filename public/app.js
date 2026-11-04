@@ -287,7 +287,7 @@ let pendingLinkId = routeIdFromUrl(); // trasa z odkazu, otevře se po přihlá�
 // Povolené jsou jen naše vlastní stránky, ať se odkaz nedá zneužít k přesměrování jinam.
 function nextPageAfterLogin(){
   const n = new URLSearchParams(location.search).get('next');
-  return (n && /^(planovac|merch|faq|roadbook-planner|roadbook-navi)\.html(\?[^#]*)?$/.test(n)) ? n : null;
+  return (n && /^(planovac|merch|faq|admin|roadbook-planner|roadbook-navi)\.html(\?[^#]*)?$/.test(n)) ? n : null;
 }
 function goNextIfAny(){
   const n = nextPageAfterLogin();
@@ -421,9 +421,6 @@ const layersById = {};
 let routesCache = {};
 // podkladové mapy - vybírají se tlačítkem 🗺 (volba se pamatuje v prohlížeči)
 const BASE_MAPS = {
-  cyclosm: { label:'CyclOSM – vrstevnice, stínování, povrchy cest', short:'CyclOSM',
-    url:'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', maxZoom:20,
-    attribution:'© OpenStreetMap contributors, CyclOSM' },
   topo:    { label:'Turistická (OpenTopoMap) – výrazné vrstevnice', short:'Turistická',
     url:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', maxZoom:17,
     attribution:'© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)' },
@@ -436,9 +433,9 @@ const BASE_MAPS = {
     attribution:'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
     overlay:{ url:'https://ags.cuzk.gov.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer/tile/{z}/{y}/{x}', maxZoom:20, attribution:'Ortofoto © ČÚZK' } }
 };
-const BASE_ORDER = ['cyclosm','topo','osm','sat'];
+const BASE_ORDER = ['osm','topo','sat'];
 const baseLayers = {};
-let currentBase = BASE_MAPS[localStorage.getItem('baseMap')] ? localStorage.getItem('baseMap') : 'cyclosm';
+let currentBase = BASE_MAPS[localStorage.getItem('baseMap')] ? localStorage.getItem('baseMap') : 'osm';
 
 // sbalitelný seznam tras - vysouvá se stranou pomocí jazýčku se šipkou na hraně panelu
 function isMobileViewport(){ return window.matchMedia('(max-width:760px)').matches; }
@@ -495,6 +492,7 @@ async function loadRoutes(){
     routes = await api('/api/routes');
     // seznam tras abecedně podle názvu (česká abeceda: Č po C, Ch po H; čísla podle hodnoty)
     routes.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'cs', { sensitivity:'base', numeric:true }));
+    if(window.CendurRides) window.CendurRides.setRoutes(routes);   // v2.5: počítání projetí tras
   }catch(e){
     listEl.innerHTML = '<div class="empty-note">Trasy se nepodařilo načíst ze serveru.</div>';
     return;
@@ -912,6 +910,26 @@ function renderElevationProfile(points){
 // ---------------------------------------------------------------
 // Detail panel + photos
 // ---------------------------------------------------------------
+// v2.5: statistika projetí trasy v detailu (jen admin)
+async function loadAdminStats(routeId){
+  const box = document.getElementById('admin-stats');
+  if(!box) return;
+  try{
+    const st = await api('/api/admin/stats/' + routeId);
+    if(activeRouteId !== routeId || !document.getElementById('admin-stats')) return;
+    const who = (st.riders_list || []).map(u => `<li><b>${escapeHtml(u.display_name)}</b> – ${u.rides}× <span class="hint">(30 dní: ${u.rides_30d}×, naposledy ${new Date(u.last_ride).toLocaleDateString('cs-CZ')})</span></li>`).join('');
+    box.innerHTML = `<h3>Projetí trasy <span class="admin-tag">admin</span></h3>
+      <div class="detail-stats">
+        <div class="stat"><b>${st.rides_30d}</b><span>za 30 dní</span></div>
+        <div class="stat"><b>${st.rides_total}</b><span>celkem</span></div>
+        <div class="stat"><b>${st.riders}</b><span>jezdců</span></div>
+      </div>
+      ${who ? `<details class="admin-riders"><summary>Kdo trasu projel</summary><ul>${who}</ul></details>` : '<p class="hint">Zatím ji nikdo neprojel (počítá se ≥ 20 % trasy při navigaci nebo záznamu jízdy).</p>'}`;
+  }catch(err){
+    box.innerHTML = '<h3>Projetí trasy <span class="admin-tag">admin</span></h3><p class="hint">Statistiku se nepodařilo načíst.</p>';
+  }
+}
+
 async function openDetail(id){
   if(selectMode) setSelectMode(false);
   activeRouteId = id;
@@ -986,6 +1004,7 @@ async function openDetail(id){
       <button class="ghost-btn" id="share-route-btn" type="button">🔗 Sdílet odkaz</button>
       ${isOwner ? `<a class="ghost-btn planner-link" href="planovac.html?trasa=${route.id}">✏️ Upravit v Atlas Planneru</a>` : ''}
     </div>
+    ${currentUser && currentUser.role === 'admin' ? '<div class="admin-stats" id="admin-stats"><h3>Projetí trasy <span class="admin-tag">admin</span></h3><p class="hint">Načítám…</p></div>' : ''}
     <div class="elev-profile">
       <h3>Výškový profil</h3>
       ${renderElevationProfile(route.points)}
@@ -1007,6 +1026,7 @@ async function openDetail(id){
   `;
 
   document.getElementById('download-gpx-btn').addEventListener('click', ()=> downloadGPX(route.points, route.name));
+  if(currentUser && currentUser.role === 'admin') loadAdminStats(route.id);
   document.getElementById('share-route-btn').addEventListener('click', ()=> shareRoute(route));
   bindRating(route);
   bindReviews(route.id, reviews);
@@ -1064,7 +1084,7 @@ async function openDetail(id){
     const deleteRouteBtn = document.getElementById('delete-route-btn');
     if(deleteRouteBtn){
       deleteRouteBtn.addEventListener('click', async ()=>{
-        if(!confirm('Opravdu chceš trasu "'+route.name+'" natrvalo smazat? Tuto akci nejde vrátit zpět.')) return;
+        if(!confirm('Opravdu chceš smazat trasu "'+route.name+'"?')) return;
         try{
           await api(`/api/routes/${id}`, { method:'DELETE' });
           toast('Trasa byla smazána.');
@@ -1495,6 +1515,10 @@ function onPosition(pos){
 
   if(followMode) setFollowView(latlng, true);
   recOnPosition(pos);
+  // v2.5: projetí tras se počítá jen při navigaci nebo záznamu jízdy a jen přihlášeným
+  if(window.CendurRides && currentUser && (navOn || rec.state === 'recording')){
+    window.CendurRides.track(latlng[0], latlng[1], navOn ? 'atlas' : 'record');
+  }
 }
 function onPositionError(err){
   // vypršení času / dočasně nedostupná poloha (slabý signál v lese) není důvod vypínat

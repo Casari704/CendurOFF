@@ -109,11 +109,13 @@ async function renderOfflineBox(id){
 }
 
 // --- mapa tras na výběrové obrazovce ---
+// výchozí výřez mapy výběru (jako na screenshotu: Jeseník – Gliwice – Olomouc – Třinec)
+const HOME_BOUNDS = [[49.55, 16.35], [50.30, 18.95]];
 let selMap = null, selLayer = null, picked = null;
 function statusColor(id){ const sm = sums[id]; return sm ? (sm.status === 'ready' ? '#2E7D32' : '#E07B00') : '#5A5A5A'; }
 function drawSelectMap(){
   if(!selMap){
-    selMap = L.map('nv-map', { zoomControl:true }).setView([49.87, 17.87], 9);
+    selMap = L.map('nv-map', { zoomControl:true }).fitBounds(HOME_BOUNDS);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap contributors' }).addTo(selMap);
     selLayer = L.layerGroup().addTo(selMap);
   }
@@ -129,7 +131,8 @@ function drawSelectMap(){
     hit.on('click', () => pickRoute(r.id, false));
     const b = line.getBounds(); bounds = bounds ? bounds.extend(b) : b;
   });
-  if(bounds && !picked) selMap.fitBounds(bounds, { padding:[20, 20] });
+  // výchozí výřez: Opavsko–Ostravsko–Bruntálsko (jen poprvé, pak zůstane, kam si mapu posuneš)
+  if(!selMap._cendurView){ selMap._cendurView = true; if(!picked) selMap.fitBounds(HOME_BOUNDS); }
   setTimeout(() => selMap.invalidateSize(), 60);
 }
 // vybraná trasa: karta s tlačítkem „Jet“ (GPS se zapne až klepnutím)
@@ -334,7 +337,7 @@ function setupMaps(){
   setTimeout(() => { mini.invalidateSize(); mini.setView(ll[0], 16); }, 60);
   if(!big){
     big = L.map('nv-bigmap-map', { zoomControl:true });
-    L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', { maxZoom:19, maxNativeZoom:20, attribution:'© OpenStreetMap contributors, CyclOSM' }).addTo(big);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap contributors' }).addTo(big);
   }
   big.eachLayer(l => { if(l instanceof L.Polyline || l instanceof L.Marker) big.removeLayer(l); });
   L.polyline(ll, { color:'#4F7048', weight:6 }).addTo(big);

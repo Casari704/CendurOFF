@@ -633,6 +633,10 @@ header.topbar .brand-link .brand{margin-right:0;margin-left:0;}
 .logout-btn{display:block;width:100%;margin-top:18px;padding:11px;border-radius:6px;background:none;
   border:1px solid var(--rust);color:var(--rust-dark);font-weight:600;font-size:0.92rem;}
 .logout-btn:hover{background:var(--rust);color:#fff;}
+.account-btns{display:flex;gap:10px;margin-top:18px;}
+.account-btns .logout-btn{margin-top:0;flex:1;}
+.admin-btn{flex:1;display:flex;align-items:center;justify-content:center;padding:11px;border-radius:6px;border:1.5px solid var(--moss-dark, #3d5a3a);color:var(--moss-dark, #3d5a3a);font-weight:700;text-decoration:none;font-size:inherit;}
+.admin-btn:hover{background:var(--moss-dark, #3d5a3a);color:#fff;}
 @media (max-width:760px){
   /* mobil: 1. řádek logo + uživatel, 2. řádek menu a ostatní tlačítka – stejně na všech stránkách */
   header.topbar{gap:6px 5px;}
@@ -795,3 +799,10 @@ body.ride-ui #route-list{ z-index:970; }
 .chko-swatch{width:16px;height:12px;flex:none;border:2px solid #D32F2F;border-radius:2px;box-sizing:border-box;
   background:repeating-linear-gradient(45deg, rgba(211,47,47,0.55) 0 2px, transparent 2px 6px);}
 .layer-status{font-weight:400;color:var(--ink-soft);font-size:0.78rem;}
+
+/* v2.5: statistika projetí v detailu trasy (admin) */
+.admin-stats{margin:14px 0 4px;padding:10px 12px;border:1px dashed var(--gold);border-radius:8px;background:rgba(199,154,62,0.08);}
+.admin-stats h3{margin:0 0 8px;font-size:1rem;}
+.admin-tag{font-size:0.7rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;background:var(--gold);color:var(--ink);padding:1px 6px;border-radius:4px;vertical-align:middle;}
+.admin-riders summary{cursor:pointer;font-weight:600;font-size:0.88rem;margin-top:6px;}
+.admin-riders ul{margin:6px 0 0;padding-left:18px;font-size:0.88rem;}
