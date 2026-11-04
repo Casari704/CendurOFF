@@ -85,3 +85,9 @@ CREATE INDEX IF NOT EXISTS idx_route_rides_user ON route_rides(user_id, route_id
 -- v2.9: poslední přihlášení / aktivita uživatele
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ;
+CREATE TABLE IF NOT EXISTS user_logins (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_logins_user ON user_logins(user_id, created_at);
