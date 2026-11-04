@@ -21,6 +21,12 @@ CREATE TABLE IF NOT EXISTS route_rides (
 );
 CREATE INDEX IF NOT EXISTS idx_route_rides_route ON route_rides(route_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_route_rides_user ON route_rides(user_id, route_id, created_at);
+CREATE TABLE IF NOT EXISTS user_logins (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_logins_user ON user_logins(user_id, created_at);
 `;
 
 const RIDE_MIN_COVERAGE = 0.2;
@@ -43,7 +49,9 @@ function mount(app, { pool, requireAuth, isAdmin }) {
       const r = await pool.query(`
         SELECT u.id, u.username, u.display_name, u.role, u.is_approved, u.created_at, u.last_login_at, u.last_seen_at,
                (SELECT COUNT(*)::int FROM routes x WHERE x.owner_id = u.id AND x.deleted_at IS NULL) AS routes,
-               (SELECT COUNT(*)::int FROM route_rides rr WHERE rr.user_id = u.id) AS rides
+               (SELECT COUNT(*)::int FROM route_rides rr WHERE rr.user_id = u.id) AS rides,
+               (SELECT COUNT(*)::int FROM user_logins l WHERE l.user_id = u.id AND l.created_at > now() - interval '30 days') AS logins_30d,
+               (SELECT COUNT(*)::int FROM user_logins l WHERE l.user_id = u.id) AS logins_total
         FROM users u
         ORDER BY COALESCE(u.last_seen_at, u.last_login_at, u.created_at) DESC`);
       res.json(r.rows);
@@ -141,6 +149,15 @@ function mount(app, { pool, requireAuth, isAdmin }) {
   });
 
   // body smazané trasy (pro stažení GPX)
+  // GPX libovolné trasy – i smazané (v archivu)
+  app.get('/api/admin/routes/:id/points', whenReady, requireAuth, adminOnly, async (req, res) => {
+    try {
+      const r = await pool.query('SELECT id, name, points FROM routes WHERE id = $1', [req.params.id]);
+      if (!r.rows[0]) return res.status(404).json({ error: 'Trasa už v databázi není (smazaná natrvalo).' });
+      res.json(r.rows[0]);
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Trasu se nepodařilo načíst.' }); }
+  });
+
   app.get('/api/admin/archive/:id', whenReady, requireAuth, adminOnly, async (req, res) => {
     try {
       const r = await pool.query('SELECT id, name, description, points, route_type FROM routes WHERE id = $1 AND deleted_at IS NOT NULL', [req.params.id]);

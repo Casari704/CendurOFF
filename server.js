@@ -101,6 +101,8 @@ async function initDb() {
   // v2.9: kdy se uživatel naposledy přihlásil (zadal heslo) a kdy byl naposledy aktivní na webu / v aplikaci
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS user_logins (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_logins_user ON user_logins(user_id, created_at)`);
 
   // Datum posledního nahrazení GPX souboru (NULL = GPX se od nahrání trasy neměnilo).
   await pool.query('ALTER TABLE routes ADD COLUMN IF NOT EXISTS gpx_updated_at TIMESTAMPTZ');
@@ -290,6 +292,7 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
     pool.query('UPDATE users SET last_login_at = now(), last_seen_at = now() WHERE id = $1', [user.id]).catch(e => console.error(e));
+    pool.query('INSERT INTO user_logins (user_id) VALUES ($1)', [user.id]).catch(e => console.error(e));
     const token = signToken(user);
     setAuthCookie(res, token);
     res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true, role: user.role || 'user', token });
@@ -312,6 +315,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(403).json({ error: 'Účet ještě čeká na schválení administrátorem.' });
     }
     pool.query('UPDATE users SET last_login_at = now(), last_seen_at = now() WHERE id = $1', [user.id]).catch(e => console.error(e));
+    pool.query('INSERT INTO user_logins (user_id) VALUES ($1)', [user.id]).catch(e => console.error(e));
     const token = signToken(user);
     setAuthCookie(res, token);
     res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true, role: user.role || 'user', token });

@@ -6,9 +6,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#172218">
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
-<title>CendurOFF Admin</title>
+<title>CendurOFF Admin sekce</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=2.5">
+<link rel="stylesheet" href="public/style.css?v=2.9.1">
 <link rel="stylesheet" href="public/faq.css?v=2.5">
 <style>
   .a-wrap{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
@@ -38,21 +38,21 @@
 <body class="faq-page">
 <header class="topbar" data-page="admin"></header>
 <main class="a-wrap" id="a-main">
-  <h1>Admin</h1>
+  <h1>Admin sekce</h1>
   <p class="a-note" id="a-msg">Načítám…</p>
-
-  <section id="a-users-sec" hidden>
-    <h2>Uživatelé <small>přihlášení = zadal jméno a heslo · aktivní = naposledy použil web nebo aplikaci (přesnost ~10 min)</small></h2>
-    <div class="a-box"><table class="a-t" id="a-users"><thead><tr>
-      <th>Jméno</th><th>Účet</th><th>Naposledy přihlášen</th><th>Naposledy aktivní</th><th class="num">Tras</th><th class="num">Projetí</th><th>Registrace</th>
-    </tr></thead><tbody></tbody></table></div>
-  </section>
 
   <section id="a-stats-sec" hidden>
     <h2>Projetí tras <small>počítá se, když někdo při navigaci nebo záznamu jízdy projede aspoň 20 % trasy (max. 1× za 24 h)</small></h2>
     <div class="a-box"><table class="a-t" id="a-stats"><thead><tr>
       <th data-k="name">Trasa</th><th class="num" data-k="distance_km">km</th><th class="num" data-k="rides_30d">Za 30 dní</th>
       <th class="num" data-k="rides_total">Celkem</th><th class="num" data-k="riders">Jezdců</th><th data-k="last_ride">Naposledy</th>
+    </tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section id="a-users-sec" hidden>
+    <h2>Uživatelé <small>přihlášení = zadal jméno a heslo (počítá se od verze 2.9.2) · aktivní = naposledy použil web nebo aplikaci (přesnost ~10 min)</small></h2>
+    <div class="a-box"><table class="a-t" id="a-users"><thead><tr>
+      <th>Jméno</th><th>Účet</th><th>Naposledy přihlášen</th><th class="num">Přihlášení za 30 dní</th><th class="num">Přihlášení celkem</th><th>Naposledy aktivní</th><th class="num">Tras</th><th class="num">Projetí</th><th>Registrace</th>
     </tr></thead><tbody></tbody></table></div>
   </section>
 
@@ -66,7 +66,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="public/config.js?v=2.5"></script>
-<script src="public/header.js?v=2.5"></script>
+<script src="public/header.js?v=2.9.3"></script>
 <script src="public/pwa.js?v=2.5"></script>
 <script>
 (function(){
@@ -110,9 +110,10 @@
     try{
       const st = await api('/api/admin/stats/' + id);
       const el = $('a-det'); if(!el || openId !== id) return;
-      el.innerHTML = st.riders_list.length
+      el.innerHTML = '<button class="a-btn" type="button" id="a-det-gpx" style="float:right">⬇ Stáhnout GPX</button>' + (st.riders_list.length
         ? '<b>Kdo trasu projel:</b><ul class="a-riders">' + st.riders_list.map(u => '<li><b>' + esc(u.display_name) + '</b> – ' + u.rides + '× (za 30 dní ' + u.rides_30d + '×, naposledy ' + fmtDate(u.last_ride) + ')</li>').join('') + '</ul>'
-        : 'Trasu zatím nikdo neprojel.';
+        : 'Trasu zatím nikdo neprojel.');
+      $('a-det-gpx').addEventListener('click', e => { e.stopPropagation(); downloadGpx('/api/admin/routes/' + id + '/points'); });
     }catch(e){ const el = $('a-det'); if(el) el.textContent = e.message; }
   }
   $('a-stats').querySelectorAll('th').forEach(th => th.addEventListener('click', () => {
@@ -134,15 +135,20 @@
     const pts = points.map(p => '      <trkpt lat="' + p[0] + '" lon="' + p[1] + '">' + (p[2] != null ? '<ele>' + p[2] + '</ele>' : '') + '</trkpt>').join('\n');
     return '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="CendurOFF" xmlns="http://www.topografix.com/GPX/1/1">\n  <trk><name>' + x(name) + '</name><trkseg>\n' + pts + '\n  </trkseg></trk>\n</gpx>\n';
   }
+  async function downloadGpx(url){
+    try{
+      const d = await api(url);
+      const blob = new Blob([gpxText(d.name, d.points)], { type:'application/gpx+xml' });
+      const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
+      link.download = (d.name || 'trasa').replace(/[\\/:*?"<>|]+/g, '_') + '.gpx'; document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+    }catch(e){ toast(e.message, 5000); }
+  }
   async function archAction(id, a){
     const r = arch.find(x => x.id === id); if(!r) return;
     try{
       if(a === 'gpx'){
-        const d = await api('/api/admin/archive/' + id);
-        const blob = new Blob([gpxText(d.name, d.points)], { type:'application/gpx+xml' });
-        const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
-        link.download = (d.name || 'trasa').replace(/[\\/:*?"<>|]+/g, '_') + '.gpx'; document.body.appendChild(link); link.click(); link.remove();
-        setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+        await downloadGpx('/api/admin/archive/' + id);
       } else if(a === 'restore'){
         if(!confirm('Obnovit trasu „' + r.name + '“? Znovu se objeví v Atlasu.')) return;
         await api('/api/admin/archive/' + id + '/restore', { method:'POST' }); toast('Trasa obnovena.'); await loadAll();
@@ -163,9 +169,9 @@
   function renderUsers(users){
     const tb = $('a-users').querySelector('tbody');
     tb.innerHTML = users.length ? users.map(u => '<tr><td class="name">' + esc(u.display_name) + (u.role === 'admin' ? ' <small>(admin)</small>' : '') + (u.is_approved ? '' : ' <span class="a-deleted">čeká na schválení</span>') + '</td>' +
-      '<td>' + esc(u.username) + '</td><td>' + ago(u.last_login_at) + '</td><td>' + ago(u.last_seen_at) + '</td>' +
+      '<td>' + esc(u.username) + '</td><td>' + ago(u.last_login_at) + '</td><td class="num big">' + u.logins_30d + '</td><td class="num big">' + u.logins_total + '</td><td>' + ago(u.last_seen_at) + '</td>' +
       '<td class="num">' + u.routes + '</td><td class="num">' + u.rides + '</td><td>' + fmtDate(u.created_at) + '</td></tr>').join('')
-      : '<tr><td colspan="7" class="a-empty">Žádní uživatelé.</td></tr>';
+      : '<tr><td colspan="9" class="a-empty">Žádní uživatelé.</td></tr>';
   }
 
   async function loadAll(){

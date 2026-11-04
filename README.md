@@ -66,6 +66,11 @@ max. 1× za 24 h na uživatele a trasu; `public/ride-stats.js`, `admin-api.js`, 
 `public/pwa.js`, hláška o nové verzi, „Uložit do telefonu“ v Roadbook NAVI) a Android aplikace
 (`android-app/`, návod v `android-app/NAVOD.md`). Při každém vydání zvyš `VERSION` v `sw.js`.
 
+v2.6: Android aplikace v2 (`android-app/`, návod `android-app/NAVOD.md`) – web ve vlastním
+WebView (poloha, soubory, GPX do Stažených, displej nezhasne) + **Android Auto**: seznam roadbooků
+a jízda podle roadbooku na displeji motorky/auta. „Uložit do telefonu“ v Roadbook NAVI ukládá
+roadbook i pro Android Auto.
+
 Pojistka: při uložení roadbooku se uloží otisk bodů trasy. Když se GPX trasy později změní
 (např. v Plánovači), roadbook se hlásí jako NOT ready; Roadbook planner ho při otevření
 přegeneruje, ruční úpravy zachová a místa, která už na trase neleží, označí „ke kontrole“.
