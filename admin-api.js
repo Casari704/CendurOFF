@@ -37,6 +37,19 @@ function mount(app, { pool, requireAuth, isAdmin }) {
   const whenReady = (req, res, next) => ensure().then(() => next(), () => res.status(500).json({ error: 'Databáze není připravená.' }));
   const adminOnly = (req, res, next) => isAdmin(req) ? next() : res.status(403).json({ error: 'Jen pro admina.' });
 
+  // ---------------- uživatelé: kdy se naposledy přihlásili ----------------
+  app.get('/api/admin/users', whenReady, requireAuth, adminOnly, async (req, res) => {
+    try {
+      const r = await pool.query(`
+        SELECT u.id, u.username, u.display_name, u.role, u.is_approved, u.created_at, u.last_login_at, u.last_seen_at,
+               (SELECT COUNT(*)::int FROM routes x WHERE x.owner_id = u.id AND x.deleted_at IS NULL) AS routes,
+               (SELECT COUNT(*)::int FROM route_rides rr WHERE rr.user_id = u.id) AS rides
+        FROM users u
+        ORDER BY COALESCE(u.last_seen_at, u.last_login_at, u.created_at) DESC`);
+      res.json(r.rows);
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Uživatele se nepodařilo načíst.' }); }
+  });
+
   // ---------------- projetí tras ----------------
   // tělo: { coverage: 0..1, source: 'atlas'|'roadbook'|'record' }
   app.post('/api/routes/:id/ride', whenReady, requireAuth, async (req, res) => {

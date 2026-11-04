@@ -98,6 +98,9 @@ async function initDb() {
   // i recenze všech). Všechny dosavadní účty dostanou 'user'; admina nastavíš v DB
   // (viz README: UPDATE users SET role = 'admin' WHERE username = '...').
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'`);
+  // v2.9: kdy se uživatel naposledy přihlásil (zadal heslo) a kdy byl naposledy aktivní na webu / v aplikaci
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);
 
   // Datum posledního nahrazení GPX souboru (NULL = GPX se od nahrání trasy neměnilo).
   await pool.query('ALTER TABLE routes ADD COLUMN IF NOT EXISTS gpx_updated_at TIMESTAMPTZ');
@@ -175,6 +178,15 @@ function tokenFrom(req) {
   return req.cookies && req.cookies.token;
 }
 
+// „naposledy aktivní“ – zapisuje se nejvýš jednou za 10 minut na uživatele (šetří databázi)
+const seenAt = new Map();
+function touchSeen(userId) {
+  const now = Date.now();
+  if (now - (seenAt.get(userId) || 0) < 10 * 60 * 1000) return;
+  seenAt.set(userId, now);
+  pool.query('UPDATE users SET last_seen_at = now() WHERE id = $1', [userId]).catch(e => console.error(e));
+}
+
 async function requireAuth(req, res, next) {
   const token = tokenFrom(req);
   if (!token) return res.status(401).json({ error: 'Nejste přihlášen(a).' });
@@ -188,6 +200,7 @@ async function requireAuth(req, res, next) {
     const r = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
     if (!r.rows[0]) return res.status(401).json({ error: 'Účet už neexistuje.' });
     req.user.role = r.rows[0].role || 'user';
+    touchSeen(req.user.id);
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: 'Nepodařilo se ověřit účet.' });
@@ -207,7 +220,7 @@ function canEdit(req, ownerId) {
 function optionalAuth(req, res, next) {
   const token = tokenFrom(req);
   if (token) {
-    try { req.user = jwt.verify(token, JWT_SECRET); } catch (e) { /* neplatný token = jako nepřihlášený */ }
+    try { req.user = jwt.verify(token, JWT_SECRET); touchSeen(req.user.id); } catch (e) { /* neplatný token = jako nepřihlášený */ }
   }
   next();
 }
@@ -276,6 +289,7 @@ app.post('/api/auth/register', async (req, res) => {
         message: 'Registrace přijata. Účet teď čeká na schválení administrátorem, pak se budeš moct přihlásit.'
       });
     }
+    pool.query('UPDATE users SET last_login_at = now(), last_seen_at = now() WHERE id = $1', [user.id]).catch(e => console.error(e));
     const token = signToken(user);
     setAuthCookie(res, token);
     res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true, role: user.role || 'user', token });
@@ -297,6 +311,7 @@ app.post('/api/auth/login', async (req, res) => {
     if (!user.is_approved) {
       return res.status(403).json({ error: 'Účet ještě čeká na schválení administrátorem.' });
     }
+    pool.query('UPDATE users SET last_login_at = now(), last_seen_at = now() WHERE id = $1', [user.id]).catch(e => console.error(e));
     const token = signToken(user);
     setAuthCookie(res, token);
     res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true, role: user.role || 'user', token });
