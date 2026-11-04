@@ -41,6 +41,13 @@
   <h1>Admin</h1>
   <p class="a-note" id="a-msg">Načítám…</p>
 
+  <section id="a-users-sec" hidden>
+    <h2>Uživatelé <small>přihlášení = zadal jméno a heslo · aktivní = naposledy použil web nebo aplikaci (přesnost ~10 min)</small></h2>
+    <div class="a-box"><table class="a-t" id="a-users"><thead><tr>
+      <th>Jméno</th><th>Účet</th><th>Naposledy přihlášen</th><th>Naposledy aktivní</th><th class="num">Tras</th><th class="num">Projetí</th><th>Registrace</th>
+    </tr></thead><tbody></tbody></table></div>
+  </section>
+
   <section id="a-stats-sec" hidden>
     <h2>Projetí tras <small>počítá se, když někdo při navigaci nebo záznamu jízdy projede aspoň 20 % trasy (max. 1× za 24 h)</small></h2>
     <div class="a-box"><table class="a-t" id="a-stats"><thead><tr>
@@ -146,9 +153,24 @@
     }catch(e){ toast(e.message, 5000); }
   }
 
+  // ---------- uživatelé ----------
+  function ago(d){
+    if(!d) return '—';
+    const m = Math.round((Date.now() - new Date(d).getTime()) / 60000);
+    const rel = m < 15 ? 'teď' : m < 60 ? 'před ' + m + ' min' : m < 1440 ? 'před ' + Math.round(m / 60) + ' h' : 'před ' + Math.round(m / 1440) + ' d';
+    return fmtDate(d) + ' <small style="color:#777">(' + rel + ')</small>';
+  }
+  function renderUsers(users){
+    const tb = $('a-users').querySelector('tbody');
+    tb.innerHTML = users.length ? users.map(u => '<tr><td class="name">' + esc(u.display_name) + (u.role === 'admin' ? ' <small>(admin)</small>' : '') + (u.is_approved ? '' : ' <span class="a-deleted">čeká na schválení</span>') + '</td>' +
+      '<td>' + esc(u.username) + '</td><td>' + ago(u.last_login_at) + '</td><td>' + ago(u.last_seen_at) + '</td>' +
+      '<td class="num">' + u.routes + '</td><td class="num">' + u.rides + '</td><td>' + fmtDate(u.created_at) + '</td></tr>').join('')
+      : '<tr><td colspan="7" class="a-empty">Žádní uživatelé.</td></tr>';
+  }
+
   async function loadAll(){
-    const [s, ar] = await Promise.all([ api('/api/admin/stats'), api('/api/admin/archive') ]);
-    stats = s; arch = ar; renderStats(); renderArch();
+    const [s, ar, us] = await Promise.all([ api('/api/admin/stats'), api('/api/admin/archive'), api('/api/admin/users') ]);
+    stats = s; arch = ar; renderStats(); renderArch(); renderUsers(us);
   }
 
   (async function boot(){
@@ -157,7 +179,7 @@
     if(window.CendurHeader) window.CendurHeader.setUser(user);
     if(!user){ location.replace('index.html?next=' + encodeURIComponent('admin.html')); return; }
     if(user.role !== 'admin'){ $('a-msg').textContent = 'Tahle stránka je jen pro admina.'; return; }
-    try{ await loadAll(); $('a-msg').textContent = 'Statistiky projetí tras a archiv smazaných tras.'; $('a-stats-sec').hidden = false; $('a-arch-sec').hidden = false; }
+    try{ await loadAll(); $('a-msg').textContent = 'Uživatelé, statistiky projetí tras a archiv smazaných tras.'; $('a-users-sec').hidden = false; $('a-stats-sec').hidden = false; $('a-arch-sec').hidden = false; }
     catch(e){ $('a-msg').textContent = 'Nepodařilo se načíst: ' + e.message; }
   })();
 })();
