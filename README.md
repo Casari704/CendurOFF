@@ -59,6 +59,13 @@ v2.2: stránka `faq.html` (nápověda ke všem funkcím, v Menu ▾), tlačítko
 „Navigovat v Atlasu / Ukončit navigaci“, Roadbook planner jen pro počítač (na mobilu hláška,
 mimo Chrome upozornění), po přihlášení návrat i na roadbook stránky a FAQ.
 
+v2.5: smazané trasy zůstávají v archivu (stránka `admin.html`, v Menu jen pro admina – stažení
+GPX, obnovení, smazání natrvalo), počítání projetí tras (≥ 20 % trasy při navigaci / záznamu,
+max. 1× za 24 h na uživatele a trasu; `public/ride-stats.js`, `admin-api.js`, tabulka
+`route_rides`), statistika projetí v detailu trasy pro admina, offline režim (`sw.js`,
+`public/pwa.js`, hláška o nové verzi, „Uložit do telefonu“ v Roadbook NAVI) a Android aplikace
+(`android-app/`, návod v `android-app/NAVOD.md`). Při každém vydání zvyš `VERSION` v `sw.js`.
+
 Pojistka: při uložení roadbooku se uloží otisk bodů trasy. Když se GPX trasy později změní
 (např. v Plánovači), roadbook se hlásí jako NOT ready; Roadbook planner ho při otevření
 přegeneruje, ruční úpravy zachová a místa, která už na trase neleží, označí „ke kontrole“.

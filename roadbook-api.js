@@ -58,7 +58,8 @@ function mount(app, { pool, requireAuth, optionalAuth, canEdit }) {
       const r = await pool.query(
         `SELECT rb.route_id, rb.status, rb.updated_at, rb.route_fp, md5(rt.points::text) AS current_fp,
                 jsonb_array_length(COALESCE(rb.data->'items', '[]'::jsonb)) AS item_count
-         FROM roadbooks rb JOIN routes rt ON rt.id = rb.route_id`
+         FROM roadbooks rb JOIN routes rt ON rt.id = rb.route_id
+         WHERE rt.deleted_at IS NULL`
       );
       res.json(r.rows.map(row => Object.assign(
         { route_id: row.route_id, updated_at: row.updated_at, item_count: row.item_count },
@@ -74,7 +75,7 @@ function mount(app, { pool, requireAuth, optionalAuth, canEdit }) {
   app.get('/api/roadbooks/:routeId', whenReady, optionalAuth, async (req, res) => {
     try {
       const routeId = Number(req.params.routeId);
-      const rt = await pool.query('SELECT id, owner_id FROM routes WHERE id = $1', [routeId]);
+      const rt = await pool.query('SELECT id, owner_id FROM routes WHERE id = $1 AND deleted_at IS NULL', [routeId]);
       if (!rt.rows[0]) return res.status(404).json({ error: 'Trasa nenalezena.' });
       // optionalAuth roli nedoplňuje - dočteme ji kvůli oprávnění admina
       if (req.user) {
@@ -108,7 +109,7 @@ function mount(app, { pool, requireAuth, optionalAuth, canEdit }) {
   app.put('/api/roadbooks/:routeId', whenReady, requireAuth, async (req, res) => {
     try {
       const routeId = Number(req.params.routeId);
-      const rt = await pool.query('SELECT id, owner_id, md5(points::text) AS fp FROM routes WHERE id = $1', [routeId]);
+      const rt = await pool.query('SELECT id, owner_id, md5(points::text) AS fp FROM routes WHERE id = $1 AND deleted_at IS NULL', [routeId]);
       const route = rt.rows[0];
       if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
       if (!canEdit(req, route.owner_id)) return res.status(403).json({ error: 'Roadbook může upravovat jen vlastník trasy (nebo admin).' });
@@ -141,7 +142,7 @@ function mount(app, { pool, requireAuth, optionalAuth, canEdit }) {
   app.delete('/api/roadbooks/:routeId', whenReady, requireAuth, async (req, res) => {
     try {
       const routeId = Number(req.params.routeId);
-      const rt = await pool.query('SELECT owner_id FROM routes WHERE id = $1', [routeId]);
+      const rt = await pool.query('SELECT owner_id FROM routes WHERE id = $1 AND deleted_at IS NULL', [routeId]);
       if (!rt.rows[0]) return res.status(404).json({ error: 'Trasa nenalezena.' });
       if (!canEdit(req, rt.rows[0].owner_id)) return res.status(403).json({ error: 'Roadbook může smazat jen vlastník trasy (nebo admin).' });
       await pool.query('DELETE FROM roadbooks WHERE route_id = $1', [routeId]);

@@ -26,6 +26,7 @@
   <section id="nv-select">
     <div class="wrap">
       <h1>Roadbook NAVI</h1>
+      <p class="nv-offline-note" id="nv-offline-note" hidden>📴 Jsi offline – zobrazují se jen trasy uložené v telefonu.</p>
       <p class="sub">Klikni na trasu na mapě (nebo ji najdi v seznamu) a jeď podle roadbooku. Zelená = READY, oranžová = NOT ready, šedá = bez roadbooku (vygeneruje se jen ze zatáček GPX).</p>
       <div id="nv-map" role="region" aria-label="Mapa tras – klikni na trasu"></div>
       <div id="nv-pick" aria-live="polite">
@@ -34,6 +35,7 @@
         <label id="nv-pick-rev-box"><input type="checkbox" id="nv-pick-rev"> Jet obráceně (start ↔ cíl)</label>
         <label><input type="checkbox" id="nv-simopt"> Simulace jízdy (vyzkoušení u stolu, bez GPS)</label>
         <button type="button" class="btn-rb go" id="nv-pick-go">Jet podle roadbooku</button>
+        <div class="nv-offbox" id="nv-pick-off"></div>
       </div>
       <label for="nv-search" style="position:absolute;left:-9999px">Hledat trasu</label>
       <input type="search" id="nv-search" placeholder="Hledat trasu…">
@@ -75,9 +77,11 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="public/config.js?v=2.4"></script>
-<script src="public/header.js?v=2.4"></script>
+<script src="public/header.js?v=2.5"></script>
+<script src="public/pwa.js?v=2.5"></script>
 <script src="public/regiondata.js?v=2.4"></script>
 <script src="public/rb-core.js?v=2.4"></script>
-<script src="public/rb-navi.js?v=2.4"></script>
+<script src="public/ride-stats.js?v=2.5"></script>
+<script src="public/rb-navi.js?v=2.5"></script>
 </body>
 </html>

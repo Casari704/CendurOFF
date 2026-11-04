@@ -106,6 +106,10 @@ async function initDb() {
   // (na mapě byly doteď všechny červené, takže se pro ně nic nezmění).
   await pool.query(`ALTER TABLE routes ADD COLUMN IF NOT EXISTS route_type TEXT NOT NULL DEFAULT 'offroad'`);
 
+  // v2.5: smazané trasy zůstávají v archivu (vidí je jen admin)
+  await pool.query('ALTER TABLE routes ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ');
+  await pool.query('ALTER TABLE routes ADD COLUMN IF NOT EXISTS deleted_by INTEGER');
+
   console.log('Databázové schéma je připravené.');
 }
 
@@ -345,6 +349,7 @@ app.get('/api/routes', async (req, res) => {
          SELECT route_id, AVG(stars)::float AS rating_avg, COUNT(*)::int AS rating_count
          FROM ratings GROUP BY route_id
        ) rt ON rt.route_id = r.id
+       WHERE r.deleted_at IS NULL
        ORDER BY r.created_at DESC`
     );
     res.json(result.rows);
@@ -360,7 +365,7 @@ app.get('/api/routes/:id', optionalAuth, async (req, res) => {
       `SELECT r.id, r.name, r.description, r.points, r.distance_km, r.elev_gain_m, r.created_at, r.gpx_updated_at, r.route_type,
               u.id AS owner_id, u.display_name AS owner_display
        FROM routes r JOIN users u ON u.id = r.owner_id
-       WHERE r.id = $1`,
+       WHERE r.id = $1 AND r.deleted_at IS NULL`,
       [req.params.id]
     );
     const route = routeResult.rows[0];
@@ -412,7 +417,7 @@ app.post('/api/routes', requireAuth, async (req, res) => {
 // ---------------------------------------------------------------
 app.patch('/api/routes/:id', requireAuth, async (req, res) => {
   try {
-    const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1', [req.params.id]);
+    const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
     const route = routeResult.rows[0];
     if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
     if (!canEdit(req, route.owner_id)) return res.status(403).json({ error: 'Trasu může upravovat jen vlastník (nebo admin).' });
@@ -463,7 +468,7 @@ app.put('/api/routes/:id/rating', requireAuth, async (req, res) => {
     if (!Number.isInteger(stars) || stars < 1 || stars > 5) {
       return res.status(400).json({ error: 'Hodnocení musí být 1 až 5 hvězdiček.' });
     }
-    const routeResult = await pool.query('SELECT id FROM routes WHERE id = $1', [routeId]);
+    const routeResult = await pool.query('SELECT id FROM routes WHERE id = $1 AND deleted_at IS NULL', [routeId]);
     if (!routeResult.rows[0]) return res.status(404).json({ error: 'Trasa nenalezena.' });
     // vložit, nebo přepsat dosavadní hodnocení téhož uživatele
     await pool.query(
@@ -504,7 +509,7 @@ app.put('/api/routes/:id/review', requireAuth, async (req, res) => {
     if (words > MAX_REVIEW_WORDS) {
       return res.status(400).json({ error: `Recenze může mít nejvýš ${MAX_REVIEW_WORDS} slov (teď ${words}).` });
     }
-    const routeResult = await pool.query('SELECT id FROM routes WHERE id = $1', [routeId]);
+    const routeResult = await pool.query('SELECT id FROM routes WHERE id = $1 AND deleted_at IS NULL', [routeId]);
     if (!routeResult.rows[0]) return res.status(404).json({ error: 'Trasa nenalezena.' });
     // vložit, nebo přepsat dosavadní recenzi téhož uživatele k téže trase
     await pool.query(
@@ -543,7 +548,7 @@ app.delete('/api/routes/:id/review', requireAuth, async (req, res) => {
 // ---------------------------------------------------------------
 app.post('/api/routes/:id/photos', requireAuth, upload.single('photo'), async (req, res) => {
   try {
-    const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1', [req.params.id]);
+    const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
     const route = routeResult.rows[0];
     if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
     if (!canEdit(req, route.owner_id)) return res.status(403).json({ error: 'Fotky může přidávat jen vlastník trasy (nebo admin).' });
@@ -569,7 +574,7 @@ app.post('/api/routes/:id/photos', requireAuth, upload.single('photo'), async (r
 
 app.patch('/api/routes/:id/photos/:photoId/main', requireAuth, async (req, res) => {
   try {
-    const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1', [req.params.id]);
+    const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
     const route = routeResult.rows[0];
     if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
     if (!canEdit(req, route.owner_id)) return res.status(403).json({ error: 'Hlavní fotku může měnit jen vlastník trasy (nebo admin).' });
@@ -583,7 +588,7 @@ app.patch('/api/routes/:id/photos/:photoId/main', requireAuth, async (req, res) 
 
 app.delete('/api/routes/:id/photos/:photoId', requireAuth, async (req, res) => {
   try {
-    const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1', [req.params.id]);
+    const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
     const route = routeResult.rows[0];
     if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
     if (!canEdit(req, route.owner_id)) return res.status(403).json({ error: 'Fotky může mazat jen vlastník trasy (nebo admin).' });
@@ -607,11 +612,13 @@ app.delete('/api/routes/:id/photos/:photoId', requireAuth, async (req, res) => {
 // ---------------------------------------------------------------
 app.delete('/api/routes/:id', requireAuth, async (req, res) => {
   try {
-    const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1', [req.params.id]);
+    const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
     const route = routeResult.rows[0];
     if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
     if (!canEdit(req, route.owner_id)) return res.status(403).json({ error: 'Trasu může smazat jen vlastník (nebo admin).' });
-    await pool.query('DELETE FROM routes WHERE id = $1', [req.params.id]); // fotky se smažou kaskádově
+    // v2.5: trasa se nemaže doopravdy – jen se schová (archiv pro admina, odkud ji může
+    // stáhnout, obnovit nebo smazat natrvalo; viz admin-api.js)
+    await pool.query('UPDATE routes SET deleted_at = now(), deleted_by = $2 WHERE id = $1', [req.params.id, req.user.id]);
     res.json({ ok: true });
   } catch (e) {
     console.error(e);
@@ -623,6 +630,8 @@ app.delete('/api/routes/:id', requireAuth, async (req, res) => {
 // Roadbook (v2.0) – samostatný modul s vlastní tabulkou a endpointy /api/roadbooks/...
 // ---------------------------------------------------------------
 require('./roadbook-api').mount(app, { pool, requireAuth, optionalAuth, canEdit });
+// Admin (v2.5) – archiv smazaných tras a statistiky projetí tras
+require('./admin-api').mount(app, { pool, requireAuth, isAdmin });
 
 // ---------------------------------------------------------------
 // Handlery pro API chybějící cesty & statické soubory

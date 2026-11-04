@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#172218">
+<link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
+<title>CendurOFF Admin</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="public/style.css?v=2.5">
+<link rel="stylesheet" href="public/faq.css?v=2.5">
+<style>
+  .a-wrap{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
+  .a-wrap h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);}
+  .a-wrap h2{font-size:1.3rem;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--ink);display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  .a-wrap h2 small{font-family:'Roboto',sans-serif;font-weight:500;font-size:0.85rem;color:var(--ink-soft);}
+  .a-box{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;}
+  table.a-t{width:100%;border-collapse:collapse;font-size:0.9rem;}
+  .a-t th,.a-t td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;white-space:nowrap;}
+  .a-t th{font-family:'Exo 2',sans-serif;font-size:0.8rem;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-soft);cursor:pointer;user-select:none;}
+  .a-t th.num,.a-t td.num{text-align:right;}
+  .a-t td.name{white-space:normal;min-width:180px;font-weight:600;}
+  .a-t tr.row{cursor:pointer;}
+  .a-t tr.row:hover td{background:rgba(79,112,72,0.06);}
+  .a-t tr.det td{background:#fff;white-space:normal;}
+  .a-t .big{font-weight:800;font-family:'Exo 2',sans-serif;font-size:1rem;}
+  .a-btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 10px;font-weight:600;font-size:0.82rem;color:var(--ink);cursor:pointer;margin-right:4px;}
+  .a-btn:hover{border-color:var(--moss);}
+  .a-btn.red{color:#B3261E;border-color:#E3B4B0;}
+  .a-btn.go{color:#fff;background:var(--moss);border-color:var(--moss);}
+  .a-empty{padding:16px;color:var(--ink-soft);}
+  .a-deleted{font-size:0.72rem;font-weight:700;background:#E4E0D6;color:#333;padding:1px 6px;border-radius:4px;margin-left:6px;}
+  .a-riders{margin:4px 0;padding-left:18px;}
+  .a-note{color:var(--ink-soft);margin:0 0 6px;font-size:0.92rem;}
+</style>
+</head>
+<body class="faq-page">
+<header class="topbar" data-page="admin"></header>
+<main class="a-wrap" id="a-main">
+  <h1>Admin</h1>
+  <p class="a-note" id="a-msg">Načítám…</p>
+
+  <section id="a-stats-sec" hidden>
+    <h2>Projetí tras <small>počítá se, když někdo při navigaci nebo záznamu jízdy projede aspoň 20 % trasy (max. 1× za 24 h)</small></h2>
+    <div class="a-box"><table class="a-t" id="a-stats"><thead><tr>
+      <th data-k="name">Trasa</th><th class="num" data-k="distance_km">km</th><th class="num" data-k="rides_30d">Za 30 dní</th>
+      <th class="num" data-k="rides_total">Celkem</th><th class="num" data-k="riders">Jezdců</th><th data-k="last_ride">Naposledy</th>
+    </tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section id="a-arch-sec" hidden>
+    <h2>Archiv smazaných tras <small>smazané trasy zůstávají tady, dokud je nesmažeš natrvalo</small></h2>
+    <div class="a-box"><table class="a-t" id="a-arch"><thead><tr>
+      <th>Trasa</th><th class="num">km</th><th>Autor</th><th>Smazal</th><th>Smazáno</th><th></th>
+    </tr></thead><tbody></tbody></table></div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script src="public/config.js?v=2.5"></script>
+<script src="public/header.js?v=2.5"></script>
+<script src="public/pwa.js?v=2.5"></script>
+<script>
+(function(){
+  const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function toast(msg, ms){ const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast._h); toast._h = setTimeout(() => { t.style.display = 'none'; }, ms || 3200); }
+  async function api(url, options){
+    const o = Object.assign({ credentials:'include' }, options);
+    let t = null; try{ t = localStorage.getItem('cenduroff.token'); }catch(e){}
+    if(t) o.headers = Object.assign({}, o.headers, { Authorization:'Bearer ' + t });
+    const res = await fetch(API_URL + url, o);
+    let data = null; try{ data = await res.json(); }catch(e){}
+    if(!res.ok) throw new Error((data && data.error) || 'Něco se pokazilo.');
+    return data;
+  }
+  const fmtDate = d => d ? new Date(d).toLocaleString('cs-CZ', { day:'numeric', month:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+  const fmtKm = v => (+v || 0).toFixed(1).replace('.', ',');
+
+  // ---------- statistiky ----------
+  let stats = [], sortK = 'rides_30d', sortDesc = true, openId = null;
+  function renderStats(){
+    const tb = $('a-stats').querySelector('tbody');
+    const rows = stats.slice().sort((a, b) => {
+      let x = a[sortK], y = b[sortK];
+      if(sortK === 'name'){ x = String(x || ''); y = String(y || ''); return sortDesc ? y.localeCompare(x, 'cs') : x.localeCompare(y, 'cs'); }
+      if(sortK === 'last_ride'){ x = x ? new Date(x).getTime() : 0; y = y ? new Date(y).getTime() : 0; }
+      return sortDesc ? (y - x) : (x - y);
+    });
+    tb.innerHTML = rows.length ? rows.map(r => '<tr class="row" data-id="' + r.route_id + '"><td class="name">' + esc(r.name) + (r.deleted ? '<span class="a-deleted">v archivu</span>' : '') + '</td>' +
+      '<td class="num">' + fmtKm(r.distance_km) + '</td><td class="num big">' + r.rides_30d + '</td><td class="num big">' + r.rides_total + '</td>' +
+      '<td class="num">' + r.riders + '</td><td>' + (r.last_ride ? fmtDate(r.last_ride) : '—') + '</td></tr>' +
+      (openId === r.route_id ? '<tr class="det"><td colspan="6" id="a-det">Načítám…</td></tr>' : '')).join('')
+      : '<tr><td colspan="6" class="a-empty">Zatím žádné trasy.</td></tr>';
+    tb.querySelectorAll('tr.row').forEach(tr => tr.addEventListener('click', () => {
+      const id = Number(tr.dataset.id); openId = openId === id ? null : id; renderStats(); if(openId) loadRiders(openId);
+    }));
+    $('a-stats').querySelectorAll('th').forEach(th => { th.textContent = th.textContent.replace(/ [▲▼]$/, '') + (th.dataset.k === sortK ? (sortDesc ? ' ▼' : ' ▲') : ''); });
+  }
+  async function loadRiders(id){
+    try{
+      const st = await api('/api/admin/stats/' + id);
+      const el = $('a-det'); if(!el || openId !== id) return;
+      el.innerHTML = st.riders_list.length
+        ? '<b>Kdo trasu projel:</b><ul class="a-riders">' + st.riders_list.map(u => '<li><b>' + esc(u.display_name) + '</b> – ' + u.rides + '× (za 30 dní ' + u.rides_30d + '×, naposledy ' + fmtDate(u.last_ride) + ')</li>').join('') + '</ul>'
+        : 'Trasu zatím nikdo neprojel.';
+    }catch(e){ const el = $('a-det'); if(el) el.textContent = e.message; }
+  }
+  $('a-stats').querySelectorAll('th').forEach(th => th.addEventListener('click', () => {
+    const k = th.dataset.k; if(sortK === k) sortDesc = !sortDesc; else { sortK = k; sortDesc = k !== 'name'; } renderStats();
+  }));
+
+  // ---------- archiv ----------
+  let arch = [];
+  function renderArch(){
+    const tb = $('a-arch').querySelector('tbody');
+    tb.innerHTML = arch.length ? arch.map(r => '<tr data-id="' + r.id + '"><td class="name">' + esc(r.name) + '</td><td class="num">' + fmtKm(r.distance_km) + '</td>' +
+      '<td>' + esc(r.owner_display) + '</td><td>' + esc(r.deleted_by_display || '—') + '</td><td>' + fmtDate(r.deleted_at) + '</td>' +
+      '<td><button class="a-btn" data-a="gpx" type="button">⬇ GPX</button><button class="a-btn go" data-a="restore" type="button">Obnovit</button><button class="a-btn red" data-a="del" type="button">Smazat natrvalo</button></td></tr>').join('')
+      : '<tr><td colspan="6" class="a-empty">Archiv je prázdný – žádná smazaná trasa.</td></tr>';
+    tb.querySelectorAll('button[data-a]').forEach(b => b.addEventListener('click', () => archAction(Number(b.closest('tr').dataset.id), b.dataset.a)));
+  }
+  function gpxText(name, points){
+    const x = s => String(s || '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+    const pts = points.map(p => '      <trkpt lat="' + p[0] + '" lon="' + p[1] + '">' + (p[2] != null ? '<ele>' + p[2] + '</ele>' : '') + '</trkpt>').join('\n');
+    return '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="CendurOFF" xmlns="http://www.topografix.com/GPX/1/1">\n  <trk><name>' + x(name) + '</name><trkseg>\n' + pts + '\n  </trkseg></trk>\n</gpx>\n';
+  }
+  async function archAction(id, a){
+    const r = arch.find(x => x.id === id); if(!r) return;
+    try{
+      if(a === 'gpx'){
+        const d = await api('/api/admin/archive/' + id);
+        const blob = new Blob([gpxText(d.name, d.points)], { type:'application/gpx+xml' });
+        const link = document.createElement('a'); link.href = URL.createObjectURL(blob);
+        link.download = (d.name || 'trasa').replace(/[\\/:*?"<>|]+/g, '_') + '.gpx'; document.body.appendChild(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+      } else if(a === 'restore'){
+        if(!confirm('Obnovit trasu „' + r.name + '“? Znovu se objeví v Atlasu.')) return;
+        await api('/api/admin/archive/' + id + '/restore', { method:'POST' }); toast('Trasa obnovena.'); await loadAll();
+      } else if(a === 'del'){
+        if(!confirm('Smazat trasu „' + r.name + '“ NATRVALO? Smažou se i fotky, hodnocení, recenze, roadbook a projetí. Nejde to vrátit.')) return;
+        await api('/api/admin/archive/' + id, { method:'DELETE' }); toast('Trasa smazána natrvalo.'); await loadAll();
+      }
+    }catch(e){ toast(e.message, 5000); }
+  }
+
+  async function loadAll(){
+    const [s, ar] = await Promise.all([ api('/api/admin/stats'), api('/api/admin/archive') ]);
+    stats = s; arch = ar; renderStats(); renderArch();
+  }
+
+  (async function boot(){
+    let user = null;
+    try{ user = await api('/api/auth/me'); }catch(e){}
+    if(window.CendurHeader) window.CendurHeader.setUser(user);
+    if(!user){ location.replace('index.html?next=' + encodeURIComponent('admin.html')); return; }
+    if(user.role !== 'admin'){ $('a-msg').textContent = 'Tahle stránka je jen pro admina.'; return; }
+    try{ await loadAll(); $('a-msg').textContent = 'Statistiky projetí tras a archiv smazaných tras.'; $('a-stats-sec').hidden = false; $('a-arch-sec').hidden = false; }
+    catch(e){ $('a-msg').textContent = 'Nepodařilo se načíst: ' + e.message; }
+  })();
+})();
+</script>
+</body>
+</html>
