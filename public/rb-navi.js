@@ -13,7 +13,6 @@ const esc = RB.esc;
 
 const OFF_ROUTE_M = 50;        // dál od trasy = upozornění „mimo trasu“
 const PASS_M = 8;              // instrukce je projetá, když jsme za ní o tolik metrů
-const WARN_M = 100;            // zavibrovat 100 m před instrukcí
 const BACK_WINDOW = 200, FWD_WINDOW = 1500;   // kde hledat polohu na trase vůči minulé
 const STEP_M = 50;             // korekce počítadla tlačítky ±
 const MANUAL_MS = 4000;        // po ručním posunu roadbooku se za tolik ms vrátí k aktuální instrukci
@@ -301,7 +300,7 @@ $('nv-bigmap-close').addEventListener('click', () => $('nv-bigmap').classList.re
 // Vykreslení roadbooku
 // ---------------------------------------------------------------
 function cardHTML(it){
-  const icons = (it.icons || []).map(k => RB.iconSVG(k, 26)).join('');
+  const icons = (it.icons || []).map(k => RB.iconSVG(k, 44)).join('');
   return '<div class="nv-card next" data-i="' + (it.n - 1) + '">' +
     '<div class="nv-c1"><div class="n">#' + it.n + '</div><div class="t">' + RB.fmtKm(it.s) + '</div><div class="p">' + RB.fmtKm(it.par) + '</div></div>' +
     '<div class="nv-c2">' + RB.tulipSVG(it, 118) + '</div>' +
@@ -370,10 +369,6 @@ function render(force){
   $('nv-nextlabel').textContent = nx ? RB.label(nx) : '';
   const seg = nx && pv ? nx.s - pv.s : 0;
   $('nv-bar').firstElementChild.style.width = (seg > 0 ? Math.max(0, Math.min(100, (1 - dist / seg) * 100)) : 0).toFixed(0) + '%';
-  // upozornění vibrací
-  if(nx && prog != null && navigator.vibrate){
-    if(dist <= WARN_M && !warned[nx.id]){ warned[nx.id] = 1; try{ navigator.vibrate([150, 80, 150]); }catch(e){} }
-  }
 }
 window.addEventListener('resize', () => { if($('nv-ride').classList.contains('open') && Date.now() > manualUntil) setTimeout(() => autoScroll(false), 100); });
 

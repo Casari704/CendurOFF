@@ -5,7 +5,7 @@
 // Na stránce stačí prázdný <header class="topbar" data-page="atlas|planovac|merch"></header>
 // a načíst tento skript (po public/config.js). Skript doplní:
 //   - logo + název stránky u loga,
-//   - rolovací nabídka „Menu ▾“: Atlas · Plánovač · Merch · Roadbook planner · Roadbook NAVI · FAQ
+//   - rolovací nabídka „Menu ▾“: Atlas NAVI · Atlas Planner | Roadbook planner · Roadbook NAVI | Merch · FAQ
 //     (vždy stejné pořadí a názvy, aktivní stránka má zlatý obrys),
 //   - tlačítko „+ Nahrát trasu“ (jen v Atlasu), „O projektu“ a tlačítko uživatele,
 //   - okno „O projektu“ a okno „Můj účet“ (změna hesla + odhlášení).
@@ -17,18 +17,20 @@
   const header = document.querySelector('header.topbar[data-page]');
   if(!header) return;
   const page = header.dataset.page;
+  // pořadí v nabídce: Atlas | Roadbook | Merch + FAQ (skupiny oddělené čárou)
   const PAGES = [
-    { id:'atlas',    label:'Atlas',    href:'index.html' },
-    { id:'planovac', label:'Plánovač', href:'planovac.html' },
-    { id:'merch',    label:'Merch',    href:'merch.html' }
+    { id:'atlas',    label:'Atlas NAVI',    href:'index.html' },
+    { id:'planovac', label:'Atlas Planner', href:'planovac.html' }
   ];
   // stránky Roadbooku (v2.0)
   const MENU_PAGES = [
     { id:'roadbook',      label:'Roadbook planner', href:'roadbook-planner.html' },
     { id:'roadbook-navi', label:'Roadbook NAVI',    href:'roadbook-navi.html' }
   ];
-  // všechny stránky v jedné rolovací nabídce (od v2.0), roadbook oddělený čárou
-  const HELP_PAGES = [ { id:'faq', label:'FAQ – nápověda', href:'faq.html' } ];
+  const HELP_PAGES = [
+    { id:'merch', label:'Merch',          href:'merch.html' },
+    { id:'faq',   label:'FAQ – nápověda', href:'faq.html' }
+  ];
   const ALL_PAGES = PAGES
     .concat(MENU_PAGES.map((p, i)=>Object.assign({ sep: i === 0 }, p)))
     .concat(HELP_PAGES.map((p, i)=>Object.assign({ sep: i === 0 }, p)));

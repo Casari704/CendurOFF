@@ -92,7 +92,7 @@
           <button class="primary-btn" id="ride-save" type="button">Uložit do CendurOFF</button>
           <div class="ride-row">
             <button class="ghost-btn" id="ride-download" type="button">⬇ Stáhnout GPX</button>
-            <button class="ghost-btn" id="ride-planner" type="button">✏️ Upravit v plánovači</button>
+            <button class="ghost-btn" id="ride-planner" type="button">✏️ Upravit v Atlas Planneru</button>
           </div>
           <div class="ride-row">
             <button class="ghost-btn" id="ride-resume" type="button">Pokračovat v záznamu</button>
@@ -984,7 +984,7 @@ async function openDetail(id){
     <div class="gpx-actions">
       <button class="ghost-btn" id="download-gpx-btn" type="button">⬇ Stáhnout GPX</button>
       <button class="ghost-btn" id="share-route-btn" type="button">🔗 Sdílet odkaz</button>
-      ${isOwner ? `<a class="ghost-btn planner-link" href="planovac.html?trasa=${route.id}">✏️ Upravit v plánovači</a>` : ''}
+      ${isOwner ? `<a class="ghost-btn planner-link" href="planovac.html?trasa=${route.id}">✏️ Upravit v Atlas Planneru</a>` : ''}
     </div>
     <div class="elev-profile">
       <h3>Výškový profil</h3>
