@@ -365,11 +365,20 @@ $('nv-bigmap-close').addEventListener('click', () => $('nv-bigmap').classList.re
 // Vykreslení roadbooku
 // ---------------------------------------------------------------
 function cardHTML(it){
-  const icons = (it.icons || []).map(k => RB.iconSVG(k, 44)).join('');
+  // dlouhá čísla (100 km a víc) menším písmem, ať nepřečnívají z buňky
+  const km = RB.fmtKm(it.s), par = RB.fmtKm(it.par);
+  // hodně symbolů → menší, ať se vejdou do buňky a nepřelézají do sousedních pokynů
+  const all = it.icons || [], MAXIC = 9;
+  const nIc = all.length + (it.danger ? 1 : 0);
+  const icSize = nIc <= 3 ? 44 : nIc <= 4 ? 34 : 28;
+  const icCls = nIc <= 3 ? '' : nIc <= 4 ? ' m' : ' s';
+  const shown = all.slice(0, MAXIC - (it.danger ? 1 : 0));
+  const icons = shown.map(k => RB.iconSVG(k, icSize)).join('') +
+    (all.length > shown.length ? '<span class="more">+' + (all.length - shown.length) + '</span>' : '');
   return '<div class="nv-card next" data-i="' + (it.n - 1) + '">' +
-    '<div class="nv-c1"><div class="n">#' + it.n + '</div><div class="t">' + RB.fmtKm(it.s) + '</div><div class="p">' + RB.fmtKm(it.par) + '</div></div>' +
+    '<div class="nv-c1"><div class="n">#' + it.n + '</div><div class="t' + (km.length >= 6 ? ' long' : '') + '">' + km + '</div><div class="p' + (par.length >= 6 ? ' long' : '') + '">' + par + '</div></div>' +
     '<div class="nv-c2">' + RB.tulipSVG(it, 118) + '</div>' +
-    '<div class="nv-c3"><div class="ic">' + RB.dangerHTML(it.danger) + icons + '</div>' +
+    '<div class="nv-c3' + icCls + '"><div class="ic">' + RB.dangerHTML(it.danger) + icons + '</div>' +
     '<div class="l">' + esc(RB.label(it)) + '</div><div class="s">' + esc(RB.subLabel(it)) + '</div>' +
     (it.kind === 'finish' ? '' : '<div class="cap">' + (it.cap || 0) + '°</div>') + '</div></div>';
 }

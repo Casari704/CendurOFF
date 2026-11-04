@@ -175,21 +175,31 @@ body.rb-navi{background:#111;}
 #nv-rows-inner{min-height:100%;display:flex;flex-direction:column;justify-content:flex-end;}
 #nv-manual{position:absolute;left:50%;transform:translateX(-50%);top:146px;z-index:6;background:#111;color:#F5B700;border:2px solid #F5B700;border-radius:18px;padding:5px 14px;font-weight:800;font-size:14px;display:none;white-space:nowrap;}
 #nv-manual.open{display:block;}
-.nv-card{height:164px;display:grid;grid-template-columns:96px 132px minmax(0,1fr);border-top:3px solid #111;box-sizing:border-box;background:#fff;}
+.nv-card{height:164px;display:grid;grid-template-columns:108px 124px minmax(0,1fr);border-top:3px solid #111;box-sizing:border-box;background:#fff;}
 .nv-card.done{opacity:.35;}
 .nv-card.cur{background:var(--rb-amber-soft);box-shadow:inset 0 0 0 5px var(--rb-amber);}
 .nv-card > div{min-width:0;}
-.nv-c1{border-right:3px solid #111;display:flex;flex-direction:column;justify-content:space-between;padding:8px 8px 10px 10px;}
+.nv-c1{border-right:3px solid #111;display:flex;flex-direction:column;justify-content:space-between;padding:8px 6px 10px 8px;overflow:hidden;}
 .nv-c1 .n{font-size:13px;font-weight:700;color:#555;}
-.nv-c1 .t{font-size:32px;font-weight:800;line-height:1;}
-.nv-c1 .p{align-self:flex-start;border:3px solid #111;border-radius:5px;padding:1px 7px;font-size:23px;font-weight:800;line-height:1.15;}
+.nv-c1 .t{font-size:27px;font-weight:800;line-height:1;letter-spacing:-0.5px;white-space:nowrap;}
+.nv-c1 .t.long{font-size:21px;}
+.nv-c1 .p{align-self:flex-start;border:3px solid #111;border-radius:5px;padding:1px 6px;font-size:23px;font-weight:800;line-height:1.15;white-space:nowrap;max-width:100%;box-sizing:border-box;}
+.nv-c1 .p.long{font-size:18px;}
 .nv-c2{border-right:3px solid #111;display:flex;align-items:center;justify-content:center;}
-.nv-c3{display:flex;flex-direction:column;padding:8px 10px 34px 12px;gap:3px;position:relative;}
-.nv-c3 .ic{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-height:4px;}
+.nv-c3{display:flex;flex-direction:column;padding:8px 10px 34px 12px;gap:3px;position:relative;overflow:hidden;}
+.nv-c3 > *{flex:none;}
+.nv-c3 .ic{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-height:4px;max-height:44px;overflow:hidden;}
+.nv-c3.m .ic{gap:6px;max-height:34px;}
+.nv-c3.s .ic{gap:5px 5px;max-height:61px;}
+.nv-c3.m .ic .rb-danger{font-size:19px;padding:0 7px;}
+.nv-c3.s .ic .rb-danger{font-size:15px;padding:0 5px;}
+.nv-c3 .ic .more{font-size:17px;font-weight:800;line-height:28px;}
+.nv-c3.s .l{-webkit-line-clamp:1;}
+.nv-c3.m .s,.nv-c3.s .s{-webkit-line-clamp:1;}
 .nv-c3 .ic svg{flex:none;}
 .nv-c3 .ic .rb-danger{font-size:24px;padding:1px 9px;}
-.nv-c3 .l{font-size:21px;font-weight:800;line-height:1.05;text-transform:uppercase;}
-.nv-c3 .s{font-size:15px;font-weight:500;line-height:1.2;color:#333;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.nv-c3 .l{font-size:21px;font-weight:800;line-height:1.05;text-transform:uppercase;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.nv-c3 .s{flex:0 1 auto;min-height:0;font-size:15px;font-weight:500;line-height:1.2;color:#333;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 .nv-c3 .cap{position:absolute;right:10px;bottom:8px;border:2px solid #111;border-radius:4px;padding:1px 7px;font-size:16px;font-weight:800;}
 #nv-next{height:84px;flex:none;background:var(--rb-amber);color:#111;display:flex;align-items:center;gap:14px;padding:0 16px;box-sizing:border-box;}
 #nv-next .a{display:flex;flex-direction:column;}
@@ -226,7 +236,7 @@ body.rb-navi{background:#111;}
   #nv-mini{width:110px;height:110px;}
   #nv-rows{grid-column:2;grid-row:1 / span 3;}
   #nv-manual{top:8px;left:calc(300px + (100% - 300px)/2);}
-  .nv-card{grid-template-columns:104px 136px minmax(0,1fr);}
+  .nv-card{grid-template-columns:112px 136px minmax(0,1fr);}
   #nv-next{grid-column:1;grid-row:2;height:auto;border-radius:10px;margin:0 10px;flex-direction:column;align-items:stretch;justify-content:center;gap:4px;padding:8px 12px;}
   #nv-next .b{align-items:stretch;}
   #nv-nextlabel{text-align:left;font-size:16px;}
