@@ -17,7 +17,7 @@ public/           – frontend (statické soubory, servíruje je stejný server)
   index.html
   style.css
   app.js
-```
+``
 
 - **Přihlášení**: heslo se hashuje (bcrypt), po přihlášení dostane prohlížeč
   bezpečnou httpOnly cookie s podepsaným tokenem (JWT). Není to tedy jen
