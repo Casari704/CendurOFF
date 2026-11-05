@@ -149,8 +149,8 @@
       <p>Všechny symboly najdeš v Roadbook planneru pod <b>Nástroje ▾ → Legenda symbolů</b>.</p>
     </details>
     <details>
-      <summary>Co znamená Roadbook READY / NOT ready?</summary>
-      <p><b>READY</b> = autor roadbook zkontroloval a označil jako hotový. <b>NOT ready</b> = rozpracovaný nebo automaticky vygenerovaný a nezkontrolovaný. Když se trasa (GPX) později změní, roadbook se sám přepne na NOT ready, dokud ho autor znovu nezkontroluje.</p>
+      <summary>Co znamenají stavy roadbooku (Auto, Rozpracovaný, Ready, To check)?</summary>
+      <p><b>Auto</b> (šedá) = trasa nemá uložený roadbook – při jízdě se spočítá automaticky ze zatáček GPX. <b>Rozpracovaný</b> (fialová) = roadbook je v Roadbook planneru uložený, ale ještě není hotový. <b>Ready</b> (žlutá) = autor roadbook zkontroloval a označil jako hotový. <b>To check</b> (červená) = trasa (GPX) se od uložení změnila, nebo některá místa čekají na kontrolu („ke kontrole“). Po kontrole a uložení se stav vrátí na Ready / Rozpracovaný.</p>
     </details>
   </section>
 
@@ -161,7 +161,7 @@
     <details>
       <summary>Jak připravím roadbook k trase?</summary>
       <ol>
-        <li>Otevři <b>Menu ▾ → Roadbook planner</b> a <b>klikni na trasu na mapě</b> (nebo ji vyber nahoře v seznamu). Barva: zelená = READY, oranžová = NOT ready, šedá = bez roadbooku, čárkovaná = rozpracováno.</li>
+        <li>Otevři <b>Menu ▾ → Roadbook planner</b> a <b>klikni na trasu na mapě</b> (nebo ji vyber nahoře v seznamu). Barva: žlutá = Ready, červená = To check, fialová = rozpracovaný, šedá = Auto (bez uloženého roadbooku), čárkovaná = neuložené změny.</li>
         <li>U trasy bez roadbooku se planner zeptá, jak ho vygenerovat:
           <ul>
             <li><b>Stáhnout z OSM a vygenerovat</b> – může chvíli trvat (od pár vteřin po minutu), ale roadbook bude <b>výrazně přesnější</b>: doplní křižovatky s odbočkami, typ cesty, brody, závory, přejezdy a benzínky. Průběh vidíš (dotazy, MB, čas) a stahování jde kdykoli zrušit. Data se uloží v prohlížeči, příště je generování okamžité.</li>
@@ -203,7 +203,7 @@
     </details>
     <details>
       <summary>Co se stane, když se trasa změní v Atlas Planneru?</summary>
-      <p>Roadbook se přepne na NOT ready. Při dalším otevření v Roadbook planneru se přepočítá podle nové trasy – tvoje úpravy zůstanou a místa, která už na trase neleží, se označí „ke kontrole“. Pak roadbook ulož a znovu označ READY.</p>
+      <p>Roadbook se přepne na <b>To check</b>. Při dalším otevření v Roadbook planneru se přepočítá podle nové trasy – tvoje úpravy zůstanou a místa, která už na trase neleží, se označí „ke kontrole“. Pak roadbook ulož a znovu označ READY.</p>
     </details>
   </section>
 

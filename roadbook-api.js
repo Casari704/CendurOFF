@@ -47,9 +47,14 @@ function mount(app, { pool, requireAuth, optionalAuth, canEdit }) {
   const whenReady = (req, res, next) => ensureTable().then(() => next(), () => res.status(500).json({ error: 'Roadbook databáze není připravená.' }));
 
   // efektivní stav: hotový roadbook se změněnou trasou se hlásí jako NOT ready
+  // Stav pro zobrazení (v2.10): ready | draft | check
+  //   check = trasa (GPX) se od uložení změnila, nebo nějaké místo čeká na kontrolu („ke kontrole“)
+  //   (trasa bez uloženého roadbooku = „auto“ – ten se počítá až v prohlížeči / v aplikaci z GPX)
   function effective(row) {
     const stale = row.route_fp !== row.current_fp;
-    return { status: stale ? 'draft' : row.status, saved_status: row.status, stale };
+    const review = Number(row.review_count || 0);
+    const state = (stale || review > 0) ? 'check' : (row.status === 'ready' ? 'ready' : 'draft');
+    return { status: stale ? 'draft' : row.status, saved_status: row.status, stale, review_count: review, state };
   }
 
   // Přehled stavů všech roadbooků (pro štítky v seznamech tras)
@@ -57,7 +62,9 @@ function mount(app, { pool, requireAuth, optionalAuth, canEdit }) {
     try {
       const r = await pool.query(
         `SELECT rb.route_id, rb.status, rb.updated_at, rb.route_fp, md5(rt.points::text) AS current_fp,
-                jsonb_array_length(COALESCE(rb.data->'items', '[]'::jsonb)) AS item_count
+                jsonb_array_length(COALESCE(rb.data->'items', '[]'::jsonb)) AS item_count,
+                (SELECT COUNT(*)::int FROM jsonb_array_elements(COALESCE(rb.data->'items', '[]'::jsonb)) e
+                  WHERE e->>'review' = 'true' AND COALESCE(e->>'deleted', 'false') <> 'true') AS review_count
          FROM roadbooks rb JOIN routes rt ON rt.id = rb.route_id
          WHERE rt.deleted_at IS NULL`
       );
@@ -84,7 +91,9 @@ function mount(app, { pool, requireAuth, optionalAuth, canEdit }) {
       }
       const editable = canEdit(req, rt.rows[0].owner_id);
       const r = await pool.query(
-        `SELECT rb.*, md5(rt.points::text) AS current_fp, u.display_name AS updated_by_display
+        `SELECT rb.*, md5(rt.points::text) AS current_fp, u.display_name AS updated_by_display,
+                (SELECT COUNT(*)::int FROM jsonb_array_elements(COALESCE(rb.data->'items', '[]'::jsonb)) e
+                  WHERE e->>'review' = 'true' AND COALESCE(e->>'deleted', 'false') <> 'true') AS review_count
          FROM roadbooks rb JOIN routes rt ON rt.id = rb.route_id
          LEFT JOIN users u ON u.id = rb.updated_by
          WHERE rb.route_id = $1`,
