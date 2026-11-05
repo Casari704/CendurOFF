@@ -74,6 +74,26 @@
     ['Ostře vpravo','110–150°',130], ['Vracák','nad 150°, tvar U',165]
   ];
 
+  // ---- stavy roadbooku (v2.10) – stejné na webu i v aplikaci ----
+  //   auto  = trasa nemá uložený roadbook, počítá se automaticky z GPX
+  //   draft = uložený, rozpracovaný
+  //   ready = uložený a zkontrolovaný
+  //   check = GPX se změnilo nebo místa čekají na kontrolu („To check“)
+  RB.STATES = {
+    ready: { badge:'READY',        label:'Ready',        color:'#F5A300', css:'ready' },
+    check: { badge:'TO CHECK',     label:'To check',     color:'#D32F2F', css:'check' },
+    draft: { badge:'ROZPRACOVANÝ', label:'Rozpracovaný', color:'#7E57C2', css:'draft' },
+    auto:  { badge:'AUTO',         label:'Auto',         color:'#8A8A8A', css:'auto' }
+  };
+  RB.STATE_ORDER = ['ready', 'check', 'draft', 'auto'];
+  RB.stateOf = function(sum){
+    if(!sum) return 'auto';
+    if(sum.state && RB.STATES[sum.state]) return sum.state;
+    // starší server bez „state“
+    if(sum.stale) return 'check';
+    return sum.status === 'ready' ? 'ready' : 'draft';
+  };
+
   RB.dirName = function(exit, round){
     if(round) return 'Kruhový objezd';
     const x = Math.abs(exit), s = exit < 0 ? 'vlevo' : 'vpravo';

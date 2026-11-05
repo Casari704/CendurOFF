@@ -45,11 +45,8 @@ let currentUser = null, routes = [], sums = {};
 function renderSelect(){
   const q = ($('nv-search').value || '').trim().toLowerCase();
   const list = routes.filter(r => !q || r.name.toLowerCase().includes(q));
-  const groups = [
-    ['Roadbook READY', list.filter(r => sums[r.id] && sums[r.id].status === 'ready'), 'ready', 'READY'],
-    ['Rozpracované (NOT ready)', list.filter(r => sums[r.id] && sums[r.id].status !== 'ready'), 'draft', 'NOT READY'],
-    ['Bez roadbooku – vygeneruje se automaticky', list.filter(r => !sums[r.id]), 'none', 'AUTO']
-  ];
+  const titles = { ready:'Roadbook Ready', check:'To check – trasa se změnila nebo čeká na kontrolu', draft:'Rozpracované', auto:'Auto – roadbook se spočítá z GPX' };
+  const groups = RB.STATE_ORDER.map(st => [titles[st], list.filter(r => RB.stateOf(sums[r.id]) === st), RB.STATES[st].css, RB.STATES[st].badge]);
   $('nv-list').innerHTML = groups.filter(g => g[1].length).map(g => '<h2>' + g[0] + '</h2>' +
     '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">' + g[1].map(r =>
       '<button type="button" class="nv-route" data-id="' + r.id + '"><b>' + esc(r.name) + (offlineIds.has(r.id) ? ' <span title="Uloženo v telefonu">📥</span>' : '') + '</b><span>' + (+r.distance_km).toFixed(1).replace('.', ',') + ' km</span><span class="rb-badge ' + g[2] + '">' + g[3] + '</span></button>').join('') + '</div>').join('') ||
@@ -112,7 +109,7 @@ async function renderOfflineBox(id){
 // výchozí výřez mapy výběru (jako na screenshotu: Jeseník – Gliwice – Olomouc – Třinec)
 const HOME_BOUNDS = [[49.55, 16.35], [50.30, 18.95]];
 let selMap = null, selLayer = null, picked = null;
-function statusColor(id){ const sm = sums[id]; return sm ? (sm.status === 'ready' ? '#2E7D32' : '#E07B00') : '#5A5A5A'; }
+function statusColor(id){ return RB.STATES[RB.stateOf(sums[id])].color; }
 function drawSelectMap(){
   if(!selMap){
     selMap = L.map('nv-map', { zoomControl:true }).fitBounds(HOME_BOUNDS);
@@ -144,11 +141,15 @@ function pickRoute(id, fromList){
   $('nv-pick-name').textContent = r.name;
   $('nv-pick-km').textContent = (+r.distance_km).toFixed(1).replace('.', ',') + ' km';
   const bd = $('nv-pick-badge');
-  bd.className = 'rb-badge ' + (sm ? (sm.status === 'ready' ? 'ready' : 'draft') : 'none');
-  bd.textContent = sm ? (sm.status === 'ready' ? 'READY' : 'NOT READY') : 'BEZ ROADBOOKU';
-  $('nv-pick-note').textContent = sm
-    ? (sm.status === 'ready' ? 'Roadbook je zkontrolovaný. Směr jízdy je daný roadbookem (obrací se v Roadbook planneru).' : 'Roadbook je rozpracovaný (NOT ready) – nemusí být úplný. Směr je daný roadbookem.')
-    : 'Roadbook se vygeneruje jen ze zatáček GPX (bez křižovatek). Úplný roadbook připrav v Roadbook planneru.';
+  const st = RB.stateOf(sm);
+  bd.className = 'rb-badge ' + RB.STATES[st].css;
+  bd.textContent = RB.STATES[st].badge;
+  $('nv-pick-note').textContent = {
+    ready: 'Roadbook je zkontrolovaný. Směr jízdy je daný roadbookem (obrací se v Roadbook planneru).',
+    check: 'To check: trasa se od uložení roadbooku změnila, nebo některá místa čekají na kontrolu. Jet se dá, ale roadbook nemusí sedět.',
+    draft: 'Roadbook je rozpracovaný – nemusí být úplný. Směr je daný roadbookem.',
+    auto:  'Auto: roadbook se spočítá ze zatáček GPX (bez křižovatek). Úplný roadbook připrav v Roadbook planneru.'
+  }[st];
   $('nv-pick-rev-box').hidden = !!sm;
   $('nv-pick-rev').checked = false;
   $('nv-pick').classList.add('open');
@@ -205,8 +206,10 @@ async function startRide(id, reverseNoRb){
         // trasa se změnila – instrukce jen posuneme na novou trasu, ať km sedí
         items = RB.reproject(R, items);
         toast('Pozor: trasa se od uložení roadbooku změnila, roadbook není zkontrolovaný.', 6000);
+      } else if((res.roadbook.review_count || 0) > 0){
+        toast('Roadbook je To check – některá místa čekají na kontrolu.', 4500);
       } else if(res.roadbook.status !== 'ready'){
-        toast('Roadbook téhle trasy ještě není označený jako hotový (NOT ready).', 4500);
+        toast('Roadbook téhle trasy je zatím rozpracovaný.', 4500);
       }
     }
     if(!items){

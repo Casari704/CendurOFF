@@ -26,9 +26,10 @@
 .rb-page .btn-rb[hidden]{display:none;}
 
 .rb-badge{display:inline-block;font-family:'Exo 2',sans-serif;font-weight:800;font-size:0.72rem;letter-spacing:1px;padding:3px 8px;border-radius:4px;white-space:nowrap;}
-.rb-badge.ready{background:var(--rb-green);color:#fff;}
-.rb-badge.draft{background:var(--rb-orange);color:#111;}
-.rb-badge.none{background:#E4E0D6;color:#333;}
+.rb-badge.ready{background:#F5A300;color:#111;}
+.rb-badge.check{background:#D32F2F;color:#fff;}
+.rb-badge.draft{background:#7E57C2;color:#fff;}
+.rb-badge.auto,.rb-badge.none{background:#8A8A8A;color:#fff;}
 .rb-badge.unsaved{background:#fff;color:#111;border:2px dashed #111;padding:1px 7px;}
 .rb-danger{display:inline-block;background:var(--rb-red);color:#fff;font-weight:800;padding:0 6px;border-radius:4px;letter-spacing:1px;}
 

@@ -367,10 +367,13 @@ function renderStatus(){
   const el = $('rb-status');
   if(!route){ el.className = 'rb-badge none'; el.textContent = '—'; $('rb-info').textContent = ''; return; }
   if(!saved){ el.className = 'rb-badge unsaved'; el.textContent = 'NEULOŽENO'; }
-  else if(status === 'ready'){ el.className = 'rb-badge ready'; el.textContent = 'ROADBOOK READY'; }
-  else { el.className = 'rb-badge draft'; el.textContent = 'ROADBOOK NOT READY'; }
+  else {
+    // To check: některá místa čekají na kontrolu (po změně GPX nebo ručně označená)
+    const st = items.some(it => it.review && !it.deleted) ? 'check' : (status === 'ready' ? 'ready' : 'draft');
+    el.className = 'rb-badge ' + RB.STATES[st].css; el.textContent = 'ROADBOOK ' + RB.STATES[st].badge;
+  }
   $('rb-info').textContent = RB.fmtKm(R ? R.total : 0) + ' km' + (dirty ? ' · neuložené změny' : '');
-  $('rb-ready').textContent = status === 'ready' ? 'Vrátit na NOT ready' : 'Označit READY';
+  $('rb-ready').textContent = status === 'ready' ? 'Vrátit na rozpracovaný' : 'Označit READY';
   ['rb-save','rb-ready','rb-regen','rb-reverse'].forEach(id => { $(id).hidden = !canEdit; });
   $('rb-more-btn').disabled = !route;
   $('rb-add').hidden = !canEdit || pickMode;
@@ -395,7 +398,9 @@ async function save(newStatus){
     const r = await api('/api/roadbooks/' + route.id, { method:'PUT', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({ status: st, data: { v: 1, settings, items: cleanItems() } }) });
     status = r.status; saved = true; dirty = false;
-    rbSummary[route.id] = { route_id: route.id, status: r.status, stale: false };
+    const rc = items.filter(it => it.review && !it.deleted).length;
+    rbSummary[route.id] = { route_id: route.id, status: r.status, stale: false, review_count: rc,
+      state: rc > 0 ? 'check' : (r.status === 'ready' ? 'ready' : 'draft') };
     try{ localStorage.removeItem(DRAFT_PREFIX + route.id); }catch(e){}
     fillRouteSelect(); renderStatus(); drawAllRoutes();
     toast(st === 'ready' ? 'Uloženo – roadbook je READY.' : 'Roadbook uložen.');
@@ -539,7 +544,7 @@ $('rb-reverse').addEventListener('click', async () => {
 function statusText(id){
   const parts = [];
   const sm = rbSummary[id];
-  if(sm) parts.push(sm.status === 'ready' ? 'READY' : 'NOT ready');
+  parts.push(RB.STATES[RB.stateOf(sm)].label);
   const se = sessions.get(id);
   if((se && se.dirty) || hasDraft(id)) parts.push('rozpracováno');
   return parts.length ? ' · ' + parts.join(' · ') : '';
@@ -561,12 +566,7 @@ $('rb-route').addEventListener('change', e => {
 
 // --- všechny trasy na mapě: výběr kliknutím ---
 const allLayer = L.layerGroup().addTo(map);
-function routeColor(id){
-  const sm = rbSummary[id];
-  if(sm && sm.status === 'ready') return '#2E7D32';
-  if(sm) return '#E07B00';
-  return '#5A5A5A';
-}
+function routeColor(id){ return RB.STATES[RB.stateOf(rbSummary[id])].color; }
 function drawAllRoutes(){
   allLayer.clearLayers();
   routes.forEach(r => {
@@ -580,7 +580,7 @@ function drawAllRoutes(){
       const hit = L.polyline(ll, { color:'#000', weight: 18, opacity: 0, bubblingMouseEvents:false });
       const sm = rbSummary[r.id];
       const tip = '<b>' + esc(r.name) + '</b><br>' + (+r.distance_km).toFixed(1).replace('.', ',') + ' km · ' +
-        (sm ? (sm.status === 'ready' ? 'Roadbook READY' : 'Roadbook NOT ready') : 'bez roadbooku') + (draft ? ' · rozpracováno' : '') + (isCur ? ' · otevřená' : '');
+        'Roadbook ' + RB.STATES[RB.stateOf(sm)].label + (draft ? ' · neuloženo' : '') + (isCur ? ' · otevřená' : '');
       hit.bindTooltip(tip, { sticky: true });
       hit.on('mouseover', () => line.setStyle({ weight: 8 }));
       hit.on('mouseout', () => line.setStyle({ weight: isCur ? 7 : 5 }));
@@ -598,7 +598,7 @@ function setPickMode(on){
   $('rb-pick').textContent = on ? (route ? '✕ Zpět k roadbooku' : 'Vyber trasu na mapě') : '🗺 Vybrat jinou trasu';
   $('rb-pick').disabled = on && !route;
   $('rb-map-hint').textContent = on
-    ? 'Klikni na trasu na mapě. Zelená = Roadbook READY, oranžová = NOT ready, šedá = bez roadbooku, čárkovaná = rozpracováno (neuloženo).'
+    ? 'Klikni na trasu na mapě. Žlutá = Ready, červená = To check, fialová = rozpracovaný, šedá = Auto (bez uloženého roadbooku), čárkovaná = neuložené změny.'
     : 'Klikni na trasu – vloží se nová instrukce. Body instrukcí jde přetáhnout po trase.';
   $('rb-add').hidden = on || !canEdit;
   markerLayer.eachLayer(m => m.setOpacity && m.setOpacity(on ? 0.35 : 1));
