@@ -118,7 +118,7 @@
   <div class="tm-side">
     <button class="tm-s up" id="tm-upload" type="button">+ Nahrát trasu</button>
     <button class="tm-s" id="tm-account" type="button">Můj účet</button>
-    <a class="tm-s${page==='faq' ? ' cur' : ''}" href="faq.html">FAQ a o projektu</a>
+    <a class="tm-s${page==='faq' ? ' cur' : ''}" href="faq.html">FAQ</a>
     <a class="tm-s${page==='merch' ? ' cur' : ''}" href="merch.html">Merch</a>
   </div>
 </div>`);
