@@ -88,15 +88,18 @@
       .tm-s.cur{border-color:#F1D79A;}
       /* na šířku: Atlas a Roadbook ve sloupcích, vpravo podélné dlaždice */
       @media (orientation:landscape){
-        /* řádky: hlavička / popisky ATLAS · ROADBOOK / dlaždice – boční dlaždice začínají ve stejné linii jako velké */
-        #tile-menu.open{grid-template-columns:1fr 1fr minmax(150px,0.62fr);grid-template-rows:auto auto 1fr;}
+        /* stejné jako na výšku: řada ATLAS (NAVI + Planner), pod ní řada ROADBOOK; vpravo podélné dlaždice
+           začínající ve stejné linii jako první řada velkých dlaždic */
+        #tile-menu.open{grid-template-columns:1fr 1fr minmax(150px,0.62fr);grid-template-rows:auto auto 1fr auto 1fr;gap:8px 10px;}
         .tm-head{grid-column:1 / -1;}
         .tm-col{display:contents;}
-        .tm-col .tm-lbl{grid-row:2;margin:0 2px;}
-        .tm-col .tm-grp{grid-row:3;grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:8px;}
-        #tile-menu > .tm-col:nth-child(2) > *{grid-column:1;}
-        #tile-menu > .tm-col:nth-child(3) > *{grid-column:2;}
-        .tm-side{grid-column:3;grid-row:3;grid-template-columns:1fr;grid-auto-rows:1fr;}
+        .tm-col .tm-lbl{grid-column:1 / 3;margin:0 2px;}
+        .tm-col .tm-grp{grid-column:1 / 3;grid-template-columns:1fr 1fr;}
+        #tile-menu > .tm-col:nth-child(2) > .tm-lbl{grid-row:2;}
+        #tile-menu > .tm-col:nth-child(2) > .tm-grp{grid-row:3;}
+        #tile-menu > .tm-col:nth-child(3) > .tm-lbl{grid-row:4;}
+        #tile-menu > .tm-col:nth-child(3) > .tm-grp{grid-row:5;}
+        .tm-side{grid-column:3;grid-row:3 / 6;grid-template-columns:1fr;grid-auto-rows:1fr;}
       }
       @media (orientation:portrait){ .tm-col{display:contents;} }
     </style>`);
