@@ -254,7 +254,8 @@ function renderEditor(){
   const tplKey = it.kind ? null : (RB.TEMPLATES.find(t => !!t[4] === !!it.round && t[3].length === (it.sides||[]).length && t[3].every((a, i) => a === it.sides[i]) && (t[2] == null || t[2] === it.exit)) || [null])[0];
   let h = '';
   if(!canEdit) h += '<div class="rb-readonly">Jen pro čtení – roadbook téhle trasy může upravovat její autor (nebo admin).</div>';
-  h += '<div class="rb-ed-head"><h2>' + (it.kind === 'start' ? 'Start' : it.kind === 'finish' ? 'Cíl' : 'Instrukce #' + v.n) + '</h2><span>km ' + RB.fmtKm(it.s) + ' · CAP ' + (it.cap || 0) + '°</span></div>';
+  h += '<div class="rb-ed-head"><h2>' + (it.kind === 'start' ? 'Start' : it.kind === 'finish' ? 'Cíl' : 'Instrukce #' + v.n) + '</h2><span>km ' + RB.fmtKm(it.s) + ' · CAP ' + (it.cap || 0) + '°</span>' +
+    (window.CendurSound ? '<button type="button" class="rb-say" id="rb-say" title="Přehrát instrukci nahlas (jako při navigaci)" aria-label="Přehrát instrukci nahlas">🔊</button>' : '') + '</div>';
   h += '<fieldset' + (canEdit ? '' : ' disabled') + '>';
   if(!it.kind){
     h += '<div class="rb-tulip-box">' + tulipEditorSVG(it) + '<div style="display:flex;flex-direction:column;gap:8px">' +
@@ -315,6 +316,13 @@ function bindEditor(it){
     const i = it.icons.indexOf(k); if(i >= 0) it.icons.splice(i, 1); else it.icons.push(k);
     refreshAfterEdit(it);
   }));
+  // v3.7: 🔊 přehraje instrukci stejně jako za jízdy (gong / bzučák + hlas telefonu)
+  const say = ed.querySelector('#rb-say');
+  if(say) say.addEventListener('click', () => {
+    const vis = RB.visible(items).slice().sort((a, b) => a.s - b.s);
+    const txt = window.CendurSound.preview(vis, vis.findIndex(x => x.id === it.id));
+    if(txt && !window.CendurSound.hasVoice()) toast('Telefon nemá český hlas – zazní jen tón. Text: „' + txt + '“', 5000);
+  });
   ed.querySelectorAll('[data-dg]').forEach(b => b.addEventListener('click', () => { it.danger = Number(b.dataset.dg); refreshAfterEdit(it); }));
   const road = $('rb-road-sel'); if(road) road.addEventListener('change', () => { it.road = road.value || null; refreshAfterEdit(it, true); });
   const note = $('rb-note'); if(note) note.addEventListener('input', () => { it.note = note.value; refreshAfterEdit(it, true); });

@@ -74,11 +74,12 @@
 
   let busyUntil = 0, pending = null;
   // zvuk + hlas jako jedna hláška; další počká, až tahle dozní
-  function announce(sound, text){
-    if(!enabled()) return;
+  function announce(sound, text, force){
+    if(!enabled() && !force) return;
     unlock();
     if(!ctx) return;
     const now = Date.now();
+    if(force){ clearTimeout(pending); busyUntil = 0; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} }
     if(now < busyUntil){
       // přednost má poslední hláška (je aktuálnější); starší čekající se zahodí
       clearTimeout(pending);
@@ -160,5 +161,36 @@
     };
   }
 
-  window.CendurSound = { enabled, setEnabled, unlock, announce, hasVoice, createGuide };
+  // ---------------------------------------------------------------
+  // v3.7: přehrání jedné instrukce „na zkoušku“ (Roadbook planner) – stejný gong / bzučák
+  // a stejný text jako za jízdy. Vzdálenost jako při ~50 km/h (8 s před instrukcí),
+  // nejvýš ale vzdálenost od předchozí instrukce. Hraje i při vypnutých zvucích.
+  //   preview(vis, i) – vis = viditelné instrukce seřazené podle .s, i = index
+  //   vrací přečtený text (nebo null)
+  // ---------------------------------------------------------------
+  const PREVIEW_MS = 50 / 3.6;
+  function previewText(vis, i){
+    const it = vis[i];
+    if(!it) return null;
+    if(it.kind === 'start') return { sound: 'gong', text: 'Start.' };
+    const warn = Math.max(WARN_MIN, Math.min(WARN_MAX, PREVIEW_MS * WARN_SEC));
+    const prev = vis[i - 1];
+    const d = prev ? Math.min(warn, Math.max(10, it.s - prev.s)) : warn;
+    let text = distWords(d) + ' ' + itemWords(it);
+    let sound = it.danger ? 'buzzer' : 'gong';
+    const nx = vis[i + 1];
+    if(nx && nx.s - it.s < warn){
+      text += ', a hned potom ' + itemWords(nx);
+      if(nx.danger) sound = 'buzzer';
+    }
+    return { sound, text: text + '.' };
+  }
+  function preview(vis, i){
+    const p = previewText(vis, i);
+    if(!p) return null;
+    window.CendurSound.announce(p.sound, p.text, true);
+    return p.text;
+  }
+
+  window.CendurSound = { enabled, setEnabled, unlock, announce, hasVoice, createGuide, preview, previewText };
 })();
