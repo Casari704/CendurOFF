@@ -14,8 +14,8 @@
 <title>CendurOFF Atlas Planner</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=3.5">
-<link rel="stylesheet" href="public/planner.css?v=3.5">
+<link rel="stylesheet" href="public/style.css?v=3.6">
+<link rel="stylesheet" href="public/planner.css?v=3.6">
 </head>
 <body class="planner-page auth-pending">
 
@@ -28,8 +28,10 @@
     <!-- ovládání mapy vpravo – stejná tlačítka jako v Atlasu -->
     <div id="pl-mapctl">
       <button class="map-btn map-btn-square" id="pl-layers-btn" type="button" title="Podkladová mapa (vrstevnice, satelit…)">🗺</button>
+      <button class="map-btn map-btn-square pl-z3" id="pl-zoom-in3" type="button" title="Přiblížit o 3">+3</button>
       <button class="map-btn map-btn-square" id="pl-zoom-in" type="button" title="Přiblížit">+</button>
       <button class="map-btn map-btn-square" id="pl-zoom-out" type="button" title="Oddálit">−</button>
+      <button class="map-btn map-btn-square pl-z3" id="pl-zoom-out3" type="button" title="Oddálit o 3">−3</button>
       <button class="map-btn map-btn-square" id="pl-locate" type="button" title="Moje poloha">◎</button>
     </div>
 
@@ -136,13 +138,14 @@
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="public/config.js?v=3.5"></script>
-<script src="public/header.js?v=3.5"></script>
-<script src="public/pwa.js?v=3.5"></script>
-<script src="public/planner-profile.js?v=3.5"></script>
-<script src="public/regiondata.js?v=3.5"></script>
-<script src="public/fuel.js?v=3.5"></script>
-<script src="public/chko.js?v=3.5"></script>
-<script src="public/planner.js?v=3.5"></script>
+<script src="public/config.js?v=3.6"></script>
+<script src="public/header.js?v=3.6"></script>
+<script src="public/pwa.js?v=3.6"></script>
+<script src="public/planner-profile.js?v=3.6"></script>
+<script src="public/regiondata.js?v=3.6"></script>
+<script src="public/fuel.js?v=3.6"></script>
+<script src="public/chko.js?v=3.6"></script>
+<script src="public/zoom.js?v=3.6"></script>
+<script src="public/planner.js?v=3.6"></script>
 </body>
 </html>

@@ -209,11 +209,8 @@ $('nv-pick-dir').addEventListener('click', () => {
 $('nv-pick-go').addEventListener('click', () => { if(picked) startRide(picked, pickRev); });
 
 // tlačítka nad mapou
-function zoomBy(d){ if(selMap) selMap.setZoom(Math.max(6, Math.min(18, selMap.getZoom() + d))); }
-$('nv-f-zi').addEventListener('click', () => zoomBy(1));
-$('nv-f-zo').addEventListener('click', () => zoomBy(-1));
-$('nv-f-zi3').addEventListener('click', () => zoomBy(3));
-$('nv-f-zo3').addEventListener('click', () => zoomBy(-3));
+// v3.6: společná funkce přibližování (public/zoom.js)
+window.CendurZoom.bind(() => selMap, { in1:'nv-f-zi', out1:'nv-f-zo', in3:'nv-f-zi3', out3:'nv-f-zo3' }, { min:6, max:18 });
 $('nv-f-me').addEventListener('click', () => {
   if(me) selMap.setView(me, Math.max(selMap.getZoom(), 13));
   else { toast('Čekám na polohu z GPS…'); startSelectGps(); }

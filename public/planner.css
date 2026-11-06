@@ -172,3 +172,6 @@ body.auth-pending #app-screen{visibility:hidden;}
   #pl-quickbar .pl-qb-save{font-size:1.3rem !important;flex:none;width:50px;min-width:50px;padding:0;justify-content:center;}
   .pl-sheet{max-height:85vh;border-radius:16px 16px 0 0;}
 }
+/* v3.6: +3 / −3 */
+#pl-mapctl .map-btn-square.pl-z3{font-size:1.05rem;font-weight:800;}
+@media (max-height:520px){ #pl-mapctl .pl-z3{display:none;} }

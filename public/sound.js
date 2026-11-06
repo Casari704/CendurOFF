@@ -31,7 +31,10 @@
     if('speechSynthesis' in window){ try{ speechSynthesis.getVoices(); }catch(e){} }
   }
 
+  // v3.6: tóny o ~15 % tišší, ať nepřebíjejí hlas telefonu (1 = původní hlasitost)
+  const TONE_VOLUME = 0.85;
   function tone(f, t0, dur, type, vol, f2){
+    vol = (vol || 0.3) * TONE_VOLUME;
     const t = ctx.currentTime + t0, o = ctx.createOscillator(), g = ctx.createGain();
     o.type = type || 'sine';
     o.frequency.setValueAtTime(f, t);

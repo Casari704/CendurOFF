@@ -385,8 +385,8 @@ if(!baseLayers[currentBase]) currentBase = 'osm';
 baseLayers[currentBase].addTo(map);
 
 // tlačítka mapy jako v Atlasu: 🗺 (nabídka podkladů), +, −
-document.getElementById('pl-zoom-in').addEventListener('click', ()=> map.zoomIn());
-document.getElementById('pl-zoom-out').addEventListener('click', ()=> map.zoomOut());
+// v3.6: společná funkce přibližování (public/zoom.js)
+window.CendurZoom.bind(map, { in1:'pl-zoom-in', out1:'pl-zoom-out', in3:'pl-zoom-in3', out3:'pl-zoom-out3' }, { min:3, max:19 });
 const layersBtn = document.getElementById('pl-layers-btn');
 layersBtn.title = 'Podkladová mapa, benzínky, CHKO';
 document.body.insertAdjacentHTML('beforeend', `<div id="layer-menu" role="menu">

@@ -1341,8 +1341,11 @@ const locateBtn = document.getElementById('locate-btn');
 const locateBtnLabel = document.getElementById('locate-btn-label');
 const mapEl = document.getElementById('map');
 
-document.getElementById('zoom-in-btn').addEventListener('click', ()=> map.zoomIn());
-document.getElementById('zoom-out-btn').addEventListener('click', ()=> map.zoomOut());
+// v3.6: přibližování přes společnou funkci (public/zoom.js); při sledování polohy se šipka
+// po změně hned vrátí na své místo (i na otočené / nakloněné mapě)
+function zoomOpts(){
+  return { min:3, max:19, after: (followMode && lastLatLng) ? ()=> setFollowView(lastLatLng, false) : null };
+}
 
 // Fullscreen + satelitní tlačítko jsou (kvůli overflow:hidden na main.mapwrap)
 // mimo mapu, přímo v #app-screen - jejich "top" proto dopočítáváme podle reálné
@@ -1405,8 +1408,7 @@ if(menuBtn) menuBtn.addEventListener('click', ()=>{
   const zo = document.getElementById('zoom-out-btn');
   if(!zo || document.getElementById('zoom-in3-btn')) return;
   zo.insertAdjacentHTML('afterend', '<button class="map-btn map-btn-square" id="zoom-in3-btn" type="button" aria-label="Přiblížit o 3">+3</button><button class="map-btn map-btn-square" id="zoom-out3-btn" type="button" aria-label="Oddálit o 3">−3</button>');
-  document.getElementById('zoom-in3-btn').addEventListener('click', ()=> map.setZoom(Math.min(19, map.getZoom() + 3)));
-  document.getElementById('zoom-out3-btn').addEventListener('click', ()=> map.setZoom(Math.max(3, map.getZoom() - 3)));
+  window.CendurZoom.bind(()=>map, { in1:'zoom-in-btn', out1:'zoom-out-btn', in3:'zoom-in3-btn', out3:'zoom-out3-btn' }, zoomOpts);
 })();
 // v jízdním režimu je hlavička schovaná → seznam tras otevírá tlačítko nad mapou
 (function addRoutesMapButton(){

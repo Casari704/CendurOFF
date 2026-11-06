@@ -850,3 +850,10 @@ body.ride-ui #route-list{ z-index:970; }
 #locate-btn:not(.active):hover{background:#FFC61A;}
 #locate-btn:not(.active) .map-btn-label{font-weight:800;letter-spacing:0.06em;color:#111;}
 #locate-btn .map-btn-icon img{filter:none !important;}
+
+/* ===== v3.6: +3 / −3 i na počítači (mimo jízdní režim) – třetí sloupec vedle + / − ===== */
+body:not(.ride-ui) .nav-grid #zoom-in3-btn,
+body:not(.ride-ui) .nav-grid #zoom-out3-btn{ display:flex; }
+.nav-grid #zoom-in3-btn{ grid-row:1; grid-column:3; }
+.nav-grid #zoom-out3-btn{ grid-row:2; grid-column:3; }
+.nav-grid #zoom-in3-btn, .nav-grid #zoom-out3-btn{ width:64px; height:64px; border-radius:14px; font-size:1.05rem; font-weight:800; }
