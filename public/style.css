@@ -697,6 +697,8 @@ header.topbar{
 
 /* aplikace z plochy: tlačítko celé obrazovky není potřeba */
 body.standalone #fullscreen-btn{ display:none !important; }
+/* v3.0: tlačítko „celá obrazovka“ zrušené (navigaci mezi stránkami řeší dlaždice) */
+#fullscreen-btn{ display:none !important; }
 
 /* ---------- jízdní režim ---------- */
 body.ride-ui{
@@ -741,8 +743,8 @@ body.ride-ui #rec-btn .rec-icon{ width:calc(var(--rb) * 0.38); height:calc(var(-
 
 /* levý horní sloupec: celá obrazovka, mapa (+ benzínky v nabídce) */
 body.ride-ui #fullscreen-btn{ top:var(--rt); left:var(--rl); }
-body.ride-ui #satellite-btn{ top:calc(var(--rt) + var(--step)); left:var(--rl); }
-body.ride-ui #routes-map-btn{ top:calc(var(--rt) + var(--step) * 2); left:var(--rl); font-size:calc(var(--rb) * 0.5); font-weight:700; }
+body.ride-ui #satellite-btn{ top:var(--rt); left:var(--rl); }
+body.ride-ui #routes-map-btn{ top:calc(var(--rt) + var(--step)); left:var(--rl); font-size:calc(var(--rb) * 0.5); font-weight:700; }
 body.ride-ui.standalone #routes-map-btn{ top:calc(var(--rt) + var(--step)); }
 /* z plochy (bez tlačítka celé obrazovky) se sloupec posune nahoru */
 body.ride-ui.standalone #satellite-btn{ top:var(--rt); }
