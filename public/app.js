@@ -419,23 +419,8 @@ loginForm.addEventListener('submit', async (e)=>{
 let map, activeRouteId=null;
 const layersById = {};
 let routesCache = {};
-// podkladové mapy - vybírají se tlačítkem 🗺 (volba se pamatuje v prohlížeči)
-const BASE_MAPS = {
-  topo:    { label:'Turistická (OpenTopoMap) – výrazné vrstevnice', short:'Turistická',
-    url:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', maxZoom:17,
-    attribution:'© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)' },
-  osm:     { label:'Základní (OpenStreetMap) – bez vrstevnic', short:'Základní',
-    url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom:19,
-    attribution:'© OpenStreetMap contributors' },
-  // v ČR ostré letecké snímky ČÚZK, pod nimi Esri - to je vidět za hranicemi (kde ČÚZK nemá data)
-  sat:     { label:'Satelit (ČÚZK v ČR, Esri mimo ČR)', short:'Satelit',
-    url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', maxZoom:19,
-    attribution:'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
-    overlay:{ url:'https://ags.cuzk.gov.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer/tile/{z}/{y}/{x}', maxZoom:20, attribution:'Ortofoto © ČÚZK' } }
-};
-const BASE_ORDER = ['osm','topo','sat'];
-const baseLayers = {};
-let currentBase = BASE_MAPS[localStorage.getItem('baseMap')] ? localStorage.getItem('baseMap') : 'osm';
+// v3.8: podkladové mapy – turistická Mapy.com a satelit (public/basemaps.js), tlačítko je přepíná
+let baseCtl = null;
 
 // sbalitelný seznam tras - vysouvá se stranou pomocí jazýčku se šipkou na hraně panelu
 function isMobileViewport(){ return window.matchMedia('(max-width:760px)').matches; }
@@ -466,16 +451,8 @@ window.addEventListener('resize', syncMobilePanelTabs);
 function initMap(){
   if(map) return;
   map = L.map('map', { zoomControl:false }).setView([49.8711, 17.8756], 11); // výchozí pohled: Hradec nad Moravicí
-  BASE_ORDER.forEach(k=>{
-    const b = BASE_MAPS[k];
-    // maxNativeZoom: při větším přiblížení se dlaždice jen zvětší, místo aby mapa zmizela
-    const base = L.tileLayer(b.url, { maxZoom:19, maxNativeZoom:b.maxZoom, attribution:b.attribution });
-    baseLayers[k] = b.overlay
-      ? L.layerGroup([base, L.tileLayer(b.overlay.url, { maxZoom:19, maxNativeZoom:b.overlay.maxZoom, attribution:b.overlay.attribution })])
-      : base;
-  });
-  baseLayers[currentBase].addTo(map);
-  syncLayerMenu();
+  baseCtl = window.CendurMaps.attach(map, { toast: t => toast(t, 1800) });
+  baseCtl.bindButton(document.getElementById('satellite-btn'), openLayerMenu);
   // samostatná vrstva pro každý typ trasy: offroad dole, cenduro nad ním, transportní
   // nahoře; úplně navrch právě vybraná (modrá) trasa
   ROUTE_TYPE_ORDER.forEach(t=>{ map.createPane('route-' + t).style.zIndex = ROUTE_TYPES[t].z; });
@@ -1437,30 +1414,14 @@ if(menuBtn) menuBtn.addEventListener('click', ()=>{
 if(RIDE_MQ.addEventListener) RIDE_MQ.addEventListener('change', applyRideUi); else if(RIDE_MQ.addListener) RIDE_MQ.addListener(applyRideUi);
 
 
-// tlačítko 🗺 (dřív jen satelit) otevírá nabídku podkladových map
+// v3.8: tlačítko 🗺/🛰 přepíná podkladovou mapu (klepnutí); podržením se otevře nabídka
+// dalších vrstev (benzínky, CHKO – doplní je fuel.js / chko.js)
 const satelliteBtn = document.getElementById('satellite-btn');
-satelliteBtn.textContent = '🗺';
-satelliteBtn.title = 'Podkladová mapa, benzínky, CHKO';
 document.body.insertAdjacentHTML('beforeend', `<div id="layer-menu" role="menu">
-  <div class="layer-menu-title">Podkladová mapa</div>
-  ${BASE_ORDER.map(k=>`<button type="button" class="layer-opt" data-base="${k}" role="menuitemradio"><span class="layer-radio"></span>${BASE_MAPS[k].label}</button>`).join('')}
+  <div class="layer-menu-title">Vrstvy na mapě</div>
 </div>`);
 const layerMenu = document.getElementById('layer-menu');
-function syncLayerMenu(){
-  layerMenu.querySelectorAll('.layer-opt[data-base]').forEach(b=>{
-    const on = b.dataset.base === currentBase;
-    b.classList.toggle('active', on);
-    b.setAttribute('aria-checked', String(on));
-  });
-}
-function setBaseMap(k){
-  if(!map || !BASE_MAPS[k] || k===currentBase) return;
-  map.removeLayer(baseLayers[currentBase]);
-  currentBase = k;
-  baseLayers[k].addTo(map);
-  try{ localStorage.setItem('baseMap', k); }catch(e){}
-  syncLayerMenu();
-}
+function openLayerMenu(){ placeLayerMenu(); layerMenu.classList.add('open'); }
 function placeLayerMenu(){
   const r = satelliteBtn.getBoundingClientRect();
   if(r.left + r.width/2 < window.innerWidth/2){
@@ -1476,18 +1437,6 @@ function placeLayerMenu(){
   layerMenu.style.maxHeight = Math.max(160, window.innerHeight - parseFloat(layerMenu.style.top) - 8) + 'px';
   layerMenu.style.overflowY = 'auto';
 }
-satelliteBtn.addEventListener('click', (e)=>{
-  e.stopPropagation();
-  placeLayerMenu();
-  layerMenu.classList.toggle('open');
-});
-layerMenu.addEventListener('click', (e)=>{
-  const b = e.target.closest('.layer-opt');
-  if(!b) return;
-  setBaseMap(b.dataset.base);
-  layerMenu.classList.remove('open');
-  toast('Mapa: ' + BASE_MAPS[b.dataset.base].short, 1800);
-});
 document.addEventListener('click', (e)=>{
   if(layerMenu.classList.contains('open') && !layerMenu.contains(e.target) && e.target !== satelliteBtn) layerMenu.classList.remove('open');
 });

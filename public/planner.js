@@ -361,54 +361,19 @@ function requestRoute(seg){
 // Mapa
 // ---------------------------------------------------------------
 const map = L.map('map', { zoomControl:false }).setView([49.8711, 17.8756], 12);
-const baseLayers = {
-  osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap contributors' }),
-  topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom:19, maxNativeZoom:17, attribution:'© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)' }),
-  // v ČR letecké snímky ČÚZK, pod nimi Esri (vidět za hranicemi)
-  sat: L.layerGroup([
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:19, attribution:'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics' }),
-    L.tileLayer('https://ags.cuzk.gov.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer/tile/{z}/{y}/{x}', { maxZoom:19, maxNativeZoom:20, attribution:'Ortofoto © ČÚZK' })
-  ])
-};
-// stejné názvy a pořadí jako v Atlasu
-const baseNames = {
-  topo:'Turistická (OpenTopoMap) – výrazné vrstevnice',
-  osm:'Základní (OpenStreetMap) – bez vrstevnic',
-  sat:'Satelit (ČÚZK v ČR, Esri mimo ČR)'
-};
-const baseShort = { topo:'Turistická', osm:'Základní', sat:'Satelit' };
-const BASE_ORDER = ['osm','topo','sat'];
-// podkladová mapa je společná s Atlasem (stejný klíč v prohlížeči) - změna na jedné stránce platí i na druhé
-const SHARED_BASE_KEY = 'baseMap';
-let currentBase = (()=>{ try{ return localStorage.getItem(SHARED_BASE_KEY); }catch(e){ return null; } })();
-if(!baseLayers[currentBase]) currentBase = 'osm';
-baseLayers[currentBase].addTo(map);
+// v3.8: podkladové mapy – turistická Mapy.com a satelit (public/basemaps.js), společné s Atlasem
+const baseCtl = window.CendurMaps.attach(map, { toast: t => toast(t, 1800) });
 
 // tlačítka mapy jako v Atlasu: 🗺 (nabídka podkladů), +, −
 // v3.6: společná funkce přibližování (public/zoom.js)
 window.CendurZoom.bind(map, { in1:'pl-zoom-in', out1:'pl-zoom-out', in3:'pl-zoom-in3', out3:'pl-zoom-out3' }, { min:3, max:19 });
 const layersBtn = document.getElementById('pl-layers-btn');
-layersBtn.title = 'Podkladová mapa, benzínky, CHKO';
 document.body.insertAdjacentHTML('beforeend', `<div id="layer-menu" role="menu">
-  <div class="layer-menu-title">Podkladová mapa</div>
-  ${BASE_ORDER.map(k=>`<button type="button" class="layer-opt" data-base="${k}" role="menuitemradio"><span class="layer-radio"></span>${baseNames[k]}</button>`).join('')}
+  <div class="layer-menu-title">Vrstvy na mapě</div>
 </div>`);
 const layerMenu = document.getElementById('layer-menu');
-function syncLayerMenu(){
-  layerMenu.querySelectorAll('.layer-opt[data-base]').forEach(b=>{
-    const on = b.dataset.base === currentBase;
-    b.classList.toggle('active', on);
-    b.setAttribute('aria-checked', String(on));
-  });
-}
-function setBaseMap(k){
-  if(!baseLayers[k] || k===currentBase) return;
-  map.removeLayer(baseLayers[currentBase]);
-  currentBase = k;
-  baseLayers[k].addTo(map);
-  try{ localStorage.setItem(SHARED_BASE_KEY, k); }catch(e){}
-  syncLayerMenu();
-}
+// klepnutí = přepnout Mapy.com / satelit, podržení = benzínky, CHKO
+baseCtl.bindButton(layersBtn, ()=>{ placeLayerMenu(); layerMenu.classList.add('open'); });
 function placeLayerMenu(){
   const r = layersBtn.getBoundingClientRect();
   layerMenu.style.left = 'auto';
@@ -417,23 +382,10 @@ function placeLayerMenu(){
   layerMenu.style.maxHeight = Math.max(160, window.innerHeight - r.top - 8) + 'px';
   layerMenu.style.overflowY = 'auto';
 }
-layersBtn.addEventListener('click', (e)=>{
-  e.stopPropagation();
-  placeLayerMenu();
-  layerMenu.classList.toggle('open');
-});
-layerMenu.addEventListener('click', (e)=>{
-  const b = e.target.closest('.layer-opt');
-  if(!b) return;
-  setBaseMap(b.dataset.base);
-  layerMenu.classList.remove('open');
-  toast('Mapa: ' + baseShort[b.dataset.base], 1800);
-});
 document.addEventListener('click', (e)=>{
   if(layerMenu.classList.contains('open') && !layerMenu.contains(e.target) && e.target !== layersBtn) layerMenu.classList.remove('open');
 });
 window.addEventListener('resize', ()=>{ if(layerMenu.classList.contains('open')) placeLayerMenu(); });
-syncLayerMenu();
 if(window.CendurFuel) CendurFuel.attach(map, layerMenu);
 if(window.CendurChko) CendurChko.attach(map, layerMenu);
 

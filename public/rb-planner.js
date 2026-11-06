@@ -84,24 +84,10 @@ const DRAFT_PREFIX = 'cenduroff.rb.draft.';
 // Mapa
 // ---------------------------------------------------------------
 const map = L.map('rb-map', { zoomControl:true }).setView([49.8711, 17.8756], 12);
-const baseLayers = {
-  osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap contributors' }),
-  topo: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom:19, maxNativeZoom:17, attribution:'© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)' }),
-  sat: L.layerGroup([
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom:19, attribution:'Tiles © Esri' }),
-    L.tileLayer('https://ags.cuzk.gov.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer/tile/{z}/{y}/{x}', { maxZoom:19, maxNativeZoom:20, attribution:'Ortofoto © ČÚZK' })
-  ])
-};
-let currentBase = (()=>{ try{ return localStorage.getItem(SHARED_BASE_KEY); }catch(e){ return null; } })();
-if(!baseLayers[currentBase]) currentBase = 'osm';
-baseLayers[currentBase].addTo(map);
-$('rb-base').value = currentBase;
-$('rb-base').addEventListener('change', e => {
-  const k = e.target.value;
-  if(!baseLayers[k] || k === currentBase) return;
-  map.removeLayer(baseLayers[currentBase]); currentBase = k; baseLayers[k].addTo(map);
-  try{ localStorage.setItem(SHARED_BASE_KEY, k); }catch(err){}
-});
+// v3.8: podkladové mapy – turistická Mapy.com a satelit (public/basemaps.js), společné s Atlasem
+const baseCtl = window.CendurMaps.attach(map, { toast: t => toast(t, 2500) });
+$('rb-base').value = baseCtl.current;
+$('rb-base').addEventListener('change', e => baseCtl.set(e.target.value));
 
 let routeLine = null, routeHit = null;
 const markerLayer = L.layerGroup().addTo(map);
