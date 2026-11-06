@@ -1,0 +1,48 @@
+/* ---------- CendurOFF – Nastavení účtu (nastaveni.html), v3.2 ----------
+   Jednotný systém: sekce = karta s nadpisem, v ní řádky „název + popisek vlevo, ovládání vpravo“. */
+html,body{height:auto;}
+body.settings-page{overflow:auto;background:var(--page);line-height:1.5;}
+body.settings-page header.topbar{position:sticky;top:0;}
+.s-wrap{max-width:720px;margin:0 auto;padding:24px 16px 60px;display:flex;flex-direction:column;gap:16px;}
+.s-wrap h1{font-size:clamp(26px,4vw,36px);margin:0 0 4px;}
+.s-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px 18px 8px;}
+.s-card h2{font-size:0.8rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--moss-dark);margin:12px 0 2px;font-family:'Roboto',sans-serif;font-weight:700;}
+.s-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-top:1px solid var(--line);}
+.s-card h2 + .s-row{border-top:0;}
+.s-row[hidden],.s-btn[hidden]{display:none;}
+.s-txt{flex:1;min-width:0;display:flex;flex-direction:column;}
+.s-txt b{font-family:'Exo 2',sans-serif;font-size:1.05rem;font-weight:700;}
+.s-txt small{color:var(--ink-soft);font-size:0.85rem;}
+.s-btns{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;}
+
+/* tlačítka – všechna stejná velikost a písmo */
+.s-btn{display:inline-flex;align-items:center;justify-content:center;min-width:110px;min-height:42px;padding:0 14px;box-sizing:border-box;
+  border-radius:8px;border:1.5px solid var(--moss-dark);background:none;color:var(--moss-dark);
+  font:700 0.92rem 'Roboto',sans-serif;text-decoration:none;cursor:pointer;white-space:nowrap;}
+.s-btn:hover{background:var(--moss-dark);color:#fff;}
+.s-btn.primary{background:var(--moss);border-color:var(--moss);color:#fff;}
+.s-btn.primary:hover{background:var(--moss-dark);}
+.s-btn.danger{border-color:var(--rust);color:var(--rust-dark);}
+.s-btn.danger:hover{background:var(--rust);color:#fff;}
+.s-btns .s-btn{min-width:0;}
+
+/* přepínač zapnuto / vypnuto */
+.s-switch{flex:none;width:58px;height:32px;border-radius:16px;border:0;background:#C9C4B6;position:relative;cursor:pointer;padding:0;transition:background .15s;}
+.s-switch span{position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .15s;}
+.s-switch[aria-checked="true"]{background:var(--moss);}
+.s-switch[aria-checked="true"] span{left:29px;}
+
+/* formulář změny hesla (rozbalí se pod řádkem) */
+.s-form{display:flex;flex-direction:column;gap:4px;padding:0 0 14px;}
+.s-form[hidden]{display:none;}
+.s-form label{font-size:0.85rem;font-weight:600;margin-top:6px;}
+.s-form input{height:42px;border:1px solid var(--line);border-radius:8px;padding:0 12px;font-size:1rem;background:#fff;}
+.s-msg{min-height:1.2em;font-size:0.88rem;color:var(--rust-dark);margin-top:4px;}
+.s-msg.ok{color:var(--moss-dark);}
+.s-form-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:6px;}
+
+@media (max-width:480px){
+  .s-row{flex-wrap:wrap;}
+  .s-btns{width:100%;justify-content:flex-start;}
+  .s-btns .s-btn{flex:1;}
+}

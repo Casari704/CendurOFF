@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.CendurOFF" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">@color/cenduroff_dark</item>
+        <item name="colorPrimaryDark">@color/cenduroff_dark</item>
+        <item name="colorAccent">@color/cenduroff_gold</item>
+        <item name="android:statusBarColor">@color/cenduroff_dark</item>
+        <item name="android:navigationBarColor">@color/cenduroff_dark</item>
+        <item name="android:windowBackground">@color/cenduroff_dark</item>
+    </style>
+</resources>

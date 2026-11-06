@@ -1,0 +1,97 @@
+// ---------------------------------------------------------------
+// CendurOFF – Nastavení účtu (nastaveni.html), v3.2
+// ---------------------------------------------------------------
+(function(){
+  const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
+  const $ = id => document.getElementById(id);
+
+  function toast(msg, ms){
+    const t = $('toast'); t.textContent = msg; t.style.display = 'block';
+    clearTimeout(toast._h); toast._h = setTimeout(() => { t.style.display = 'none'; }, ms || 3000);
+  }
+  async function api(url, options){
+    const o = Object.assign({ credentials:'include' }, options);
+    let t = null; try{ t = localStorage.getItem('cenduroff.token'); }catch(e){}
+    if(t) o.headers = Object.assign({}, o.headers, { Authorization:'Bearer ' + t });
+    const res = await fetch(API_URL + url, o);
+    let data = null; try{ data = await res.json(); }catch(e){}
+    if(!res.ok) throw new Error((data && data.error) || 'Něco se pokazilo.');
+    return data;
+  }
+
+  // ---------- účet ----------
+  async function boot(){
+    let user = null;
+    try{ user = await api('/api/auth/me'); }catch(e){}
+    if(!user){ location.replace('index.html?next=' + encodeURIComponent('nastaveni.html')); return; }
+    document.body.classList.remove('auth-pending');
+    if(window.CendurHeader) window.CendurHeader.setUser(user);
+    $('s-name').textContent = user.displayName;
+    $('s-role').textContent = (user.role === 'admin' ? 'administrátor' : 'uživatel') + (user.username && user.username.toLowerCase() !== String(user.displayName).toLowerCase() ? ' · přihlašovací jméno ' + user.username : '');
+    $('s-admin-row').hidden = user.role !== 'admin';
+  }
+  $('s-logout').addEventListener('click', async () => {
+    try{ await api('/api/auth/logout', { method:'POST' }); }catch(e){}
+    try{ localStorage.removeItem('cenduroff.token'); }catch(e){}
+    location.href = 'index.html';
+  });
+
+  // ---------- zvuky ----------
+  const S = window.CendurSound;
+  function renderSnd(){
+    const on = S ? S.enabled() : true;
+    $('s-snd').setAttribute('aria-checked', on ? 'true' : 'false');
+    $('s-snd-note').textContent = !on ? 'vypnuto – navigace je potichu'
+      : (S && !S.hasVoice() ? 'gong a bzučák (tenhle telefon nemá český hlas)' : 'gong před instrukcí, bzučák u nebezpečí, hlas telefonu');
+  }
+  $('s-snd').addEventListener('click', () => {
+    if(!S) return;
+    const on = !S.enabled();
+    S.setEnabled(on);
+    renderSnd();
+    if(on) S.announce('gong', 'Zvuky jsou zapnuté.');
+  });
+  const TEST_TEXT = { gong: 'Za devadesát metrů ostře vpravo.', buzzer: 'Za sto metrů vlevo, nebezpečí.', gentle: 'Jsi mimo trasu, cype!' };
+  document.querySelectorAll('[data-test]').forEach(b => b.addEventListener('click', () => {
+    if(!S) return;
+    if(!S.enabled()){ toast('Zvuky jsou vypnuté – zapni je přepínačem nahoře.'); return; }
+    S.announce(b.dataset.test, TEST_TEXT[b.dataset.test]);
+  }));
+  // české hlasy se v prohlížeči načítají se zpožděním
+  if('speechSynthesis' in window){ try{ speechSynthesis.onvoiceschanged = renderSnd; }catch(e){} }
+  renderSnd();
+  setTimeout(renderSnd, 1500);
+
+  // ---------- heslo ----------
+  const form = $('s-pw');
+  function setPw(open){
+    form.hidden = !open;
+    $('s-pw-open').hidden = open;
+    $('s-pw-open').setAttribute('aria-expanded', open ? 'true' : 'false');
+    if(open){ form.reset(); $('cp-msg').textContent = ''; $('cp-msg').className = 's-msg'; $('cp-current').focus(); }
+  }
+  $('s-pw-open').addEventListener('click', () => setPw(true));
+  $('s-pw-cancel').addEventListener('click', () => setPw(false));
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const msg = $('cp-msg');
+    const cur = $('cp-current').value, next = $('cp-new').value, conf = $('cp-confirm').value;
+    msg.className = 's-msg';
+    if(next.length < 4){ msg.textContent = 'Nové heslo musí mít alespoň 4 znaky.'; return; }
+    if(next !== conf){ msg.textContent = 'Nová hesla se neshodují.'; return; }
+    msg.textContent = 'Ukládám…';
+    try{
+      await api('/api/auth/change-password', { method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ currentPassword: cur, newPassword: next }) });
+      msg.className = 's-msg ok'; msg.textContent = 'Heslo bylo změněno.';
+      setTimeout(() => setPw(false), 1200);
+    }catch(err){ msg.textContent = err.message || 'Heslo se nepodařilo změnit.'; }
+  });
+
+  // ---------- aplikace ----------
+  let ver = 'web ' + (window.CENDUROFF_WEB_VERSION || '3.2');
+  try{ if(window.CendurApp && window.CendurApp.version) ver += ' · aplikace pro Android ' + window.CendurApp.version(); }catch(e){}
+  $('s-ver').textContent = ver;
+
+  boot();
+})();

@@ -1,0 +1,54 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+def startUrl = project.property('CENDUROFF_START_URL')
+def host = project.property('CENDUROFF_HOST')
+def apiUrl = project.property('CENDUROFF_API_URL')
+
+android {
+    namespace 'cz.cenduroff.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'cz.cenduroff.app'
+        minSdk 24
+        targetSdk 34
+        versionCode Integer.parseInt(project.property('CENDUROFF_VERSION_CODE'))
+        versionName project.property('CENDUROFF_VERSION_NAME')
+
+        buildConfigField 'String', 'START_URL', '"' + startUrl + '"'
+        buildConfigField 'String', 'WEB_HOST', '"' + host + '"'
+        buildConfigField 'String', 'API_URL', '"' + apiUrl + '"'
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+    lint {
+        // interní aplikace – varování lintu nezastaví sestavení APK
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.13.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.activity:activity-ktx:1.9.1'
+    // Android Auto (Car App Library)
+    implementation 'androidx.car.app:app:1.4.0'
+}

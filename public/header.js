@@ -36,7 +36,9 @@
   const ALL_PAGES = PAGES
     .concat(MENU_PAGES.map((p, i)=>Object.assign({ sep: i === 0 }, p)))
     .concat(HELP_PAGES.map((p, i)=>Object.assign({ sep: i === 0 }, p)));
-  const current = ALL_PAGES.find(p=>p.id===page) || (page === 'admin' ? ADMIN_PAGE : PAGES[0]);
+  // v3.2: Nastavení účtu je samostatná stránka (nastaveni.html)
+  const SETTINGS_PAGE = { id:'nastaveni', label:'Nastavení účtu', href:'nastaveni.html' };
+  const current = ALL_PAGES.find(p=>p.id===page) || (page === 'admin' ? ADMIN_PAGE : page === 'nastaveni' ? SETTINGS_PAGE : PAGES[0]);
 
   // v2.11: hlavička je jen tenký pruh – „← Zpět“ na dlaždice, název stránky a tlačítka stránky.
   // Všechny stránky, účet, FAQ a nahrání trasy jsou v dlaždicovém menu přes celou obrazovku.
@@ -61,23 +63,11 @@
       header.topbar .brand-link{min-width:0;overflow:hidden;}
       header.topbar .brand{overflow:hidden;text-overflow:ellipsis;}
       header.topbar .site-actions{flex-wrap:nowrap;margin-left:auto;}
-      #account-overlay .close-btn{background:none;font-family:inherit;cursor:pointer;}
-      #account-overlay .sound-row,#account-overlay .set-row{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line,#ddd);}
-      #account-overlay .sound-row span,#account-overlay .set-row span{flex:1;font-weight:700;display:flex;flex-direction:column;}
-      #account-overlay .sound-row small,#account-overlay .set-row small{font-weight:400;font-size:0.78rem;color:var(--ink-soft,#666);}
-      #account-overlay .set-btn{min-width:110px;padding:10px 14px;border-radius:6px;border:1.5px solid var(--moss-dark,#3d5a3a);background:none;color:var(--moss-dark,#3d5a3a);font-weight:700;font-family:inherit;cursor:pointer;}
-      #account-overlay #change-password-form{margin-top:6px;}
-      #account-overlay #change-password-form[hidden]{display:none;}
-      #account-overlay .admin-wide{margin-top:16px;}
-      #account-overlay .snd-btn{min-width:110px;padding:10px 14px;border-radius:6px;border:1.5px solid var(--moss-dark,#3d5a3a);background:var(--moss,#4F7048);color:#fff;font-weight:700;font-family:inherit;cursor:pointer;}
-      #account-overlay .snd-btn.off{background:none;color:var(--ink-soft,#666);border-color:var(--line,#ccc);}
-      #account-overlay .actions .admin-btn{flex:1;}
       @media (max-width:760px){ header.topbar .hdr-wide{display:none !important;} header.topbar .site-actions{display:flex;} }
       #tile-menu{position:fixed;inset:0;z-index:5000;background:#101810;color:#EFEAD8;display:none;
         padding:calc(env(safe-area-inset-top,0px) + 12px) calc(env(safe-area-inset-right,0px) + 12px) calc(env(safe-area-inset-bottom,0px) + 12px) calc(env(safe-area-inset-left,0px) + 12px);
         box-sizing:border-box;font-family:'Roboto',sans-serif;}
       #tile-menu.open{display:grid;}
-      #account-overlay{z-index:6000;}
       #tile-menu{grid-template-columns:1fr;grid-template-rows:auto auto 1fr auto 1fr auto;gap:10px;}
       .tm-head{display:flex;align-items:center;gap:10px;}
       .tm-head img{height:34px;border-radius:5px;}
@@ -132,7 +122,7 @@
   </div></div>
   <div class="tm-side">
     <button class="tm-s up" id="tm-upload" type="button">+ Nahrát trasu</button>
-    <button class="tm-s" id="tm-account" type="button">Nastavení účtu</button>
+    <button class="tm-s${page==='nastaveni' ? ' cur' : ''}" id="tm-account" type="button">Nastavení účtu</button>
     <a class="tm-s${page==='faq' ? ' cur' : ''}" href="faq.html">FAQ</a>
     <a class="tm-s${page==='merch' ? ' cur' : ''}" href="merch.html">Merch</a>
   </div>
@@ -190,10 +180,11 @@
     if(page === 'atlas' && up && user){ if(tilesHome) leaveHomeToAtlas(); else closeTiles(); up.click(); }
     else location.href = 'index.html?nahrat=1';
   });
-  // Nastavení účtu se otevře nad dlaždicemi (dlaždice zůstanou pod ním)
+  // v3.2: Nastavení účtu = samostatná stránka nastaveni.html
   document.getElementById('tm-account').addEventListener('click', ()=>{
     if(!user){ location.href = page === 'atlas' ? ATLAS_URL : 'index.html?next=' + encodeURIComponent(current.href); return; }
-    userBtn.click();
+    if(page === 'nastaveni'){ closeTiles(); return; }
+    location.href = 'nastaveni.html';
   });
   document.addEventListener('keydown', e=>{ if(e.key==='Escape' && tiles.classList.contains('open') && !document.querySelector('.modal-overlay.open')) closeTiles(); });
 
@@ -221,47 +212,10 @@
   </div>
 </div>`);
   }
-  if(!document.getElementById('account-overlay')){
-    document.body.insertAdjacentHTML('beforeend', `
-<div class="modal-overlay" id="account-overlay">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="account-title">
-    <button class="detail-close" id="account-close" type="button" aria-label="Zavřít">×</button>
-    <h2 id="account-title">Nastavení účtu</h2>
-    <p class="sub" id="account-username-label"></p>
-    <div class="sound-row">
-      <span>Zvuky v navigaci<small id="snd-note"></small></span>
-      <button class="snd-btn" id="snd-toggle" type="button" aria-pressed="true">Zapnuto</button>
-    </div>
-    <div class="set-row">
-      <span>Heslo<small>změna hesla k účtu</small></span>
-      <button class="set-btn" id="cp-open" type="button" aria-expanded="false" aria-controls="change-password-form">Změnit heslo ▾</button>
-    </div>
-    <form id="change-password-form" hidden>
-      <label for="cp-current">Současné heslo</label>
-      <input type="password" id="cp-current" autocomplete="current-password" required minlength="4">
-      <label for="cp-new">Nové heslo</label>
-      <input type="password" id="cp-new" autocomplete="new-password" required minlength="4">
-      <label for="cp-confirm">Nové heslo znovu</label>
-      <input type="password" id="cp-confirm" autocomplete="new-password" required minlength="4">
-      <div class="form-msg" id="cp-msg"></div>
-      <div class="actions">
-        <button class="primary-btn" type="submit" style="margin-top:0;">Uložit nové heslo</button>
-      </div>
-    </form>
-    <a class="admin-btn admin-wide" id="admin-btn" href="admin.html" style="display:none">Admin sekce</a>
-    <div class="account-btns">
-      <button class="admin-btn close-btn" id="cp-cancel" type="button">Zavřít</button>
-      <button class="logout-btn" id="logout-btn" type="button">Odhlásit se</button>
-    </div>
-  </div>
-</div>`);
-  }
 
   const aboutOverlay = document.getElementById('about-overlay');
-  const accountOverlay = document.getElementById('account-overlay');
   const userBtn = document.getElementById('user-chip');
   const loginLink = document.getElementById('login-link');
-  const form = document.getElementById('change-password-form');
   let user = null;
 
   async function api(url, options){
@@ -283,76 +237,9 @@
 
   userBtn.addEventListener('click', ()=>{
     if(!user) return;
-    document.getElementById('account-username-label').textContent =
-      'Přihlášen(a) jako ' + user.displayName + (user.role==='admin' ? ' (admin)' : '');
-    form.reset();
-    document.getElementById('cp-msg').textContent = '';
-    document.getElementById('admin-btn').style.display = user.role==='admin' ? '' : 'none';
-    accountOverlay.classList.add('open');
-    // roli ověřit čerstvě ze serveru (kdyby stránka měla uživatele bez role)
-    if(!user.role) api('/api/auth/me').then(u=>{ if(u){ user.role = u.role; document.getElementById('admin-btn').style.display = u.role==='admin' ? '' : 'none'; } }).catch(()=>{});
+    if(page !== 'nastaveni') location.href = 'nastaveni.html';
   });
-  // zvuky v navigaci (public/sound.js) – zapnout / vypnout, uloženo v telefonu
-  function sndOn(){ try{ return localStorage.getItem('cenduroff.sound') !== 'off'; }catch(e){ return true; } }
-  function renderSnd(){
-    const b = document.getElementById('snd-toggle'), on = sndOn();
-    b.textContent = on ? 'Zapnuto' : 'Vypnuto';
-    b.classList.toggle('off', !on);
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    const S = window.CendurSound;
-    document.getElementById('snd-note').textContent = !on ? 'bez gongu a hlasu' : (S && !S.hasVoice() ? 'gong a výstrahy (tenhle telefon nemá český hlas)' : 'gong, výstrahy a hlas telefonu');
-  }
-  document.getElementById('snd-toggle').addEventListener('click', ()=>{
-    const on = !sndOn();
-    try{ localStorage.setItem('cenduroff.sound', on ? 'on' : 'off'); }catch(e){}
-    renderSnd();
-    if(on && window.CendurSound) CendurSound.announce('gong', 'Zvuky jsou zapnuté.');
-  });
-  userBtn.addEventListener('click', renderSnd);
-  // změna hesla je schovaná pod tlačítkem
-  function setPwOpen(open){
-    form.hidden = !open;
-    const b = document.getElementById('cp-open');
-    b.textContent = open ? 'Zavřít ▴' : 'Změnit heslo ▾';
-    b.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if(open) document.getElementById('cp-current').focus();
-  }
-  document.getElementById('cp-open').addEventListener('click', ()=> setPwOpen(form.hidden));
-  userBtn.addEventListener('click', ()=> setPwOpen(false));
-  document.getElementById('account-close').addEventListener('click', ()=> accountOverlay.classList.remove('open'));
-  document.getElementById('cp-cancel').addEventListener('click', ()=> accountOverlay.classList.remove('open'));
-  closeOnBackdrop(accountOverlay);
-  document.addEventListener('keydown', e=>{
-    if(e.key==='Escape'){ aboutOverlay.classList.remove('open'); accountOverlay.classList.remove('open'); }
-  });
-
-  form.addEventListener('submit', async e=>{
-    e.preventDefault();
-    const msg = document.getElementById('cp-msg');
-    const cur = document.getElementById('cp-current').value;
-    const next = document.getElementById('cp-new').value;
-    const confirmVal = document.getElementById('cp-confirm').value;
-    msg.style.color = '';
-    if(next.length < 4){ msg.textContent = 'Nové heslo musí mít alespoň 4 znaky.'; return; }
-    if(next !== confirmVal){ msg.textContent = 'Nová hesla se neshodují.'; return; }
-    msg.textContent = 'Ukládám…';
-    try{
-      await api('/api/auth/change-password', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ currentPassword: cur, newPassword: next }) });
-      msg.style.color = 'var(--moss-dark)';
-      msg.textContent = 'Heslo bylo změněno.';
-      setTimeout(()=> accountOverlay.classList.remove('open'), 900);
-    }catch(err){
-      msg.textContent = err.message || 'Heslo se nepodařilo změnit.';
-    }
-  });
-
-  document.getElementById('logout-btn').addEventListener('click', async ()=>{
-    try{ await api('/api/auth/logout', { method:'POST' }); }catch(e){}
-    try{ localStorage.removeItem('cenduroff.token'); }catch(e){}
-    // po odhlášení vždy na přihlašovací stránku Atlasu
-    location.href = 'index.html';
-  });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') aboutOverlay.classList.remove('open'); });
 
   function setUser(u){
     user = u || null;
@@ -363,8 +250,6 @@
     if(tu) tu.textContent = user ? user.displayName + (user.role==='admin' ? ' · admin' : '') : '';
     const ta = document.getElementById('tm-account');
     if(ta) ta.textContent = user ? 'Nastavení účtu' : 'Přihlásit se';
-    const ab = document.getElementById('admin-btn');
-    if(ab) ab.style.display = (user && user.role==='admin') ? '' : 'none';
     window.dispatchEvent(new Event('resize')); // hlavička mohla změnit výšku (mobil)
   }
 
