@@ -41,13 +41,13 @@
   // v2.11: hlavička je jen tenký pruh – „← Zpět“ na dlaždice, název stránky a tlačítka stránky.
   // Všechny stránky, účet, FAQ a nahrání trasy jsou v dlaždicovém menu přes celou obrazovku.
   header.innerHTML = `
-    <button class="btn hdr-back" id="hdr-back" type="button" aria-label="Zpět na úvodní dlaždice">← Zpět</button>
     <a class="brand-link" href="#" id="hdr-brand" title="Úvodní dlaždice">
       <img class="brand-logo" src="public/img/pms-logo.png" alt="">
       <span class="brand">CendurOFF <span class="brand-sub">${current.label}</span></span>
     </a>
     <div class="site-actions">
       ${page==='atlas' ? '<button class="btn solid hdr-wide" id="open-upload" type="button">+ Nahrát trasu</button>' : ''}
+      <button class="btn hdr-back" id="hdr-back" type="button" aria-label="Zpět na úvodní dlaždice">← Zpět</button>
       <button class="btn" id="open-about" type="button" hidden>O projektu</button>
       <button class="btn user-btn hdr-wide" id="user-chip" type="button" hidden></button>
       <a class="btn hdr-wide" id="login-link" href="index.html${page==='atlas' ? '' : '?next=' + encodeURIComponent(current.href)}" hidden>Přihlásit se</a>
@@ -60,7 +60,8 @@
       .hdr-back{flex:none;font-weight:700;}
       header.topbar .brand-link{min-width:0;overflow:hidden;}
       header.topbar .brand{overflow:hidden;text-overflow:ellipsis;}
-      @media (max-width:760px){ header.topbar .hdr-wide{display:none !important;} header.topbar .brand-logo{display:none;} }
+      header.topbar .site-actions{flex-wrap:nowrap;margin-left:auto;}
+      @media (max-width:760px){ header.topbar .hdr-wide{display:none !important;} header.topbar .site-actions{display:flex;} }
       #tile-menu{position:fixed;inset:0;z-index:5000;background:#101810;color:#EFEAD8;display:none;
         padding:calc(env(safe-area-inset-top,0px) + 12px) calc(env(safe-area-inset-right,0px) + 12px) calc(env(safe-area-inset-bottom,0px) + 12px) calc(env(safe-area-inset-left,0px) + 12px);
         box-sizing:border-box;font-family:'Roboto',sans-serif;}
