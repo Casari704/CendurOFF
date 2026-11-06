@@ -525,6 +525,22 @@ function insertOnSeg(i, ll){
   changed();
 }
 
+// v3.3: rozdělení trasy v bodě – smaže všechno před bodem (nový start) nebo za bodem (nový cíl)
+function trimRoute(i, part){
+  if(i <= 0 || i >= wps.length-1) return;
+  pushUndo();
+  if(part === 'start'){
+    segs.slice(0, i).forEach(s=>s.req++);
+    wps = wps.slice(i); segs = segs.slice(i);
+    toast('Začátek trasy smazán – tady je teď start. (Vrátíš tlačítkem Zpět.)');
+  } else {
+    segs.slice(i).forEach(s=>s.req++);
+    wps = wps.slice(0, i+1); segs = segs.slice(0, i);
+    toast('Konec trasy smazán – tady je teď cíl. (Vrátíš tlačítkem Zpět.)');
+  }
+  changed();
+}
+
 function setSegMode(i, mode){
   if(!segs[i] || segs[i].mode === mode) return;
   pushUndo();
@@ -668,10 +684,22 @@ function openWpPopup(i, marker){
         <button type="button" data-seg="${r.seg}" data-mode="straight" ${mode==='straight'?'disabled':''}>📏 Rovně</button>
       </div></div>`;
   });
+  if(i > 0 && i < wps.length-1){
+    const kmBefore = segs.slice(0, i).reduce((a, _, k)=> a + computeStats(segGeometry(k)).distanceKm, 0);
+    const kmAfter  = segs.slice(i).reduce((a, _, k)=> a + computeStats(segGeometry(i + k)).distanceKm, 0);
+    html += `<div class="pl-pop-row pl-pop-split"><span>✂ Rozdělit trasu tady a smazat:</span>
+      <div class="pl-pop-btns">
+        <button type="button" data-trim="start">Začátek<small>${kmBefore.toFixed(1)} km</small></button>
+        <button type="button" data-trim="end">Konec<small>${kmAfter.toFixed(1)} km</small></button>
+      </div></div>`;
+  }
   html += `<button type="button" class="pl-pop-del">🗑 Smazat bod</button>`;
   el.innerHTML = html;
   el.querySelectorAll('button[data-seg]').forEach(b=>{
     b.addEventListener('click', ()=>{ map.closePopup(); setSegMode(Number(b.dataset.seg), b.dataset.mode); });
+  });
+  el.querySelectorAll('button[data-trim]').forEach(b=>{
+    b.addEventListener('click', ()=>{ map.closePopup(); trimRoute(i, b.dataset.trim); });
   });
   el.querySelector('.pl-pop-del').addEventListener('click', ()=>{ map.closePopup(); deleteWaypoint(i); });
   L.popup({ offset:[0,-6], closeButton:true, autoPanPadding:[30,30] }).setLatLng(marker.getLatLng()).setContent(el).openOn(map);
