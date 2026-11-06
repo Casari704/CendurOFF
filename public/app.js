@@ -2330,10 +2330,14 @@ async function enterApp(){
     const user = await api('/api/auth/me');
     currentUser = user;
     if(goNextIfAny()) return;
+    document.body.classList.remove('auth-pending');
     enterApp();
   }catch(e){
-    // not logged in - show login screen (already visible by default)
+    // nepřihlášený – teprve teď ukázat přihlašovací obrazovku
+    document.body.classList.remove('auth-pending');
   }
 })();
+// pojistka: kdyby server dlouho neodpovídal, přihlašovací obrazovka se ukáže nejpozději po 8 s
+setTimeout(()=> document.body.classList.remove('auth-pending'), 8000);
 
 })();
