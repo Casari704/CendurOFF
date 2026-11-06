@@ -743,9 +743,10 @@ function renderStats(){
   document.getElementById('pl-gain').textContent = Math.round(st.elevGainM);
   document.getElementById('pl-wps').textContent = wps.length;
   document.getElementById('pl-chip-text').textContent = wps.length===0
-    ? 'Klikni do mapy a přidej start trasy'
-    : wps.length===1 ? 'Start přidán – klikni na další místo'
+    ? 'Klepni do mapy a přidej start'
+    : wps.length===1 ? 'Start přidán – klepni na další místo'
     : `${km} km · ↗ ${Math.round(st.elevGainM)} m`;
+  document.getElementById('pl-head-title').textContent = editing && editing.id ? '✎ ' + (editing.name || 'trasa') : (editing && editing.name ? editing.name : 'Nová trasa');
   document.getElementById('pl-elev').innerHTML = renderElevationProfile(pts);
   const box = document.getElementById('pl-editing-box');
   box.hidden = !editing;
@@ -809,23 +810,32 @@ prefEl.addEventListener('change', onPrefChange);
 pathsEl.addEventListener('change', onPrefChange);
 
 document.getElementById('pl-undo').addEventListener('click', undo);
-document.getElementById('pl-undo-qb').addEventListener('click', undo);
 document.getElementById('pl-redo').addEventListener('click', redo);
-document.getElementById('pl-reverse').addEventListener('click', reverseRoute);
-document.getElementById('pl-clear').addEventListener('click', clearAll);
+document.getElementById('pl-reverse').addEventListener('click', ()=>{ closeSheet(); reverseRoute(); });
+document.getElementById('pl-clear').addEventListener('click', ()=>{ closeSheet(); clearAll(); });
 document.addEventListener('keydown', e=>{
   if(e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
   if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='z' && !e.shiftKey){ e.preventDefault(); undo(); }
   else if((e.ctrlKey || e.metaKey) && (e.key.toLowerCase()==='y' || (e.key.toLowerCase()==='z' && e.shiftKey))){ e.preventDefault(); redo(); }
 });
 
-// boční panel (na mobilu se vysouvá jazýčkem)
-const panel = document.getElementById('pl-panel');
-if(window.matchMedia('(max-width:760px)').matches || localStorage.getItem('plPanelCollapsed')==='1') panel.classList.add('collapsed');
-document.getElementById('pl-panel-tab').addEventListener('click', ()=>{
-  panel.classList.toggle('collapsed');
-  try{ localStorage.setItem('plPanelCollapsed', panel.classList.contains('collapsed') ? '1' : '0'); }catch(e){}
-});
+// v3.5: okno „⋯ Více“ (detail trasy, GPX, nastavení hledání cesty) místo bočního panelu
+const sheet = document.getElementById('pl-sheet');
+function openSheet(){ renderStats(); syncPrefSeg(); sheet.classList.add('open'); }
+function closeSheet(){ sheet.classList.remove('open'); }
+document.getElementById('pl-more').addEventListener('click', openSheet);
+document.getElementById('pl-head').addEventListener('click', openSheet);
+document.getElementById('pl-sheet-close').addEventListener('click', closeSheet);
+sheet.addEventListener('click', e=>{ if(e.target === sheet) closeSheet(); });
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape') closeSheet(); });
+function syncPrefSeg(){
+  document.querySelectorAll('.pl-pref-seg button').forEach(b=> b.classList.toggle('active', b.dataset.pref === prefEl.value));
+}
+document.querySelectorAll('.pl-pref-seg button').forEach(b=> b.addEventListener('click', ()=>{
+  if(prefEl.value === b.dataset.pref) return;
+  prefEl.value = b.dataset.pref; syncPrefSeg(); onPrefChange();
+}));
+syncPrefSeg();
 
 // poloha
 let meMarker = null;
@@ -845,7 +855,7 @@ document.getElementById('pl-locate').addEventListener('click', ()=>{
 // ---------------------------------------------------------------
 let allRoutes = [];
 async function loadRouteList(){
-  const sel = document.getElementById('pl-route-select');
+  const sel = document.getElementById('pl-route-select') || document.createElement('select');
   try{
     allRoutes = await api('/api/routes');
     allRoutes.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), 'cs', { sensitivity:'base', numeric:true }));
@@ -897,7 +907,7 @@ function openOtherPopup(r, latlng){
     </div>`;
   el.querySelector('.pl-pop-edit').addEventListener('click', ()=>{
     map.closePopup();
-    openRouteById(r.id, true).then(ok=>{ if(ok){ if(window.matchMedia('(max-width:760px)').matches) panel.classList.add('collapsed'); } });
+    openRouteById(r.id, true);
   });
   el.querySelector('.pl-pop-add').addEventListener('click', ()=>{ map.closePopup(); addPoint(latlng); });
   L.popup({ closeButton:true, autoPanPadding:[30,30] }).setLatLng(latlng).setContent(el).openOn(map);
@@ -929,11 +939,6 @@ async function openRouteById(id, askFirst){
   toast(own ? 'Trasa otevřena – můžeš ji upravit a uložit změny.' : 'Trasa otevřena jako admin (patří uživateli ' + (r.owner_display || '?') + ').', 5000);
   return true;
 }
-document.getElementById('pl-open-route').addEventListener('click', ()=>{
-  const id = document.getElementById('pl-route-select').value;
-  if(!id){ toast('Nejdřív vyber trasu ze seznamu.'); return; }
-  openRouteById(id, true).then(ok=>{ if(ok && window.matchMedia('(max-width:760px)').matches) panel.classList.add('collapsed'); });
-});
 document.getElementById('pl-gpx-file').addEventListener('change', async e=>{
   const f = e.target.files[0];
   e.target.value = '';
@@ -941,10 +946,10 @@ document.getElementById('pl-gpx-file').addEventListener('change', async e=>{
   try{
     const { points, suggestedName } = parseGPX(await f.text());
     if(!confirmReplace('souborem ' + f.name)) return;
+    closeSheet();
     loadPoints(points, { id:null, name: suggestedName || f.name.replace(/\.gpx$/i,''), description:'', route_type:'' });
     drawOthers();
     toast('GPX načteno – body můžeš tahat, mazat a doplňovat.', 4000);
-    if(window.matchMedia('(max-width:760px)').matches) panel.classList.add('collapsed');
   }catch(err){ toast(err.message || 'GPX se nepodařilo načíst.'); }
 });
 
@@ -980,7 +985,7 @@ function openSaveDialog(){
   document.getElementById('pl-save-overwrite').disabled = !currentUser;
   saveOverlay.classList.add('open');
 }
-document.getElementById('pl-save').addEventListener('click', openSaveDialog);
+
 document.getElementById('pl-save-qb').addEventListener('click', openSaveDialog);
 document.getElementById('pl-save-close').addEventListener('click', ()=> saveOverlay.classList.remove('open'));
 saveOverlay.addEventListener('click', e=>{ if(e.target===saveOverlay) saveOverlay.classList.remove('open'); });

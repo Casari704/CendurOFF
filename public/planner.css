@@ -124,3 +124,51 @@ body.auth-pending #app-screen{visibility:hidden;}
 /* v3.4: klepnutí na jinou trasu v mapě */
 .pl-pop-other{flex-direction:column;margin-top:10px;}
 .pl-popup .pl-pop-edit{background:var(--moss);border-color:var(--moss);color:#fff;padding:9px 6px;font-size:0.85rem;}
+
+/* ---------- v3.5: Planner bez bočního panelu ---------- */
+/* štítek vlevo nahoře (jako v Roadbook NAVI) */
+#pl-head{position:absolute;top:12px;left:12px;z-index:900;max-width:calc(100% - 110px);
+  display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;
+  background:var(--ink);color:#EFEAD8;border:0;border-radius:12px;padding:9px 14px;
+  box-shadow:0 4px 14px rgba(0,0,0,0.25);cursor:pointer;font-family:'Roboto',sans-serif;}
+#pl-head b{font-family:'Exo 2',sans-serif;font-size:1.05rem;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#pl-head #pl-chip-text{font-size:0.88rem;font-weight:600;color:var(--gold);}
+#pl-head #pl-chip-text::after{content:'  ·  detail ›';color:#9AA48E;font-weight:400;font-size:0.8rem;white-space:pre;}
+.planner-page .modal-overlay.open ~ .toast,.planner-page .toast{z-index:7000;}
+/* spodní lišta */
+.pl-seg .sht{display:none;}
+#pl-quickbar .pl-qb#pl-more{font-size:1.6rem;font-weight:700;}
+#pl-quickbar .map-btn-square.pl-qb:disabled{opacity:0.35;}
+/* okno Více */
+.pl-sheet-overlay{align-items:flex-end;}
+.pl-sheet{max-width:460px;width:100%;max-height:88vh;overflow-y:auto;}
+.pl-sheet h2{margin-bottom:6px;}
+.pl-sheet .pl-editing{font-size:0.88rem;margin-bottom:8px;}
+.pl-sheet .detail-stats{margin:6px 0 10px;}
+.pl-sheet .elev-profile h3{font-size:0.85rem;margin:6px 0 4px;}
+.pl-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0 4px;}
+.pl-grid button,.pl-file-btn{display:flex;align-items:center;justify-content:center;min-height:46px;margin:0 !important;
+  border:1.5px solid var(--moss-dark);border-radius:8px;background:none;color:var(--moss-dark);
+  font:700 0.9rem 'Roboto',sans-serif;cursor:pointer;}
+.pl-grid button:hover,.pl-file-btn:hover{background:var(--moss-dark);color:#fff;}
+.pl-h{font-size:0.95rem;margin:16px 0 6px;padding-top:12px;border-top:1px solid var(--line);}
+.pl-h small{font-weight:400;color:var(--ink-soft);}
+.pl-pref-seg{display:flex;border:1.5px solid var(--moss-dark);border-radius:8px;overflow:hidden;margin-bottom:8px;}
+.pl-pref-seg button{flex:1;border:0;background:none;padding:10px 4px;font:700 0.9rem 'Roboto',sans-serif;color:var(--moss-dark);cursor:pointer;}
+.pl-pref-seg button + button{border-left:1.5px solid var(--moss-dark);}
+.pl-pref-seg button.active{background:var(--moss);color:#fff;}
+.pl-sheet .pl-check{margin:8px 0 0;}
+.pl-sheet .hint{font-size:0.78rem;color:var(--ink-soft);line-height:1.45;margin:10px 0 0;}
+.pl-howto{margin-top:14px;padding-top:10px;border-top:1px solid var(--line);}
+.pl-howto summary{font-weight:700;cursor:pointer;}
+@media (min-width:761px){
+  .pl-sheet-overlay{align-items:center;}
+}
+@media (max-width:760px){
+  #pl-head{top:8px;left:8px;padding:7px 12px;max-width:calc(100% - 80px);}
+  #pl-quickbar .pl-seg .lng,#pl-quickbar .pl-qb-save span{display:none;}
+  #pl-quickbar .pl-seg .sht{display:block;font-size:0.72rem;line-height:1;}
+  .pl-seg button{font-size:1.15rem !important;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
+  #pl-quickbar .pl-qb-save{font-size:1.3rem !important;flex:none;width:50px;min-width:50px;padding:0;justify-content:center;}
+  .pl-sheet{max-height:85vh;border-radius:16px 16px 0 0;}
+}
