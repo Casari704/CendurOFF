@@ -8,7 +8,7 @@
 //   - rolovací nabídka „Menu ▾“: Atlas NAVI · Atlas Planner | Roadbook planner · Roadbook NAVI | Merch · FAQ
 //     (vždy stejné pořadí a názvy, aktivní stránka má zlatý obrys),
 //   - tlačítko „+ Nahrát trasu“ (jen v Atlasu), „O projektu“ a tlačítko uživatele,
-//   - okno „O projektu“ a okno „Můj účet“ (změna hesla + odhlášení).
+//   - okno „O projektu“ a okno „Nastavení účtu“ (změna hesla + odhlášení).
 // Stránka pak zavolá CendurHeader.setUser(user) – nebo setUser(null) pro nepřihlášeného.
 // Merch si přihlášení ověří sám (data-auth="auto").
 // ---------------------------------------------------------------
@@ -62,9 +62,13 @@
       header.topbar .brand{overflow:hidden;text-overflow:ellipsis;}
       header.topbar .site-actions{flex-wrap:nowrap;margin-left:auto;}
       #account-overlay .close-btn{background:none;font-family:inherit;cursor:pointer;}
-      #account-overlay .sound-row{display:flex;align-items:center;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line,#ddd);}
-      #account-overlay .sound-row span{flex:1;font-weight:700;display:flex;flex-direction:column;}
-      #account-overlay .sound-row small{font-weight:400;font-size:0.78rem;color:var(--ink-soft,#666);}
+      #account-overlay .sound-row,#account-overlay .set-row{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line,#ddd);}
+      #account-overlay .sound-row span,#account-overlay .set-row span{flex:1;font-weight:700;display:flex;flex-direction:column;}
+      #account-overlay .sound-row small,#account-overlay .set-row small{font-weight:400;font-size:0.78rem;color:var(--ink-soft,#666);}
+      #account-overlay .set-btn{min-width:110px;padding:10px 14px;border-radius:6px;border:1.5px solid var(--moss-dark,#3d5a3a);background:none;color:var(--moss-dark,#3d5a3a);font-weight:700;font-family:inherit;cursor:pointer;}
+      #account-overlay #change-password-form{margin-top:6px;}
+      #account-overlay #change-password-form[hidden]{display:none;}
+      #account-overlay .admin-wide{margin-top:16px;}
       #account-overlay .snd-btn{min-width:110px;padding:10px 14px;border-radius:6px;border:1.5px solid var(--moss-dark,#3d5a3a);background:var(--moss,#4F7048);color:#fff;font-weight:700;font-family:inherit;cursor:pointer;}
       #account-overlay .snd-btn.off{background:none;color:var(--ink-soft,#666);border-color:var(--line,#ccc);}
       #account-overlay .actions .admin-btn{flex:1;}
@@ -128,7 +132,7 @@
   </div></div>
   <div class="tm-side">
     <button class="tm-s up" id="tm-upload" type="button">+ Nahrát trasu</button>
-    <button class="tm-s" id="tm-account" type="button">Můj účet</button>
+    <button class="tm-s" id="tm-account" type="button">Nastavení účtu</button>
     <a class="tm-s${page==='faq' ? ' cur' : ''}" href="faq.html">FAQ</a>
     <a class="tm-s${page==='merch' ? ' cur' : ''}" href="merch.html">Merch</a>
   </div>
@@ -186,7 +190,7 @@
     if(page === 'atlas' && up && user){ if(tilesHome) leaveHomeToAtlas(); else closeTiles(); up.click(); }
     else location.href = 'index.html?nahrat=1';
   });
-  // Můj účet se otevře nad dlaždicemi (dlaždice zůstanou pod ním)
+  // Nastavení účtu se otevře nad dlaždicemi (dlaždice zůstanou pod ním)
   document.getElementById('tm-account').addEventListener('click', ()=>{
     if(!user){ location.href = page === 'atlas' ? ATLAS_URL : 'index.html?next=' + encodeURIComponent(current.href); return; }
     userBtn.click();
@@ -222,10 +226,17 @@
 <div class="modal-overlay" id="account-overlay">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="account-title">
     <button class="detail-close" id="account-close" type="button" aria-label="Zavřít">×</button>
-    <h2 id="account-title">Můj účet</h2>
+    <h2 id="account-title">Nastavení účtu</h2>
     <p class="sub" id="account-username-label"></p>
-    <form id="change-password-form">
-      <h3 class="account-sub">Změna hesla</h3>
+    <div class="sound-row">
+      <span>Zvuky v navigaci<small id="snd-note"></small></span>
+      <button class="snd-btn" id="snd-toggle" type="button" aria-pressed="true">Zapnuto</button>
+    </div>
+    <div class="set-row">
+      <span>Heslo<small>změna hesla k účtu</small></span>
+      <button class="set-btn" id="cp-open" type="button" aria-expanded="false" aria-controls="change-password-form">Změnit heslo ▾</button>
+    </div>
+    <form id="change-password-form" hidden>
       <label for="cp-current">Současné heslo</label>
       <input type="password" id="cp-current" autocomplete="current-password" required minlength="4">
       <label for="cp-new">Nové heslo</label>
@@ -234,14 +245,10 @@
       <input type="password" id="cp-confirm" autocomplete="new-password" required minlength="4">
       <div class="form-msg" id="cp-msg"></div>
       <div class="actions">
-        <a class="admin-btn" id="admin-btn" href="admin.html" style="display:none">Admin sekce</a>
-        <button class="primary-btn" type="submit" style="margin-top:0;">Změnit heslo</button>
+        <button class="primary-btn" type="submit" style="margin-top:0;">Uložit nové heslo</button>
       </div>
     </form>
-    <div class="sound-row">
-      <span>Zvuky v navigaci<small id="snd-note"></small></span>
-      <button class="snd-btn" id="snd-toggle" type="button" aria-pressed="true">Zapnuto</button>
-    </div>
+    <a class="admin-btn admin-wide" id="admin-btn" href="admin.html" style="display:none">Admin sekce</a>
     <div class="account-btns">
       <button class="admin-btn close-btn" id="cp-cancel" type="button">Zavřít</button>
       <button class="logout-btn" id="logout-btn" type="button">Odhlásit se</button>
@@ -302,6 +309,16 @@
     if(on && window.CendurSound) CendurSound.announce('gong', 'Zvuky jsou zapnuté.');
   });
   userBtn.addEventListener('click', renderSnd);
+  // změna hesla je schovaná pod tlačítkem
+  function setPwOpen(open){
+    form.hidden = !open;
+    const b = document.getElementById('cp-open');
+    b.textContent = open ? 'Zavřít ▴' : 'Změnit heslo ▾';
+    b.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if(open) document.getElementById('cp-current').focus();
+  }
+  document.getElementById('cp-open').addEventListener('click', ()=> setPwOpen(form.hidden));
+  userBtn.addEventListener('click', ()=> setPwOpen(false));
   document.getElementById('account-close').addEventListener('click', ()=> accountOverlay.classList.remove('open'));
   document.getElementById('cp-cancel').addEventListener('click', ()=> accountOverlay.classList.remove('open'));
   closeOnBackdrop(accountOverlay);
@@ -345,7 +362,7 @@
     const tu = document.getElementById('tm-user');
     if(tu) tu.textContent = user ? user.displayName + (user.role==='admin' ? ' · admin' : '') : '';
     const ta = document.getElementById('tm-account');
-    if(ta) ta.textContent = user ? 'Můj účet' : 'Přihlásit se';
+    if(ta) ta.textContent = user ? 'Nastavení účtu' : 'Přihlásit se';
     const ab = document.getElementById('admin-btn');
     if(ab) ab.style.display = (user && user.role==='admin') ? '' : 'none';
     window.dispatchEvent(new Event('resize')); // hlavička mohla změnit výšku (mobil)
