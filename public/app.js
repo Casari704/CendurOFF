@@ -1739,7 +1739,7 @@ function setNavMode(on){
   if(followMode && lastLatLng) setFollowView(lastLatLng, false);
   if(navOn) freeStart(); else freeStop();
   locateBtn.classList.toggle('active', navOn);
-  locateBtnLabel.textContent = navOn ? 'Ukončit navigaci' : 'Navigovat v Atlasu';
+  locateBtnLabel.textContent = navOn ? 'Ukončit navigaci' : 'NAVIGOVAT';
   locateBtn.setAttribute('aria-pressed', navOn ? 'true' : 'false');
   document.body.classList.toggle('nav-on', navOn);
   // čáry tras a záznamu podle režimu

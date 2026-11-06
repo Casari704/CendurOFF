@@ -843,3 +843,9 @@ body.ride-ui #route-list{ z-index:970; }
   #free-corner .fc-card{flex-direction:row;gap:8px;padding:4px 10px;}
   #free-corner .fc-card svg{width:64px;height:64px;}
 }
+
+/* v3.0.5: tlačítko NAVIGOVAT zvýrazněné zlatou barvou webu (při navigaci zůstává zelené „Ukončit navigaci“) */
+#locate-btn:not(.active){background:var(--gold);border-color:#A97F2C;color:#2A1F05;}
+#locate-btn:not(.active):hover{background:#D4A94D;}
+#locate-btn:not(.active) .map-btn-label{font-weight:800;font-size:1.05em;letter-spacing:0.06em;color:#2A1F05;}
+#locate-btn:not(.active) .map-btn-icon{filter:brightness(0.2);}
