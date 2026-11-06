@@ -280,6 +280,7 @@ let curIdx = -1, warned = {};
 let watchId = null, wakeLock = null, sim = null;
 let mini = null, miniMe = null, big = null, bigMe = null;
 let heading = null, speed = 0;
+let soundGuide = null;      // v3.1: zvuky a hlas v navigaci (public/sound.js)
 
 function odo(){ return prog == null ? 0 : Math.max(0, Math.min(R.total, prog + offset)); }
 
@@ -333,6 +334,8 @@ async function startRide(id, reverseNoRb){
   prog = null; offset = 0; curIdx = -1; warned = {}; heading = null; speed = 0; manualUntil = 0;
   $('nv-ride').classList.add('open');
   stopSelectGps();
+  // zvuky: odemknout (klepnutí na Jet) a nový hlídač instrukcí pro tuhle jízdu
+  if(window.CendurSound){ CendurSound.unlock(); soundGuide = CendurSound.createGuide(); }
   try{ history.replaceState(null, '', location.pathname + '?trasa=' + id); }catch(e){}
   setupMaps();
   buildCards();
@@ -342,6 +345,7 @@ async function startRide(id, reverseNoRb){
 }
 
 function stopRide(){
+  soundGuide = null;
   if(watchId != null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
   stopSim();
   if(wakeLock){ try{ wakeLock.release(); }catch(e){} wakeLock = null; }
@@ -407,6 +411,7 @@ function onPosition(lat, lon){
   updateMaps(lat, lon);
   render(false);
   placeOff();
+  if(soundGuide) soundGuide.update(vis, odo(), speed, off);
 }
 // pruh MIMO TRASU: dole v aktuální instrukci, zarovnaný k jejímu pravému okraji (v2.11)
 function placeOff(){

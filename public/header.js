@@ -62,6 +62,11 @@
       header.topbar .brand{overflow:hidden;text-overflow:ellipsis;}
       header.topbar .site-actions{flex-wrap:nowrap;margin-left:auto;}
       #account-overlay .close-btn{background:none;font-family:inherit;cursor:pointer;}
+      #account-overlay .sound-row{display:flex;align-items:center;gap:10px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line,#ddd);}
+      #account-overlay .sound-row span{flex:1;font-weight:700;display:flex;flex-direction:column;}
+      #account-overlay .sound-row small{font-weight:400;font-size:0.78rem;color:var(--ink-soft,#666);}
+      #account-overlay .snd-btn{min-width:110px;padding:10px 14px;border-radius:6px;border:1.5px solid var(--moss-dark,#3d5a3a);background:var(--moss,#4F7048);color:#fff;font-weight:700;font-family:inherit;cursor:pointer;}
+      #account-overlay .snd-btn.off{background:none;color:var(--ink-soft,#666);border-color:var(--line,#ccc);}
       #account-overlay .actions .admin-btn{flex:1;}
       @media (max-width:760px){ header.topbar .hdr-wide{display:none !important;} header.topbar .site-actions{display:flex;} }
       #tile-menu{position:fixed;inset:0;z-index:5000;background:#101810;color:#EFEAD8;display:none;
@@ -233,6 +238,10 @@
         <button class="primary-btn" type="submit" style="margin-top:0;">Změnit heslo</button>
       </div>
     </form>
+    <div class="sound-row">
+      <span>Zvuky v navigaci<small id="snd-note"></small></span>
+      <button class="snd-btn" id="snd-toggle" type="button" aria-pressed="true">Zapnuto</button>
+    </div>
     <div class="account-btns">
       <button class="admin-btn close-btn" id="cp-cancel" type="button">Zavřít</button>
       <button class="logout-btn" id="logout-btn" type="button">Odhlásit se</button>
@@ -276,6 +285,23 @@
     // roli ověřit čerstvě ze serveru (kdyby stránka měla uživatele bez role)
     if(!user.role) api('/api/auth/me').then(u=>{ if(u){ user.role = u.role; document.getElementById('admin-btn').style.display = u.role==='admin' ? '' : 'none'; } }).catch(()=>{});
   });
+  // zvuky v navigaci (public/sound.js) – zapnout / vypnout, uloženo v telefonu
+  function sndOn(){ try{ return localStorage.getItem('cenduroff.sound') !== 'off'; }catch(e){ return true; } }
+  function renderSnd(){
+    const b = document.getElementById('snd-toggle'), on = sndOn();
+    b.textContent = on ? 'Zapnuto' : 'Vypnuto';
+    b.classList.toggle('off', !on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    const S = window.CendurSound;
+    document.getElementById('snd-note').textContent = !on ? 'bez gongu a hlasu' : (S && !S.hasVoice() ? 'gong a výstrahy (tenhle telefon nemá český hlas)' : 'gong, výstrahy a hlas telefonu');
+  }
+  document.getElementById('snd-toggle').addEventListener('click', ()=>{
+    const on = !sndOn();
+    try{ localStorage.setItem('cenduroff.sound', on ? 'on' : 'off'); }catch(e){}
+    renderSnd();
+    if(on && window.CendurSound) CendurSound.announce('gong', 'Zvuky jsou zapnuté.');
+  });
+  userBtn.addEventListener('click', renderSnd);
   document.getElementById('account-close').addEventListener('click', ()=> accountOverlay.classList.remove('open'));
   document.getElementById('cp-cancel').addEventListener('click', ()=> accountOverlay.classList.remove('open'));
   closeOnBackdrop(accountOverlay);

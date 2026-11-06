@@ -1592,6 +1592,7 @@ function enableCompass(){
 //  - má-li aktivní trasa roadbook a jedeš po jeho směru, nahoře je šipka další instrukce s odpočtem
 // ---------------------------------------------------------------
 const FREE_CATCH_M = 40, FREE_RELEASE_M = 90;
+let freeGuide = null, freeGuideId = null;   // v3.1: zvuky k instrukcím roadbooku v Atlasu
 let freeCaughtId = null, freePickedId = null, freeRouteClickTs = 0;
 let freeSums = null;               // stavy roadbooků (route_id → souhrn)
 const freeRb = {};                 // route_id → { R, vis } | 'loading' | null
@@ -1710,6 +1711,10 @@ function freeRender(){
       if(moving && dir != null && Math.abs(RB.angleDiff(displayedHeading, dir)) > 110){
         html = '<div class="fc-note">Jedeš proti směru roadbooku</div>';
       } else {
+        if(window.CendurSound){
+          if(!freeGuide || freeGuideId !== id){ freeGuide = CendurSound.createGuide(); freeGuideId = id; }
+          freeGuide.update(rb.vis, p.s, currentSpeedKmh / 3.6, false);
+        }
         const nx = rb.vis.find(it=>it.s > p.s + 8);
         if(nx) html = '<div class="fc-card">' + RB.tulipSVG(nx, 92) + '<div class="fc-d">' + RB.fmtDist(Math.max(0, nx.s - p.s)) + '</div><div class="fc-l">' + escapeHtml(RB.label(nx)) + '</div></div>';
       }
@@ -1747,7 +1752,7 @@ function setNavMode(on){
   if(recLine) recLine.setStyle({ weight: routeWeight('rec') });
 }
 
-locateBtn.addEventListener('click', ()=> setNavMode(!navOn));
+locateBtn.addEventListener('click', ()=>{ if(!navOn && window.CendurSound) CendurSound.unlock(); setNavMode(!navOn); });
 
 function startOrientation(){
   if(orientationBound) return;
