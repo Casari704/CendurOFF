@@ -112,7 +112,15 @@ const ASK_M = 40, ASK_RESET_M = 200;   // nabídka „navigovat?“ do 40 m od t
 let selMap = null, selLayer = null, picked = null, pickRev = false;
 let me = null, meMarker = null, selWatch = null, firstFix = true;
 const asked = new Set();
-function statusColor(id){ return RB.STATES[RB.stateOf(sums[id])].color; }
+// v3.2: trasy s roadbookem READY mají barvu podle typu jako v Atlasu, všechny ostatní šedé
+const ROUTE_TYPE_COLORS = { transport:'#1E9A45', cenduro:'#E9851C', offroad:'#E0241B' };
+const GREY = '#8A8A8A';
+function isReady(id){ return RB.stateOf(sums[id]) === 'ready'; }
+function statusColor(id){
+  if(!isReady(id)) return GREY;
+  const r = routes.find(x => x.id === id);
+  return ROUTE_TYPE_COLORS[r && r.route_type] || ROUTE_TYPE_COLORS.offroad;
+}
 function hasRb(id){ return RB.stateOf(sums[id]) !== 'auto'; }
 function shortName(name){ const w = String(name || '').trim().split(/\s+/); return w.length <= 3 ? w.join(' ') : w.slice(0, 3).join(' ') + '…'; }
 
@@ -126,11 +134,11 @@ function drawSelectMap(){
   }
   selLayer.clearLayers();
   // šedé (Auto) dole, trasy s roadbookem navrch, vybraná úplně navrch
-  const order = routes.slice().sort((a, b) => (hasRb(a.id) ? 1 : 0) - (hasRb(b.id) ? 1 : 0) || (a.id === picked) - (b.id === picked));
+  const order = routes.slice().sort((a, b) => (isReady(a.id) ? 1 : 0) - (isReady(b.id) ? 1 : 0) || (a.id === picked) - (b.id === picked));
   order.forEach(r => {
     if(!Array.isArray(r.points) || r.points.length < 2) return;
     const ll = r.points.filter((p, i) => i % 3 === 0 || i === r.points.length - 1).map(p => [p[0], p[1]]);
-    const on = picked === r.id, bold = hasRb(r.id);
+    const on = picked === r.id, bold = isReady(r.id);
     const w = on ? 9 : bold ? 7 : 4;
     L.polyline(ll, { color:'#fff', weight: w + 4, opacity: picked && !on ? 0.4 : 0.9, interactive:false }).addTo(selLayer);
     L.polyline(ll, { color: on ? '#1E64D6' : statusColor(r.id), weight: w, opacity: picked && !on ? 0.5 : 1, interactive:false }).addTo(selLayer);
@@ -149,7 +157,7 @@ function updateTitle(){
     $('nv-sub').textContent = '(' + RB.STATES[st].label + ')' + (st === 'auto' ? ' · ' + (pickRev ? 'obráceně' : 'od začátku') : '') + ' · Jet ▶';
   } else {
     $('nv-title').textContent = 'Vyber trasu na mapě';
-    $('nv-sub').textContent = 'žlutá Ready · červená To check · fialová rozpracovaný · šedá Auto';
+    $('nv-sub').textContent = 'barevně trasy s roadbookem Ready · šedě ostatní';
   }
 }
 // vybraná trasa: karta s tlačítkem „Jet“ (GPS jízdy se zapne až klepnutím)

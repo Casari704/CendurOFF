@@ -565,6 +565,7 @@ const ROUTE_WEIGHT_NAV = { normal:8, selected:10, rec:9 };
 function routeWeight(kind){ return (navOn ? ROUTE_WEIGHT_NAV : ROUTE_WEIGHT)[kind]; }
 function selectedStyle(){ return { color:ROUTE_COLOR_SELECTED, weight:routeWeight('selected'), opacity:1 }; }
 const STYLE_HOVER = { color:ROUTE_COLOR_HOVER, weight:6, opacity:1 };
+const ROUTE_CASING = 4;   // v3.2: o kolik px je bílé obtažení širší než trasa
 function normalStyle(id){
   return { color: typeInfo(routesCache[id]).color, weight:routeWeight('normal'), opacity: navOn ? 1 : 0.9 };
 }
@@ -612,7 +613,24 @@ function routeTipHtml(route){
 
 function drawRoute(route){
   const latlngs = route.points.map(p=>[p[0],p[1]]);
-  const line = L.polyline(latlngs, Object.assign({ pane:'route-' + typeOf(route) }, normalStyle(route.id))).addTo(map);
+  const line = L.polyline(latlngs, Object.assign({ pane:'route-' + typeOf(route) }, normalStyle(route.id)));
+  // v3.2: bílé obtažení trasy (jako v Roadbook NAVI) – samostatná čára pod barevnou,
+  // vždy ve stejné vrstvě jako trasa, sleduje její viditelnost i tloušťku
+  const casing = L.polyline(latlngs, { pane: line.options.pane, color:'#fff', weight: line.options.weight + ROUTE_CASING, opacity: 0.9, interactive:false });
+  line.on('add', ()=>{
+    if(map.hasLayer(casing)) map.removeLayer(casing);
+    casing.options.pane = line.options.pane;
+    casing.addTo(map);
+    line.bringToFront();
+  });
+  line.on('remove', ()=>{ if(map.hasLayer(casing)) map.removeLayer(casing); });
+  const setStyle0 = line.setStyle.bind(line);
+  line.setStyle = st=>{
+    setStyle0(st);
+    if(st && st.weight != null) casing.setStyle({ weight: st.weight + ROUTE_CASING });
+    return line;
+  };
+  line.addTo(map);
   line.bindTooltip(routeTipHtml(route), { sticky:true, className:'trail-tip' });
   line.on('mouseover', ()=>{ if(!isRouteMarked(route.id)) line.setStyle(STYLE_HOVER); });
   line.on('mouseout', ()=> applyRouteStyle(route.id));
