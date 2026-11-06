@@ -480,6 +480,8 @@ function initMap(){
   // nahoře; úplně navrch právě vybraná (modrá) trasa
   ROUTE_TYPE_ORDER.forEach(t=>{ map.createPane('route-' + t).style.zIndex = ROUTE_TYPES[t].z; });
   map.createPane(SELECTED_PANE).style.zIndex = 440;
+  // volná jízda: klepnutí do prázdné mapy pustí vybranou trasu
+  map.on('click', ()=>{ if(navOn && freePickedId != null && Date.now() - freeRouteClickTs > 300) freePick(null); });
   const legend = document.getElementById('route-legend');
   if(legend) legend.innerHTML = ROUTE_TYPE_ORDER.map(t=>`<span>${typeDot(t)}${ROUTE_TYPES[t].label}</span>`).join('');
 }
@@ -569,6 +571,7 @@ function normalStyle(id){
 
 // Je trasa "modrá"? Buď je otevřená v detailu, nebo je zaškrtnutá ve výběru více tras.
 function isRouteMarked(id){
+  if(navOn && !selectMode && freeActiveId() != null) return Number(id) === Number(freeActiveId());
   return selectMode ? selectedIds.has(Number(id)) : Number(id)===Number(activeRouteId);
 }
 // Přesune čáru do jiné vrstvy mapy (Leaflet to umí jen přes odebrání a opětovné přidání).
@@ -615,6 +618,7 @@ function drawRoute(route){
   line.on('mouseout', ()=> applyRouteStyle(route.id));
   line.on('click', ()=>{
     if(selectMode) toggleSelected(route.id);
+    else if(navOn){ freeRouteClickTs = Date.now(); freePick(freePickedId === route.id ? null : route.id); }
     else openDetail(route.id);
   });
   layersById[route.id] = line;
@@ -1373,7 +1377,30 @@ function applyRideUi(){
   }
   positionFloatingMapButtons();
 }
-if(menuBtn) menuBtn.addEventListener('click', ()=> setHeaderOpen(!document.body.classList.contains('header-open')));
+// v2.11: ☰ otevře dlaždicové menu přes celou obrazovku (místo vysunutí hlavičky)
+if(menuBtn) menuBtn.addEventListener('click', ()=>{
+  if(window.CendurHeader && CendurHeader.openTiles) CendurHeader.openTiles();
+  else setHeaderOpen(!document.body.classList.contains('header-open'));
+});
+// v jízdním režimu: přiblížení o 3 úrovně najednou (−3 / +3)
+(function addZoom3Buttons(){
+  const zo = document.getElementById('zoom-out-btn');
+  if(!zo || document.getElementById('zoom-in3-btn')) return;
+  zo.insertAdjacentHTML('afterend', '<button class="map-btn map-btn-square" id="zoom-in3-btn" type="button" aria-label="Přiblížit o 3">+3</button><button class="map-btn map-btn-square" id="zoom-out3-btn" type="button" aria-label="Oddálit o 3">−3</button>');
+  document.getElementById('zoom-in3-btn').addEventListener('click', ()=> map.setZoom(Math.min(19, map.getZoom() + 3)));
+  document.getElementById('zoom-out3-btn').addEventListener('click', ()=> map.setZoom(Math.max(3, map.getZoom() - 3)));
+})();
+// v jízdním režimu je hlavička schovaná → seznam tras otevírá tlačítko nad mapou
+(function addRoutesMapButton(){
+  if(document.getElementById('routes-map-btn')) return;
+  const sat = document.getElementById('satellite-btn');
+  if(!sat) return;
+  sat.insertAdjacentHTML('afterend', '<button class="map-btn map-btn-square" id="routes-map-btn" type="button" title="Seznam tras" aria-label="Seznam tras">≣</button>');
+  document.getElementById('routes-map-btn').addEventListener('click', ()=>{
+    const b = document.getElementById('open-routes');
+    if(b) b.click();
+  });
+})();
 // v jízdním režimu se seznam tras otevírá tlačítkem „Trasy“ v hlavičce (jazýček u okraje by kolidoval s tlačítky)
 (function addRoutesButton(){
   const up = document.getElementById('open-upload');
@@ -1514,6 +1541,8 @@ function onPosition(pos){
   }
 
   if(followMode) setFollowView(latlng, true);
+  updateTilt(currentSpeedKmh);
+  freeUpdate(latlng);
   recOnPosition(pos);
   // v2.5: projetí tras se počítá jen při navigaci nebo záznamu jízdy a jen přihlášeným
   if(window.CendurRides && currentUser && (navOn || rec.state === 'recording')){
@@ -1556,6 +1585,139 @@ function enableCompass(){
   }
 }
 
+// ---------------------------------------------------------------
+// v2.11: Volná jízda v Atlasu (jako v Android Auto)
+//  - při navigaci se aplikace sama „chytí“ nejbližší trasy (do 40 m, pustí ji nad 90 m) a zvýrazní ji
+//  - klepnutím na trasu ji vybereš („Trasa: …“), klepnutím do prázdné mapy zpět do volné jízdy
+//  - má-li aktivní trasa roadbook a jedeš po jeho směru, nahoře je šipka další instrukce s odpočtem
+// ---------------------------------------------------------------
+const FREE_CATCH_M = 40, FREE_RELEASE_M = 90;
+let freeCaughtId = null, freePickedId = null, freeRouteClickTs = 0;
+let freeSums = null;               // stavy roadbooků (route_id → souhrn)
+const freeRb = {};                 // route_id → { R, vis } | 'loading' | null
+function freeActiveId(){ return freePickedId != null ? freePickedId : freeCaughtId; }
+function freeShort(name){ const w = String(name || '').trim().split(/\s+/); return w.length <= 3 ? w.join(' ') : w.slice(0, 3).join(' ') + '…'; }
+function freeDistM(route, la, lo, limit){
+  const pts = route.points;
+  if(!pts || pts.length < 2) return Infinity;
+  if(!route._bb){
+    let a = 90, b = -90, c = 180, d = -180;
+    pts.forEach(p=>{ if(p[0] < a) a = p[0]; if(p[0] > b) b = p[0]; if(p[1] < c) c = p[1]; if(p[1] > d) d = p[1]; });
+    route._bb = [a, b, c, d];
+  }
+  const ky = 111320, kx = 111320 * Math.cos(la * Math.PI / 180), bb = route._bb;
+  if(la < bb[0] - limit / ky || la > bb[1] + limit / ky || lo < bb[2] - limit / kx || lo > bb[3] + limit / kx) return Infinity;
+  let best = Infinity;
+  for(let i = 0; i < pts.length - 1; i++){
+    const ax = (pts[i][1] - lo) * kx, ay = (pts[i][0] - la) * ky, bx = (pts[i+1][1] - lo) * kx, by = (pts[i+1][0] - la) * ky;
+    const dx = bx - ax, dy = by - ay, len = dx * dx + dy * dy;
+    const t = len > 0 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len)) : 0;
+    const px = ax + t * dx, py = ay + t * dy, dd = px * px + py * py;
+    if(dd < best) best = dd;
+  }
+  return Math.sqrt(best);
+}
+function freeEnsureHud(){
+  if(document.getElementById('free-hud')) return;
+  document.getElementById('app-screen').insertAdjacentHTML('beforeend',
+    '<div id="free-hud" aria-live="polite"><div id="free-label"><b></b><span></span></div><div id="free-corner"></div></div>');
+}
+async function freeStart(){
+  freeEnsureHud();
+  freeCaughtId = null; freePickedId = null;
+  if(!freeSums && window.CendurRB){
+    try{ const list = await api('/api/roadbooks'); freeSums = {}; (list || []).forEach(x=>{ freeSums[x.route_id] = x; }); }
+    catch(e){ freeSums = {}; }
+  }
+  if(lastLatLng) freeUpdate(lastLatLng); else freeRender();
+}
+function freeStop(){
+  const old = freeActiveId();
+  freeCaughtId = null; freePickedId = null;
+  if(old != null) applyRouteStyle(old);
+  freeRender();
+}
+function freePick(id){
+  const old = freeActiveId();
+  freePickedId = id;
+  if(id == null && lastLatLng) freeCatch(lastLatLng);
+  const now = freeActiveId();
+  if(old != null) applyRouteStyle(old);
+  if(now != null) applyRouteStyle(now);
+  toast(id != null ? 'Trasa: ' + freeShort(routesCache[id] && routesCache[id].name) : 'Volná jízda', 1800);
+  if(now != null) freeLoadRb(now);
+  freeRender();
+}
+function freeCatch(latlng){
+  const cur = freeCaughtId != null ? routesCache[freeCaughtId] : null;
+  if(cur && freeDistM(cur, latlng[0], latlng[1], 200) < FREE_RELEASE_M) return;
+  let best = null, bestD = FREE_CATCH_M;
+  Object.values(routesCache).forEach(r=>{
+    if(!r || (layersById[r.id] && !map.hasLayer(layersById[r.id]))) return;   // skryté trasy se nechytají
+    let d = freeDistM(r, latlng[0], latlng[1], 100);
+    if(freeSums && freeSums[r.id]) d -= 10;   // trasy s roadbookem mají přednost
+    if(d < bestD){ bestD = d; best = r; }
+  });
+  freeCaughtId = best ? best.id : null;
+}
+function freeUpdate(latlng){
+  if(!navOn) return;
+  const old = freeActiveId();
+  freeCatch(latlng);
+  const now = freeActiveId();
+  if(old !== now){ if(old != null) applyRouteStyle(old); if(now != null) applyRouteStyle(now); }
+  if(now != null) freeLoadRb(now);   // načte se jen jednou (a jen když trasa roadbook má)
+  freeRender();
+}
+async function freeLoadRb(id){
+  const RB = window.CendurRB;
+  if(!RB || !freeSums || !freeSums[id] || freeRb[id] !== undefined) return;
+  freeRb[id] = 'loading';
+  try{
+    const res = await api('/api/roadbooks/' + id);
+    const rb = res && res.roadbook, route = routesCache[id];
+    if(!rb || !rb.data || !Array.isArray(rb.data.items) || !route){ freeRb[id] = null; return; }
+    const reversed = !!(rb.data.settings && rb.data.settings.reversed);
+    const R = RB.prepareRoute(route.points, reversed);
+    let items = rb.data.items.map(x=>Object.assign({ sides: [], icons: [] }, x));
+    if(rb.stale) items = RB.reproject(R, items);
+    RB.recompute(R, items);
+    freeRb[id] = { R, vis: RB.visible(items) };
+  }catch(e){ freeRb[id] = null; }
+  freeRender();
+}
+function freeRender(){
+  const hud = document.getElementById('free-hud');
+  if(!hud) return;
+  hud.classList.toggle('open', navOn);
+  if(!navOn) return;
+  const RB = window.CendurRB;
+  const picked = freePickedId != null ? routesCache[freePickedId] : null;
+  const caught = freeCaughtId != null ? routesCache[freeCaughtId] : null;
+  const lab = document.getElementById('free-label');
+  lab.classList.toggle('sel', !!picked);
+  lab.querySelector('b').textContent = picked ? 'Trasa: ' + freeShort(picked.name) : 'Volná jízda';
+  lab.querySelector('span').textContent = picked ? 'klepnutím do mapy zpět do volné jízdy' : caught ? 'na trase: ' + freeShort(caught.name) : '';
+  // roh s další instrukcí roadbooku
+  const box = document.getElementById('free-corner');
+  const id = freeActiveId(), rb = id != null ? freeRb[id] : null;
+  let html = '';
+  if(RB && rb && rb !== 'loading' && lastLatLng){
+    const p = RB.project(rb.R, lastLatLng[0], lastLatLng[1]);
+    if(p.dist <= 60){
+      const dir = RB.bearingBetween(rb.R, p.s, Math.min(rb.R.total, p.s + 40));
+      const moving = currentSpeedKmh > HEADING_SPEED_THRESHOLD_KMH;
+      if(moving && dir != null && Math.abs(RB.angleDiff(displayedHeading, dir)) > 110){
+        html = '<div class="fc-note">Jedeš proti směru roadbooku</div>';
+      } else {
+        const nx = rb.vis.find(it=>it.s > p.s + 8);
+        if(nx) html = '<div class="fc-card">' + RB.tulipSVG(nx, 92) + '<div class="fc-d">' + RB.fmtDist(Math.max(0, nx.s - p.s)) + '</div><div class="fc-l">' + escapeHtml(RB.label(nx)) + '</div></div>';
+      }
+    }
+  }
+  box.innerHTML = html;
+}
+
 // Jedno tlačítko „Navigovat v Atlasu / Ukončit navigaci“ (dřív „Sleduji / Nesleduji polohu“):
 //  zapnuto  = sledovat polohu + mapa natočená podle směru jízdy + silnější čáry tras
 //  vypnuto  = mapa volně posouvatelná, sever nahoru, normální čáry (GPS a záznam běží dál)
@@ -1571,9 +1733,11 @@ function setNavMode(on){
     followMode = false;
     headingMode = 'north';
   }
+  if(!navOn){ tiltCur = tiltTarget = 0; tiltLayout = false; if(tiltRaf){ cancelAnimationFrame(tiltRaf); tiltRaf = 0; } }
   layoutMapForMode();
   setMapRotation(headingMode === 'heading');
   if(followMode && lastLatLng) setFollowView(lastLatLng, false);
+  if(navOn) freeStart(); else freeStop();
   locateBtn.classList.toggle('active', navOn);
   locateBtnLabel.textContent = navOn ? 'Ukončit navigaci' : 'Navigovat v Atlasu';
   locateBtn.setAttribute('aria-pressed', navOn ? 'true' : 'false');
@@ -1614,7 +1778,14 @@ function layoutMapForMode(){
     const w = wrap.clientWidth, h = wrap.clientHeight;
     const f = followMarkerFraction();
     const cx = w / 2, cy = h * f;                       // místo šipky na obrazovce
-    const r = Math.hypot(w / 2, Math.max(cy, h - cy));  // k nejvzdálenějšímu rohu
+    let r = Math.hypot(w / 2, Math.max(cy, h - cy));    // k nejvzdálenějšímu rohu
+    if(tiltLayout){
+      // nakloněná mapa: horní okraj obrazovky „vidí“ dál → kam až na mapě sahá (perspektiva)
+      const P = tiltPerspective(), th = TILT_MAX_DEG * Math.PI / 180;
+      const yFar = cy * P / Math.max(1, P * Math.cos(th) - cy * Math.sin(th));
+      const xFar = (w / 2) * (P + yFar * Math.sin(th)) / P;
+      r = Math.max(r, Math.hypot(xFar, yFar)) * 1.04;
+    }
     const d = Math.ceil(2 * r) + 2;
     mapEl.style.inset = 'auto';
     mapEl.style.left = Math.round(cx - d / 2) + 'px';
@@ -1636,9 +1807,48 @@ window.addEventListener('resize', ()=>{
   }
 });
 
+// ---------------------------------------------------------------
+// v2.11: náklon mapy za jízdy – nad 30 km/h se mapa plynule nakloní (max 30°), ať je vidět dál.
+// Náklon se rozjíždí mezi 25 a 35 km/h (žádné cukání kolem hranice), tiltne se kolem šipky.
+// Když je mapa nakloněná, #map se zvětší, aby u horního okraje nebyla prázdná místa.
+// ---------------------------------------------------------------
+const TILT_MAX_DEG = 30;
+const TILT_FROM_KMH = 25, TILT_TO_KMH = 35;
+let tiltCur = 0, tiltTarget = 0, tiltRaf = 0, tiltLayout = false, tiltLowSince = 0;
+function tiltForSpeed(kmh){
+  const t = Math.min(1, Math.max(0, (kmh - TILT_FROM_KMH) / (TILT_TO_KMH - TILT_FROM_KMH)));
+  return t * t * (3 - 2 * t) * TILT_MAX_DEG;
+}
+function tiltPerspective(){ return Math.round(Math.max(window.innerWidth, window.innerHeight) * 1.2); }
+function updateTilt(kmh){
+  const want = (headingMode === 'heading' && followMode) ? tiltForSpeed(kmh) : 0;
+  tiltTarget = want;
+  // větší mapa (víc dlaždic) jen když se opravdu jede rychle; zpět až po 15 s pod 20 km/h
+  const now = Date.now();
+  if(want > 0 && !tiltLayout){ tiltLayout = true; layoutMapForMode(); if(lastLatLng) setFollowView(lastLatLng, false); }
+  if(tiltLayout && want === 0 && tiltCur < 0.5){
+    if(kmh < 20){ if(!tiltLowSince) tiltLowSince = now; } else tiltLowSince = 0;
+    if(tiltLowSince && now - tiltLowSince > 15000){ tiltLayout = false; tiltLowSince = 0; layoutMapForMode(); if(lastLatLng) setFollowView(lastLatLng, false); }
+  } else tiltLowSince = 0;
+  if(!tiltRaf && Math.abs(tiltTarget - tiltCur) > 0.05) tiltRaf = requestAnimationFrame(tiltStep);
+}
+function tiltStep(){
+  tiltRaf = 0;
+  const d = tiltTarget - tiltCur;
+  // plynule: ~1,5 s na celý náklon
+  tiltCur += Math.sign(d) * Math.min(Math.abs(d), 0.35);
+  if(Math.abs(tiltTarget - tiltCur) < 0.05) tiltCur = tiltTarget;
+  if(headingMode === 'heading') setMapRotation(true);
+  if(tiltCur !== tiltTarget) tiltRaf = requestAnimationFrame(tiltStep);
+}
+function mapTransform(){
+  const rot = 'rotate(' + (-displayedHeading) + 'deg)';
+  return tiltCur > 0.05 ? 'perspective(' + tiltPerspective() + 'px) rotateX(' + tiltCur.toFixed(2) + 'deg) ' + rot : rot;
+}
+
 function setMapRotation(on){
   if(on){
-    mapEl.style.transform = 'rotate(' + (-displayedHeading) + 'deg)';
+    mapEl.style.transform = mapTransform();
     // ikonky benzínek se otáčejí zpět, ať zůstávají "rovně" i na otočené mapě
     mapEl.style.setProperty('--map-rot', displayedHeading + 'deg');
     map.dragging.disable();
@@ -2092,6 +2302,14 @@ async function enterApp(){
   setTimeout(positionFloatingMapButtons, 100);
   await loadRoutes();
   requestWakeLock();
+  // dlaždice „+ Nahrát trasu“ z jiné stránky → index.html?nahrat=1
+  try{
+    const u = new URL(location.href);
+    if(u.searchParams.get('nahrat')){
+      u.searchParams.delete('nahrat'); history.replaceState(null, '', u);
+      document.getElementById('open-upload').click();
+    }
+  }catch(e){}
   if(rec.state==='idle') restoreRecording();
   if(pendingLinkId){
     const linked = pendingLinkId;

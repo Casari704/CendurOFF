@@ -13,8 +13,8 @@
 <title>CendurOFF Roadbook NAVI</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=2.9.1">
-<link rel="stylesheet" href="public/rb.css?v=2.10">
+<link rel="stylesheet" href="public/style.css?v=2.11">
+<link rel="stylesheet" href="public/rb.css?v=2.11">
 <style>body.auth-pending #app-screen{visibility:hidden;}</style>
 </head>
 <body class="rb-page rb-navi auth-pending">
@@ -22,24 +22,42 @@
 <div id="app-screen" style="display:flex;">
   <header class="topbar" data-page="roadbook-navi"></header>
 
-  <!-- ============ VÝBĚR TRASY ============ -->
+  <!-- ============ VÝBĚR TRASY: mapa přes celou plochu (v2.11) ============ -->
   <section id="nv-select">
-    <div class="wrap">
-      <h1>Roadbook NAVI</h1>
-      <p class="nv-offline-note" id="nv-offline-note" hidden>📴 Jsi offline – zobrazují se jen trasy uložené v telefonu.</p>
-      <p class="sub">Klikni na trasu na mapě (nebo ji najdi v seznamu) a jeď podle roadbooku. Žlutá = Ready, červená = To check, fialová = rozpracovaný, šedá = Auto (roadbook se spočítá ze zatáček GPX).</p>
-      <div id="nv-map" role="region" aria-label="Mapa tras – klikni na trasu"></div>
-      <div id="nv-pick" aria-live="polite">
-        <div class="t"><b id="nv-pick-name"></b><span id="nv-pick-km"></span><span id="nv-pick-badge" class="rb-badge"></span></div>
-        <div class="note" id="nv-pick-note"></div>
-        <label id="nv-pick-rev-box"><input type="checkbox" id="nv-pick-rev"> Jet obráceně (start ↔ cíl)</label>
-        <label><input type="checkbox" id="nv-simopt"> Simulace jízdy (vyzkoušení u stolu, bez GPS)</label>
-        <button type="button" class="btn-rb go" id="nv-pick-go">Jet podle roadbooku</button>
-        <div class="nv-offbox" id="nv-pick-off"></div>
+    <div id="nv-map" role="region" aria-label="Mapa tras – klepni na trasu"></div>
+    <div id="nv-label"><b id="nv-title">Vyber trasu na mapě</b><span id="nv-sub">žlutá Ready · červená To check · fialová rozpracovaný · šedá Auto</span></div>
+    <p class="nv-offline-note" id="nv-offline-note" hidden>📴 Offline – jen trasy uložené v telefonu</p>
+    <div id="nv-fabs">
+      <button type="button" id="nv-f-list" class="wide">Seznam</button>
+      <button type="button" id="nv-f-me" title="Moje poloha" aria-label="Moje poloha">◎</button>
+      <button type="button" id="nv-f-zi3" aria-label="Přiblížit o 3">+3</button>
+      <button type="button" id="nv-f-zi" aria-label="Přiblížit">+</button>
+      <button type="button" id="nv-f-zo" aria-label="Oddálit">−</button>
+      <button type="button" id="nv-f-zo3" aria-label="Oddálit o 3">−3</button>
+    </div>
+    <div id="nv-pick" aria-live="polite">
+      <div class="t"><b id="nv-pick-name"></b><span id="nv-pick-km"></span><span id="nv-pick-badge" class="rb-badge"></span>
+        <button type="button" id="nv-pick-x" aria-label="Zrušit výběr">✕</button></div>
+      <div class="note" id="nv-pick-note"></div>
+      <div class="nv-pick-row">
+        <button type="button" class="btn-rb" id="nv-pick-dir">⇅ Směr: od začátku</button>
+        <label><input type="checkbox" id="nv-simopt"> Simulace (bez GPS)</label>
       </div>
+      <div class="nv-offbox" id="nv-pick-off"></div>
+      <button type="button" class="btn-rb go" id="nv-pick-go">Jet ▶</button>
+    </div>
+    <div id="nv-listpanel" hidden>
+      <div class="hd"><b>Seznam tras</b><button type="button" id="nv-list-x" aria-label="Zavřít seznam">✕</button></div>
       <label for="nv-search" style="position:absolute;left:-9999px">Hledat trasu</label>
       <input type="search" id="nv-search" placeholder="Hledat trasu…">
       <div id="nv-list"><p class="sub">Načítám trasy…</p></div>
+    </div>
+    <div id="nv-ask" hidden role="dialog" aria-modal="true" aria-labelledby="nv-ask-t">
+      <div class="box">
+        <b id="nv-ask-t">Roadbook</b>
+        <p id="nv-ask-msg"></p>
+        <div class="row"><button type="button" class="btn-rb go" id="nv-ask-yes">Navigovat</button><button type="button" class="btn-rb" id="nv-ask-no">Ne</button></div>
+      </div>
     </div>
   </section>
 </div>
@@ -77,11 +95,11 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="public/config.js?v=2.4"></script>
-<script src="public/header.js?v=2.9.3"></script>
+<script src="public/header.js?v=2.11"></script>
 <script src="public/pwa.js?v=2.5"></script>
 <script src="public/regiondata.js?v=2.4"></script>
-<script src="public/rb-core.js?v=2.10"></script>
+<script src="public/rb-core.js?v=2.11"></script>
 <script src="public/ride-stats.js?v=2.5"></script>
-<script src="public/rb-navi.js?v=2.10"></script>
+<script src="public/rb-navi.js?v=2.11"></script>
 </body>
 </html>

@@ -658,6 +658,8 @@ header.topbar .btn{line-height:1.25;font-family:inherit;box-sizing:border-box;}
 /* tlačítka nad mapou se řídí spodní hranou hlavičky (nastavuje app.js) */
 #satellite-btn, #fullscreen-btn{ top:calc(var(--hdr-bottom, 68px) + 8px); }
 #menu-btn{ display:none; }
+#routes-map-btn{ display:none; }
+#zoom-in3-btn, #zoom-out3-btn{ display:none; }
 
 /* výřez displeje / zaoblené rohy (iPhone, aplikace z plochy) */
 header.topbar{
@@ -718,6 +720,9 @@ body.ride-ui #locate-controls,
 body.ride-ui .nav-grid{ display:contents; }
 
 body.ride-ui #menu-btn,
+body.ride-ui #routes-map-btn,
+body.ride-ui #zoom-in3-btn,
+body.ride-ui #zoom-out3-btn,
 body.ride-ui #fullscreen-btn,
 body.ride-ui #satellite-btn,
 body.ride-ui #rec-btn,
@@ -737,6 +742,8 @@ body.ride-ui #rec-btn .rec-icon{ width:calc(var(--rb) * 0.38); height:calc(var(-
 /* levý horní sloupec: celá obrazovka, mapa (+ benzínky v nabídce) */
 body.ride-ui #fullscreen-btn{ top:var(--rt); left:var(--rl); }
 body.ride-ui #satellite-btn{ top:calc(var(--rt) + var(--step)); left:var(--rl); }
+body.ride-ui #routes-map-btn{ top:calc(var(--rt) + var(--step) * 2); left:var(--rl); font-size:calc(var(--rb) * 0.5); font-weight:700; }
+body.ride-ui.standalone #routes-map-btn{ top:calc(var(--rt) + var(--step)); }
 /* z plochy (bez tlačítka celé obrazovky) se sloupec posune nahoru */
 body.ride-ui.standalone #satellite-btn{ top:var(--rt); }
 /* pravý horní sloupec: menu, záznam */
@@ -745,8 +752,12 @@ body.ride-ui #rec-btn{ top:calc(var(--rt) + var(--step)); right:var(--rr); }
 /* levý dolní roh (palec): sledovat polohu = navigace (od v1.47 jedno tlačítko) */
 body.ride-ui #locate-btn{ bottom:var(--rbm); left:var(--rl); }
 /* pravý dolní sloupec (palec): + a − */
-body.ride-ui #zoom-out-btn{ bottom:var(--rbm); right:var(--rr); }
-body.ride-ui #zoom-in-btn{ bottom:calc(var(--rbm) + var(--step)); right:var(--rr); }
+/* zdola: −3, −, +, +3 */
+body.ride-ui #zoom-out3-btn{ bottom:var(--rbm); right:var(--rr); }
+body.ride-ui #zoom-out-btn{ bottom:calc(var(--rbm) + var(--step)); right:var(--rr); }
+body.ride-ui #zoom-in-btn{ bottom:calc(var(--rbm) + var(--step) * 2); right:var(--rr); }
+body.ride-ui #zoom-in3-btn{ bottom:calc(var(--rbm) + var(--step) * 3); right:var(--rr); }
+body.ride-ui #zoom-in3-btn, body.ride-ui #zoom-out3-btn{ font-size:calc(var(--rb) * 0.34); font-weight:800; }
 
 /* lišta záznamu nahoře uprostřed mezi sloupci */
 body.ride-ui #rec-panel{
@@ -806,3 +817,27 @@ body.ride-ui #route-list{ z-index:970; }
 .admin-tag{font-size:0.7rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;background:var(--gold);color:var(--ink);padding:1px 6px;border-radius:4px;vertical-align:middle;}
 .admin-riders summary{cursor:pointer;font-weight:600;font-size:0.88rem;margin-top:6px;}
 .admin-riders ul{margin:6px 0 0;padding-left:18px;font-size:0.88rem;}
+
+/* =====================================================================
+   v2.11 – Atlas: volná jízda (štítek nahoře + roh s další instrukcí roadbooku)
+   ===================================================================== */
+#free-hud{position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--top-offset, var(--hdr-bottom, 60px)) + 8px);z-index:950;
+  display:none;flex-direction:column;align-items:center;gap:8px;pointer-events:none;max-width:calc(100vw - 2 * (var(--rb, 52px) + 20px));}
+#free-hud.open{display:flex;}
+#free-label{background:#111;color:#fff;border-radius:10px;padding:6px 12px;display:flex;flex-direction:column;align-items:center;
+  font-family:'Exo 2',sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.3);max-width:100%;}
+#free-label b{font-size:1.05rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+#free-label span{font-size:0.74rem;color:#F5B700;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+#free-label span:empty{display:none;}
+#free-label.sel{background:#1E64D6;}
+#free-label.sel span{color:#fff;}
+#free-corner .fc-card{background:#FFF6D6;border:4px solid #F5B700;border-radius:12px;padding:4px 10px 8px;display:flex;flex-direction:column;align-items:center;
+  font-family:'Exo 2',sans-serif;color:#111;box-shadow:0 6px 18px rgba(0,0,0,.3);min-width:120px;}
+#free-corner .fc-d{font-size:2rem;font-weight:800;line-height:1;}
+#free-corner .fc-l{font-size:0.85rem;font-weight:800;text-transform:uppercase;text-align:center;max-width:160px;}
+#free-corner .fc-note{background:#111;color:#F5B700;border-radius:10px;padding:6px 12px;font-weight:800;font-family:'Exo 2',sans-serif;}
+@media (orientation:landscape) and (max-height:520px){
+  #free-hud{flex-direction:row;align-items:flex-start;}
+  #free-corner .fc-card{flex-direction:row;gap:8px;padding:4px 10px;}
+  #free-corner .fc-card svg{width:64px;height:64px;}
+}

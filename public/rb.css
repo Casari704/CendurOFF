@@ -213,7 +213,8 @@ body.rb-navi{background:#111;}
 #nv-btns{height:76px;flex:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:10px;box-sizing:border-box;}
 #nv-btns button{height:56px;border:2px solid #3A3A3A;border-radius:10px;background:#1E1E1E;color:#fff;font:700 17px 'Exo 2',sans-serif;cursor:pointer;}
 #nv-btns button.go{background:var(--rb-green);border-color:var(--rb-green);}
-#nv-off{position:absolute;left:10px;right:10px;top:146px;z-index:5;background:var(--rb-red);color:#fff;border-radius:10px;padding:10px 14px;font-weight:800;font-size:20px;display:none;align-items:center;gap:12px;box-shadow:0 6px 20px rgba(0,0,0,.4);}
+/* v2.11: MIMO TRASU – velký hranatý pruh dole v aktuální instrukci (nad žlutým pruhem), zarovnaný doprava */
+#nv-off{position:absolute;right:0;top:0;width:66%;height:62px;z-index:5;background:var(--rb-red);color:#fff;border-radius:0;padding:0 12px;font-weight:800;font-size:clamp(18px,5.4vw,28px);white-space:nowrap;display:none;align-items:center;justify-content:center;gap:10px;box-sizing:border-box;}
 #nv-off.open{display:flex;}
 #nv-off svg{flex:none;}
 #nv-sim{position:absolute;right:10px;bottom:170px;z-index:6;display:none;gap:6px;}
@@ -244,13 +245,12 @@ body.rb-navi{background:#111;}
   #nv-dist{font-size:44px;}
   #nv-btns{grid-column:1;grid-row:3;height:auto;}
   #nv-btns button{height:46px;font-size:15px;}
-  #nv-off{top:auto;bottom:10px;left:310px;}
+  #nv-off{font-size:24px;}
   #nv-wait{top:0;left:300px;}
   #nv-sim{bottom:10px;right:10px;}
 }
 
 /* v2.1: výběr trasy na mapě (NAVI) */
-#nv-map{height:46vh;min-height:260px;border:2px solid #111;border-radius:10px;overflow:hidden;}
 #nv-pick{border:3px solid #111;border-radius:10px;background:#fff;padding:12px 14px;display:none;flex-direction:column;gap:8px;}
 #nv-pick.open{display:flex;}
 #nv-pick .t{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
@@ -283,7 +283,57 @@ body.rb-mobile-blocked #rb-main{align-items:center;justify-content:center;paddin
 .nv-offline-note[hidden]{display:none;}
 
 /* když je vidět „MIMO TRASU“, ruční posun se ukáže pod ním (ne přes něj) */
-#nv-off.open ~ #nv-manual{top:214px;}
+
 @media (orientation:landscape) and (max-height:600px){
   #nv-off.open ~ #nv-manual{top:8px;}
+}
+
+/* =====================================================================
+   v2.11 – Roadbook NAVI: výběr trasy na mapě přes celou plochu (jako v autě)
+   ===================================================================== */
+#nv-select{position:relative;flex:1;min-height:0;overflow:hidden;padding:0;background:#E8E1CC;}
+#nv-map{position:absolute;inset:0;border:0;border-radius:0;}
+#nv-label{position:absolute;left:10px;top:10px;z-index:800;background:#111;color:#fff;border-radius:10px;padding:8px 12px;max-width:calc(100% - 90px);
+  display:flex;flex-direction:column;gap:2px;font-family:'Exo 2',sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.3);}
+#nv-label b{font-size:1.15rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#nv-label span{font-size:0.78rem;color:#F5B700;font-weight:600;}
+#nv-label.sel{background:#1E64D6;}
+#nv-label.sel span{color:#fff;}
+#nv-select .nv-offline-note{position:absolute;left:10px;top:76px;z-index:800;}
+#nv-fabs{position:absolute;right:10px;top:10px;z-index:800;display:flex;flex-direction:column;gap:8px;}
+#nv-fabs button{width:52px;height:52px;border-radius:12px;border:2px solid #111;background:#fff;color:#111;font:800 20px 'Exo 2',sans-serif;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.25);}
+#nv-fabs button.wide{font-size:12px;width:auto;min-width:52px;padding:0 6px;}
+#nv-fabs button:active{background:#F5B700;}
+#nv-select #nv-pick{position:absolute;left:10px;right:72px;bottom:10px;z-index:850;max-height:60%;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.35);}
+#nv-pick .t b{min-width:0;flex:1 1 100%;order:-1;font-size:1.1rem;}
+#nv-pick .t{row-gap:4px;}
+#nv-select #nv-pick .nv-offbox .note{display:none;}
+#nv-pick-x{margin-left:auto;width:40px;height:40px;border-radius:8px;border:2px solid #111;background:#fff;font-weight:800;font-size:18px;cursor:pointer;flex:none;}
+.nv-pick-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+.nv-pick-row [hidden]{display:none;}
+#nv-pick .go{width:100%;}
+#nv-listpanel{position:absolute;inset:0;z-index:900;background:#F4F1EA;padding:12px;display:flex;flex-direction:column;gap:10px;overflow:auto;}
+#nv-listpanel[hidden]{display:none;}
+#nv-listpanel .hd{display:flex;align-items:center;gap:10px;}
+#nv-listpanel .hd b{font-family:'Exo 2',sans-serif;font-size:1.3rem;flex:1;}
+#nv-listpanel .hd button{width:44px;height:44px;border-radius:8px;border:2px solid #111;background:#fff;font-weight:800;font-size:18px;cursor:pointer;}
+#nv-listpanel input[type=search]{width:100%;height:44px;border:2px solid #111;border-radius:8px;padding:0 12px;font-size:1rem;font-family:'Exo 2',sans-serif;box-sizing:border-box;}
+#nv-listpanel h2{margin:10px 0 0;font-size:1rem;text-transform:uppercase;letter-spacing:1px;}
+#nv-ask{position:absolute;inset:0;z-index:950;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;}
+#nv-ask[hidden]{display:none;}
+#nv-ask .box{background:#fff;border:3px solid #111;border-radius:14px;padding:18px;max-width:440px;width:100%;display:flex;flex-direction:column;gap:10px;font-family:'Exo 2',sans-serif;}
+#nv-ask .box b{font-size:1.3rem;}
+#nv-ask .box p{margin:0;font-size:1.05rem;}
+#nv-ask .row{display:grid;grid-template-columns:2fr 1fr;gap:10px;}
+#nv-ask .row button{min-height:56px;font-size:1.1rem;}
+.nv-me-dot{width:22px;height:22px;border-radius:50%;background:#E8742A;border:4px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,.25);box-sizing:border-box;}
+@media (orientation:landscape){
+  #nv-select #nv-pick{right:auto;width:400px;max-height:calc(100% - 88px);}
+  #nv-fabs{display:grid;grid-template-columns:52px 52px;grid-auto-rows:52px;}
+  #nv-fabs button.wide{grid-column:1 / -1;width:100%;}
+}
+@media (orientation:landscape) and (max-height:420px){
+  #nv-fabs{grid-auto-rows:44px;gap:6px;grid-template-columns:44px 44px;}
+  #nv-fabs button{width:44px;height:44px;font-size:17px;}
+  #nv-fabs button.wide{width:100%;}
 }

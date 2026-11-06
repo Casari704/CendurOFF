@@ -10,8 +10,8 @@
 <title>CendurOFF FAQ – jak to funguje</title>
 <meta name="description" content="Nápověda k CendurOFF: Atlas NAVI, navigace, záznam jízdy, Atlas Planner, Roadbook planner a Roadbook NAVI.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=2.9.1">
-<link rel="stylesheet" href="public/faq.css?v=2.10.1">
+<link rel="stylesheet" href="public/style.css?v=2.11">
+<link rel="stylesheet" href="public/faq.css?v=2.11">
 </head>
 <body class="faq-page">
 <header class="topbar" data-page="faq" data-auth="auto"></header>
@@ -21,6 +21,7 @@
   <p class="f-lead">Přehled všech funkcí a jak s nimi pracovat. Klikni na otázku a rozbalí se odpověď.</p>
 
   <nav class="f-toc" aria-label="Obsah">
+    <a href="#o-projektu">O projektu</a>
     <a href="#jak">Jak to celé funguje</a>
     <a href="#ucet">Účet</a>
     <a href="#atlas">Atlas NAVI</a>
@@ -33,6 +34,18 @@
     <a href="#tipy">Tipy a problémy</a>
   </nav>
 
+  <!-- ===================== O PROJEKTU ===================== -->
+  <section id="o-projektu">
+    <h2>O projektu</h2>
+    <details open>
+      <summary>Kdo za CendurOFF stojí?</summary>
+      <p>CendurOFF vytvořila a spravuje parta <b>Petrol Machine Silesia</b> – skupina lidí, které baví offroad, enduro a objevování tras, které nenajdete na žádné turistické mapě.</p>
+      <p>Cílem je vytvořit offroad atlas, kam si každý může nahrát vlastní GPX trasu, ukázat ji ostatním a přidat pár fotek z cesty.</p>
+      <p>S připomínkami a nápady na vylepšení nás můžete kontaktovat na našem Facebooku <a href="https://www.facebook.com/PetrolMachineSilesia" target="_blank" rel="noopener">Petrol Machine Silesia</a> nebo na e-mailu <a href="mailto:petrol.machine@gmail.com">petrol.machine@gmail.com</a>.</p>
+      <p>Pokud se ti náš projekt líbí, můžeš nás podpořit třeba nákupem <a href="merch.html">merche nebo samolepek CendurOFF</a>.</p>
+    </details>
+  </section>
+
   <!-- ===================== JAK TO CELÉ FUNGUJE ===================== -->
   <section id="jak">
     <h2>Jak to celé funguje</h2>
@@ -43,14 +56,12 @@
         <li><b>Atlas Planner</b> slouží k úpravám. Novou trasu v něm naplánuješ, nebo upravíš existující (posuneš body, zkrátíš, prodloužíš) a uložíš zpátky do Atlasu.</li>
         <li><b>Roadbook planner</b> (na PC): ke každé nahrané trase přidáš roadbook. Ten se vygeneruje automaticky, pak ho ručně doladíš (křižovatky, symboly, nebezpečí, poznámky) a označíš <b>Ready</b>.</li>
         <li><b>Roadbook NAVI</b>: jízda podle roadbooku v telefonu jako na rally. Funguje i bez signálu, když si roadbook předem uložíš do telefonu.</li>
-        <li><b>Android Auto</b>: s aplikací CendurOFF se roadbook i mapa s trasami (Atlas) zobrazí na displeji auta nebo motorky.</li>
       </ol>
     </details>
     <details>
-      <summary>Kde stáhnu aplikaci pro Android (i pro Android Auto)?</summary>
+      <summary>Kde stáhnu aplikaci pro Android?</summary>
       <p><a class="f-dl" href="download/CendurOFF.apk" download>⬇ Stáhnout CendurOFF.apk</a></p>
       <p>Aplikace zatím není na Google Play – instaluje se přímo ze souboru: stáhni APK v telefonu, otevři ho a povol instalaci z tohoto zdroje. Kdo měl starší vývojářskou verzi, musí ji nejdřív odinstalovat.</p>
-      <p>Pro <b>Android Auto</b> je potřeba jednou zapnout vývojářský režim: v nastavení Android Auto 10× klepni na <b>Verze</b>, pak <b>⋮ → Nastavení pro vývojáře → Neznámé zdroje</b>. Aplikace mimo Google Play se v Android Auto jinak nezobrazí.</p>
     </details>
     <details>
       <summary>Jak kvalitní je roadbook? (Auto vs. upravený)</summary>
@@ -75,7 +86,7 @@
     </details>
     <details>
       <summary>Kde najdu ostatní stránky?</summary>
-      <p>V hlavičce pod tlačítkem <b>Menu ▾</b>: <b>Atlas NAVI</b> (mapa tras a navigace), <b>Atlas Planner</b> (plánování tras), <b>Roadbook planner</b>, <b>Roadbook NAVI</b>, <b>Merch</b> a tohle FAQ.</p>
+      <p>Na <b>úvodních dlaždicích</b>: po spuštění aplikace, tlačítkem <b>← Zpět</b> vlevo nahoře (nebo klepnutím na logo) a v Atlasu na mobilu i tlačítkem <b>☰</b>. Velké dlaždice: <b>Atlas NAVI</b>, <b>Atlas Planner</b>, <b>Roadbook NAVI</b>, <b>Roadbook planner</b>. Menší: <b>+ Nahrát trasu</b>, <b>Můj účet</b> (změna hesla, odhlášení), <b>FAQ a o projektu</b> a <b>Merch</b>. Dlaždice stránky, na které právě jsi, má zlatý rámeček – klepnutím na ni se na stránku vrátíš.</p>
     </details>
   </section>
 
@@ -123,12 +134,22 @@
       <p>Tlačítkem <b>Ukončit navigaci</b> se vrátíš do běžné mapy (sever nahoře, mapou jde volně posouvat). GPS i případný záznam jízdy běží dál.</p>
     </details>
     <details>
+      <summary>Volná jízda – co znamená „na trase“ a šipka nahoře?</summary>
+      <p>Při navigaci se Atlas sám <b>chytí nejbližší trasy</b> (když jsi do 40 m od ní) a zvýrazní ji modře – nahoře svítí <b>Volná jízda · na trase …</b>. Když od trasy odjedeš dál než asi 90 m, zase ji pustí.</p>
+      <p>Klepnutím na trasu ji vybereš natrvalo (nahoře <b>Trasa: …</b>), klepnutím do prázdné mapy se vrátíš do volné jízdy.</p>
+      <p>Má-li aktivní trasa uložený roadbook a jedeš po jeho směru, nahoře se ukáže <b>šipka další instrukce s odpočtem metrů</b>. Když jedeš proti směru roadbooku, ukáže se jen upozornění.</p>
+    </details>
+    <details>
+      <summary>Proč se mapa za jízdy naklání?</summary>
+      <p>Nad 30 km/h se mapa plynule nakloní (nejvýš o 30°), ať je vidět dál dopředu. Náklon se rozjíždí mezi 25 a 35 km/h, takže kolem hranice necuká; při pomalé jízdě je mapa zase rovně. Tlačítka <b>+3 / −3</b> přibližují a oddalují o tři úrovně najednou.</p>
+    </details>
+    <details>
       <summary>Podle čeho se mapa natáčí?</summary>
       <p>Nad 5 km/h podle směru z GPS (za jízdy je nejstabilnější), pod 5 km/h – při stání nebo pomalé technické jízdě – podle kompasu telefonu. Na iPhonu se při prvním zapnutí zeptá na povolení kompasu.</p>
     </details>
     <details>
       <summary>Na mobilu nevidím hlavičku a seznam tras</summary>
-      <p>V jízdním režimu (mobil na výšku, nízký displej na šířku) jsou schované, ať je vidět mapa. Zobrazíš je tlačítkem <b>☰</b>; seznam tras pak tlačítkem <b>Trasy</b> v hlavičce.</p>
+      <p>V jízdním režimu (mobil na výšku, nízký displej na šířku) je hlavička schovaná, ať je vidět mapa. Tlačítko <b>☰</b> otevře úvodní dlaždice, seznam tras otevře tlačítko <b>≣</b> vlevo pod výběrem mapy.</p>
     </details>
   </section>
 
@@ -191,7 +212,7 @@
     <details>
       <summary>Jak připravím roadbook k trase?</summary>
       <ol>
-        <li>Otevři <b>Menu ▾ → Roadbook planner</b> a <b>klikni na trasu na mapě</b> (nebo ji vyber nahoře v seznamu). Barva: žlutá = Ready, červená = To check, fialová = rozpracovaný, šedá = Auto (bez uloženého roadbooku), čárkovaná = neuložené změny.</li>
+        <li>Na dlaždicích otevři <b>Roadbook planner</b> a <b>klikni na trasu na mapě</b> (nebo ji vyber nahoře v seznamu). Barva: žlutá = Ready, červená = To check, fialová = rozpracovaný, šedá = Auto (bez uloženého roadbooku), čárkovaná = neuložené změny.</li>
         <li>U trasy bez roadbooku se planner zeptá, jak ho vygenerovat:
           <ul>
             <li><b>Stáhnout z OSM a vygenerovat</b> – může chvíli trvat (od pár vteřin po minutu), ale roadbook bude <b>výrazně přesnější</b>: doplní křižovatky s odbočkami, typ cesty, brody, závory, přejezdy a benzínky. Průběh vidíš (dotazy, MB, čas) a stahování jde kdykoli zrušit. Data se uloží v prohlížeči, příště je generování okamžité.</li>
@@ -243,7 +264,8 @@
     <details open>
       <summary>Jak jedu podle roadbooku?</summary>
       <ol>
-        <li><b>Menu ▾ → Roadbook NAVI</b>, klikni na trasu na mapě (nebo ji najdi v seznamu) a dej <b>Jet podle roadbooku</b>. Povol polohu.</li>
+        <li>Na dlaždicích otevři <b>Roadbook NAVI</b>. Uvidíš mapu se všemi trasami (žlutá Ready, červená To check, fialová rozpracovaný, šedá Auto) a svou polohu. Klepni na trasu – nahoře se ukáže <b>Trasa: …</b> – a dej <b>Jet ▶</b>. Klepnutím do prázdné mapy výběr zrušíš, trasu najdeš i přes tlačítko <b>Seznam</b>.</li>
+        <li>Když se přiblížíš k trase s roadbookem (asi na 40 m), aplikace se sama zeptá, jestli podle něj chceš navigovat. U trasy bez roadbooku (Auto) se směr odhadne podle toho, ke kterému konci máš blíž – přepneš ho tlačítkem <b>⇅ Směr</b>.</li>
         <li>Nahoře je <b>KM CELKEM</b>, <b>DÍLČÍ</b> (od poslední instrukce), <b>CAP</b> (aktuální kurz) a minimapa s tvou polohou.</li>
         <li>Uprostřed roadbook: aktuální instrukce je dole se žlutým rámečkem, další přijíždějí shora. Pod ní žlutý pruh <b>DALŠÍ ZA … m</b> s ukazatelem, kolik zbývá do dalšího bodu.</li>
         <li>Roadbook se <b>posouvá sám</b> podle polohy. Prstem si ho můžeš posunout a podívat se dopředu – po <b>4 s bez dotyku</b> se sám vrátí k aktuální instrukci.</li>
@@ -289,14 +311,14 @@
     </details>
     <details>
       <summary>Mám nápad nebo jsem našel chybu</summary>
-      <p>Napiš nám přes Facebook Petrol Machine Silesia nebo e-mailem (kontakty jsou v hlavičce pod <b>O projektu</b>).</p>
+      <p>Napiš nám přes Facebook Petrol Machine Silesia nebo e-mailem (kontakty jsou nahoře v části <a href="#o-projektu">O projektu</a>).</p>
     </details>
   </section>
 </main>
 
 <div class="toast" id="toast"></div>
 <script src="public/config.js?v=2.2"></script>
-<script src="public/header.js?v=2.9.3"></script>
+<script src="public/header.js?v=2.11"></script>
 <script src="public/pwa.js?v=2.5"></script>
 <script>
 // otevře sekci, na kterou vede odkaz (#rb-planner apod.)

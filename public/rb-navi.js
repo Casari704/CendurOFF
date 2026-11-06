@@ -51,7 +51,7 @@ function renderSelect(){
     '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">' + g[1].map(r =>
       '<button type="button" class="nv-route" data-id="' + r.id + '"><b>' + esc(r.name) + (offlineIds.has(r.id) ? ' <span title="Uloženo v telefonu">📥</span>' : '') + '</b><span>' + (+r.distance_km).toFixed(1).replace('.', ',') + ' km</span><span class="rb-badge ' + g[2] + '">' + g[3] + '</span></button>').join('') + '</div>').join('') ||
     '<p class="sub">Žádná trasa.</p>';
-  $('nv-list').querySelectorAll('.nv-route').forEach(b => b.addEventListener('click', () => pickRoute(Number(b.dataset.id), true)));
+  $('nv-list').querySelectorAll('.nv-route').forEach(b => b.addEventListener('click', () => { $('nv-listpanel').hidden = true; pickRoute(Number(b.dataset.id), true); }));
   if(picked) { const b = $('nv-list').querySelector('.nv-route[data-id="' + picked + '"]'); if(b) b.classList.add('on'); }
 }
 $('nv-search').addEventListener('input', renderSelect);
@@ -105,34 +105,54 @@ async function renderOfflineBox(id){
   if(dl) dl.addEventListener('click', async () => { await removeOffline(id); toast('Odebráno z telefonu.'); renderOfflineBox(id); renderSelect(); });
 }
 
-// --- mapa tras na výběrové obrazovce ---
-// výchozí výřez mapy výběru (jako na screenshotu: Jeseník – Gliwice – Olomouc – Třinec)
+// --- mapa tras na výběrové obrazovce (v2.11: přes celou plochu, jako v autě) ---
+// výchozí výřez mapy výběru (Jeseník – Gliwice – Olomouc – Třinec)
 const HOME_BOUNDS = [[49.55, 16.35], [50.30, 18.95]];
-let selMap = null, selLayer = null, picked = null;
+const ASK_M = 40, ASK_RESET_M = 200;   // nabídka „navigovat?“ do 40 m od trasy; znovu až po vzdálení na 200 m
+let selMap = null, selLayer = null, picked = null, pickRev = false;
+let me = null, meMarker = null, selWatch = null, firstFix = true;
+const asked = new Set();
 function statusColor(id){ return RB.STATES[RB.stateOf(sums[id])].color; }
+function hasRb(id){ return RB.stateOf(sums[id]) !== 'auto'; }
+function shortName(name){ const w = String(name || '').trim().split(/\s+/); return w.length <= 3 ? w.join(' ') : w.slice(0, 3).join(' ') + '…'; }
+
 function drawSelectMap(){
   if(!selMap){
-    selMap = L.map('nv-map', { zoomControl:true }).fitBounds(HOME_BOUNDS);
+    selMap = L.map('nv-map', { zoomControl:false }).fitBounds(HOME_BOUNDS);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap contributors' }).addTo(selMap);
     selLayer = L.layerGroup().addTo(selMap);
+    // klepnutí do prázdné mapy = zrušit výběr
+    selMap.on('click', () => { if(picked) unpick(); });
   }
   selLayer.clearLayers();
-  let bounds = null;
-  routes.forEach(r => {
+  // šedé (Auto) dole, trasy s roadbookem navrch, vybraná úplně navrch
+  const order = routes.slice().sort((a, b) => (hasRb(a.id) ? 1 : 0) - (hasRb(b.id) ? 1 : 0) || (a.id === picked) - (b.id === picked));
+  order.forEach(r => {
     if(!Array.isArray(r.points) || r.points.length < 2) return;
     const ll = r.points.filter((p, i) => i % 3 === 0 || i === r.points.length - 1).map(p => [p[0], p[1]]);
-    const on = picked === r.id;
-    const line = L.polyline(ll, { color: statusColor(r.id), weight: on ? 8 : 5, opacity: picked && !on ? 0.45 : 0.9 }).addTo(selLayer);
-    const hit = L.polyline(ll, { color:'#000', weight: 20, opacity: 0, bubblingMouseEvents:false }).addTo(selLayer);
+    const on = picked === r.id, bold = hasRb(r.id);
+    const w = on ? 9 : bold ? 7 : 4;
+    L.polyline(ll, { color:'#fff', weight: w + 4, opacity: picked && !on ? 0.4 : 0.9, interactive:false }).addTo(selLayer);
+    L.polyline(ll, { color: on ? '#1E64D6' : statusColor(r.id), weight: w, opacity: picked && !on ? 0.5 : 1, interactive:false }).addTo(selLayer);
+    const hit = L.polyline(ll, { color:'#000', weight: 22, opacity: 0, bubblingMouseEvents:false }).addTo(selLayer);
     hit.bindTooltip(esc(r.name), { sticky: true });
-    hit.on('click', () => pickRoute(r.id, false));
-    const b = line.getBounds(); bounds = bounds ? bounds.extend(b) : b;
+    hit.on('click', () => { if(picked === r.id) unpick(); else pickRoute(r.id, false); });
   });
-  // výchozí výřez: Opavsko–Ostravsko–Bruntálsko (jen poprvé, pak zůstane, kam si mapu posuneš)
-  if(!selMap._cendurView){ selMap._cendurView = true; if(!picked) selMap.fitBounds(HOME_BOUNDS); }
   setTimeout(() => selMap.invalidateSize(), 60);
 }
-// vybraná trasa: karta s tlačítkem „Jet“ (GPS se zapne až klepnutím)
+function updateTitle(){
+  const r = picked ? routes.find(x => x.id === picked) : null;
+  $('nv-label').classList.toggle('sel', !!r);
+  if(r){
+    const st = RB.stateOf(sums[r.id]);
+    $('nv-title').textContent = 'Trasa: ' + shortName(r.name);
+    $('nv-sub').textContent = '(' + RB.STATES[st].label + ')' + (st === 'auto' ? ' · ' + (pickRev ? 'obráceně' : 'od začátku') : '') + ' · Jet ▶';
+  } else {
+    $('nv-title').textContent = 'Vyber trasu na mapě';
+    $('nv-sub').textContent = 'žlutá Ready · červená To check · fialová rozpracovaný · šedá Auto';
+  }
+}
+// vybraná trasa: karta s tlačítkem „Jet“ (GPS jízdy se zapne až klepnutím)
 function pickRoute(id, fromList){
   const r = routes.find(x => x.id === id);
   if(!r) return;
@@ -145,26 +165,110 @@ function pickRoute(id, fromList){
   bd.className = 'rb-badge ' + RB.STATES[st].css;
   bd.textContent = RB.STATES[st].badge;
   $('nv-pick-note').textContent = {
-    ready: 'Roadbook je zkontrolovaný. Směr jízdy je daný roadbookem (obrací se v Roadbook planneru).',
-    check: 'To check: trasa se od uložení roadbooku změnila, nebo některá místa čekají na kontrolu. Jet se dá, ale roadbook nemusí sedět.',
-    draft: 'Roadbook je rozpracovaný – nemusí být úplný. Směr je daný roadbookem.',
-    auto:  'Auto: roadbook se spočítá ze zatáček GPX (bez křižovatek). Úplný roadbook připrav v Roadbook planneru.'
+    ready: 'Roadbook je zkontrolovaný. Směr jízdy je daný roadbookem.',
+    check: 'To check: trasa se změnila nebo místa čekají na kontrolu – roadbook nemusí všude sedět.',
+    draft: 'Roadbook je rozpracovaný – nemusí být úplný.',
+    auto:  'Auto: roadbook se spočítá ze zatáček GPX (bez křižovatek). Směr se odhadne podle toho, ke kterému konci máš blíž.'
   }[st];
-  $('nv-pick-rev-box').hidden = !!sm;
-  $('nv-pick-rev').checked = false;
+  // Auto: směr podle toho, ke kterému konci trasy mám blíž
+  pickRev = false;
+  if(!sm && me){
+    const p = r.points, n = p.length - 1;
+    pickRev = RB.haversine(me, p[n]) < RB.haversine(me, p[0]);
+  }
+  $('nv-pick-dir').hidden = !!sm;
+  $('nv-pick-dir').textContent = '⇅ Směr: ' + (pickRev ? 'obráceně' : 'od začátku');
   $('nv-pick').classList.add('open');
   renderOfflineBox(id);
   drawSelectMap();
   renderSelect();
+  updateTitle();
   if(fromList){
-    const r0 = routes.find(x => x.id === id);
-    if(r0) selMap.fitBounds(L.polyline(r0.points.map(p => [p[0], p[1]])).getBounds(), { padding:[20, 20] });
-    $('nv-map').scrollIntoView({ block:'start', behavior:'smooth' });
-  } else {
-    $('nv-pick').scrollIntoView({ block:'nearest', behavior:'smooth' });
+    selMap.fitBounds(L.polyline(r.points.map(p => [p[0], p[1]])).getBounds(), { padding:[30, 30] });
   }
 }
-$('nv-pick-go').addEventListener('click', () => { if(picked) startRide(picked, $('nv-pick-rev').checked); });
+function unpick(){
+  picked = null;
+  $('nv-pick').classList.remove('open');
+  drawSelectMap(); renderSelect(); updateTitle();
+}
+$('nv-pick-x').addEventListener('click', unpick);
+$('nv-pick-dir').addEventListener('click', () => {
+  pickRev = !pickRev;
+  $('nv-pick-dir').textContent = '⇅ Směr: ' + (pickRev ? 'obráceně' : 'od začátku');
+  updateTitle();
+});
+$('nv-pick-go').addEventListener('click', () => { if(picked) startRide(picked, pickRev); });
+
+// tlačítka nad mapou
+function zoomBy(d){ if(selMap) selMap.setZoom(Math.max(6, Math.min(18, selMap.getZoom() + d))); }
+$('nv-f-zi').addEventListener('click', () => zoomBy(1));
+$('nv-f-zo').addEventListener('click', () => zoomBy(-1));
+$('nv-f-zi3').addEventListener('click', () => zoomBy(3));
+$('nv-f-zo3').addEventListener('click', () => zoomBy(-3));
+$('nv-f-me').addEventListener('click', () => {
+  if(me) selMap.setView(me, Math.max(selMap.getZoom(), 13));
+  else { toast('Čekám na polohu z GPS…'); startSelectGps(); }
+});
+$('nv-f-list').addEventListener('click', () => { $('nv-listpanel').hidden = false; renderSelect(); });
+$('nv-list-x').addEventListener('click', () => { $('nv-listpanel').hidden = true; });
+
+// --- moje poloha na mapě výběru + nabídka u trasy s roadbookem ---
+function routeDistM(r, la, lo, limit){
+  const pts = r.points;
+  if(!r._bb){
+    let a = 90, b = -90, c = 180, d = -180;
+    pts.forEach(p => { if(p[0] < a) a = p[0]; if(p[0] > b) b = p[0]; if(p[1] < c) c = p[1]; if(p[1] > d) d = p[1]; });
+    r._bb = [a, b, c, d];
+  }
+  const ky = 111320, kx = 111320 * Math.cos(la * Math.PI / 180);
+  const bb = r._bb, dl = limit / ky, dk = limit / kx;
+  if(la < bb[0] - dl || la > bb[1] + dl || lo < bb[2] - dk || lo > bb[3] + dk) return Infinity;
+  let best = Infinity;
+  for(let i = 0; i < pts.length - 1; i++){
+    const ax = (pts[i][1] - lo) * kx, ay = (pts[i][0] - la) * ky;
+    const bx = (pts[i + 1][1] - lo) * kx, by = (pts[i + 1][0] - la) * ky;
+    const dx = bx - ax, dy = by - ay, len = dx * dx + dy * dy;
+    const t = len > 0 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len)) : 0;
+    const px = ax + t * dx, py = ay + t * dy, dd = px * px + py * py;
+    if(dd < best) best = dd;
+  }
+  return Math.sqrt(best);
+}
+function startSelectGps(){
+  if(selWatch != null || !navigator.geolocation) return;
+  selWatch = navigator.geolocation.watchPosition(pos => {
+    me = [pos.coords.latitude, pos.coords.longitude];
+    if(!selMap) return;
+    if(!meMarker) meMarker = L.marker(me, { icon: L.divIcon({ className:'', html:'<div class="nv-me-dot"></div>', iconSize:[22, 22], iconAnchor:[11, 11] }), interactive:false, zIndexOffset:3000 }).addTo(selMap);
+    else meMarker.setLatLng(me);
+    if(firstFix){ firstFix = false; if(!picked) selMap.setView(me, 13); }
+    checkNearby();
+  }, () => {}, { enableHighAccuracy: true, maximumAge: 3000, timeout: 20000 });
+}
+function stopSelectGps(){ if(selWatch != null){ navigator.geolocation.clearWatch(selWatch); selWatch = null; } }
+function checkNearby(){
+  if(!me || !$('nv-ask').hidden || $('nv-ride').classList.contains('open')) return;
+  // trasy, od kterých jsem odjel dál, se můžou zeptat znovu
+  [...asked].forEach(id => { const r = routes.find(x => x.id === id); if(!r || routeDistM(r, me[0], me[1], ASK_RESET_M + 100) > ASK_RESET_M) asked.delete(id); });
+  let best = null, bestD = ASK_M;
+  routes.forEach(r => {
+    if(!hasRb(r.id) || asked.has(r.id) || !Array.isArray(r.points) || r.points.length < 2) return;
+    const d = routeDistM(r, me[0], me[1], 100);
+    if(d < bestD){ bestD = d; best = r; }
+  });
+  if(!best) return;
+  asked.add(best.id);
+  pickRoute(best.id, false);
+  const st = RB.stateOf(sums[best.id]);
+  $('nv-ask-msg').textContent = 'Jsi u trasy „' + best.name + '“' +
+    (st === 'check' ? ' – roadbook je To check (trasa se změnila nebo čeká na kontrolu)' : st === 'draft' ? ' – roadbook je zatím rozpracovaný' : '') +
+    '. Chceš navigovat podle roadbooku?';
+  $('nv-ask').hidden = false;
+  $('nv-ask').dataset.id = best.id;
+}
+$('nv-ask-yes').addEventListener('click', () => { const id = Number($('nv-ask').dataset.id); $('nv-ask').hidden = true; startRide(id, false); });
+$('nv-ask-no').addEventListener('click', () => { $('nv-ask').hidden = true; });
 
 // ---------------------------------------------------------------
 // Jízda – stav
@@ -228,6 +332,7 @@ async function startRide(id, reverseNoRb){
   vis = RB.visible(items);
   prog = null; offset = 0; curIdx = -1; warned = {}; heading = null; speed = 0; manualUntil = 0;
   $('nv-ride').classList.add('open');
+  stopSelectGps();
   try{ history.replaceState(null, '', location.pathname + '?trasa=' + id); }catch(e){}
   setupMaps();
   buildCards();
@@ -243,6 +348,8 @@ function stopRide(){
   $('nv-ride').classList.remove('open');
   $('nv-bigmap').classList.remove('open');
   try{ history.replaceState(null, '', location.pathname); }catch(e){}
+  startSelectGps();
+  if(selMap) setTimeout(() => selMap.invalidateSize(), 60);
 }
 $('nv-end').addEventListener('click', () => { if(confirm('Ukončit jízdu podle roadbooku?')) stopRide(); });
 $('nv-minus').addEventListener('click', () => { offset -= STEP_M; manualUntil = 0; render(false); });
@@ -299,7 +406,25 @@ function onPosition(lat, lon){
   $('nv-off').classList.toggle('open', off);
   updateMaps(lat, lon);
   render(false);
+  placeOff();
 }
+// pruh MIMO TRASU: dole v aktuální instrukci, zarovnaný k jejímu pravému okraji (v2.11)
+function placeOff(){
+  const box = $('nv-off');
+  if(!box.classList.contains('open')) return;
+  const el = cards[curIdx], ride = $('nv-ride').getBoundingClientRect(), rows = $('nv-rows').getBoundingClientRect();
+  if(!el) return;
+  const r = el.getBoundingClientRect();
+  const bottom = Math.min(r.bottom, rows.bottom);
+  box.style.width = Math.round(r.width * 0.66) + 'px';
+  // text ať se vejde na jeden řádek
+  let fs = 28; box.style.fontSize = fs + 'px';
+  while(box.scrollWidth > box.clientWidth && fs > 14){ fs -= 2; box.style.fontSize = fs + 'px'; }
+  box.style.right = Math.round(ride.right - r.right) + 'px';
+  box.style.top = Math.round(Math.max(rows.top, bottom - box.offsetHeight) - ride.top) + 'px';
+}
+$('nv-rows').addEventListener('scroll', placeOff, { passive: true });
+window.addEventListener('resize', () => setTimeout(placeOff, 120));
 
 // ---------------------------------------------------------------
 // Simulace (test u stolu)
@@ -411,6 +536,7 @@ function autoScroll(smooth){
   if(Math.abs(box.scrollTop - t) < 2) return;
   progScrollUntil = Date.now() + (smooth ? 700 : 80);
   if(smooth && box.scrollTo) box.scrollTo({ top: t, behavior: 'smooth' }); else box.scrollTop = t;
+  setTimeout(placeOff, smooth ? 750 : 30);
 }
 // ruční posun prstem: na chvíli vypne automatické posouvání
 (function manualScroll(){
@@ -479,11 +605,11 @@ window.addEventListener('resize', () => { if($('nv-ride').classList.contains('op
       const rec = await RB.store.get(offKey(it.id));
       if(!rec) continue;
       routes.push(rec.route);
-      if(rec.roadbook) sums[it.id] = { route_id: it.id, status: rec.roadbook.status };
+      if(rec.roadbook) sums[it.id] = { route_id: it.id, status: rec.roadbook.status, stale: !!rec.roadbook.stale, review_count: rec.roadbook.review_count || 0 };
     }
     if(window.CendurRides) window.CendurRides.setRoutes(routes);
     $('nv-offline-note').hidden = false;
-    renderSelect(); drawSelectMap();
+    renderSelect(); drawSelectMap(); startSelectGps();
     return;
   }
   if(!currentUser){
@@ -518,6 +644,7 @@ window.addEventListener('resize', () => { if($('nv-ride').classList.contains('op
   })();
   renderSelect();
   drawSelectMap();
+  startSelectGps();
   // přímý odkaz z planneru: jízdu nespouštíme sami (GPS chce klepnutí), jen trasu vybereme
   const id = Number(new URLSearchParams(location.search).get('trasa'));
   if(id && routes.some(r => r.id === id)) pickRoute(id, true);

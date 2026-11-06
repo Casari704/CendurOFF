@@ -38,53 +38,133 @@
     .concat(HELP_PAGES.map((p, i)=>Object.assign({ sep: i === 0 }, p)));
   const current = ALL_PAGES.find(p=>p.id===page) || (page === 'admin' ? ADMIN_PAGE : PAGES[0]);
 
+  // v2.11: hlavička je jen tenký pruh – „← Zpět“ na dlaždice, název stránky a tlačítka stránky.
+  // Všechny stránky, účet, FAQ a nahrání trasy jsou v dlaždicovém menu přes celou obrazovku.
   header.innerHTML = `
-    <a class="brand-link" href="index.html" title="CendurOFF Atlas">
+    <button class="btn hdr-back" id="hdr-back" type="button" aria-label="Zpět na úvodní dlaždice">← Zpět</button>
+    <a class="brand-link" href="#" id="hdr-brand" title="Úvodní dlaždice">
       <img class="brand-logo" src="public/img/pms-logo.png" alt="">
       <span class="brand">CendurOFF <span class="brand-sub">${current.label}</span></span>
     </a>
-    <nav class="site-nav" aria-label="Hlavní menu">
-      <div class="nav-menu">
-        <button class="btn nav-link nav-menu-btn" id="nav-menu-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="nav-menu-list">Menu ▾</button>
-        <div class="nav-menu-list" id="nav-menu-list" role="menu" hidden>
-          ${ALL_PAGES.map(p=>`${p.sep ? '<div class="nav-menu-sep" role="separator"></div>' : ''}<a class="btn nav-link${p.id===page ? ' active' : ''}" role="menuitem" href="${p.href}"${p.id===page ? ' aria-current="page"' : ''}>${p.label}</a>`).join('')}
-        </div>
-      </div>
-    </nav>
     <div class="site-actions">
-      ${page==='atlas' ? '<button class="btn solid" id="open-upload" type="button">+ Nahrát trasu</button>' : ''}
-      <button class="btn" id="open-about" type="button">O projektu</button>
-      <button class="btn user-btn" id="user-chip" type="button" hidden></button>
-      <a class="btn" id="login-link" href="index.html${page==='atlas' ? '' : '?next=' + encodeURIComponent(current.href)}" hidden>Přihlásit se</a>
+      ${page==='atlas' ? '<button class="btn solid hdr-wide" id="open-upload" type="button">+ Nahrát trasu</button>' : ''}
+      <button class="btn" id="open-about" type="button" hidden>O projektu</button>
+      <button class="btn user-btn hdr-wide" id="user-chip" type="button" hidden></button>
+      <a class="btn hdr-wide" id="login-link" href="index.html${page==='atlas' ? '' : '?next=' + encodeURIComponent(current.href)}" hidden>Přihlásit se</a>
     </div>`;
 
-  // --- nabídka „Menu ▾“ ---
+  // --- dlaždicové menu přes celou obrazovku ---
   if(!document.getElementById('nav-menu-style')){
     document.head.insertAdjacentHTML('beforeend', `<style id="nav-menu-style">
-      .nav-menu{position:relative;display:inline-flex;}
-      .nav-menu-list{position:absolute;top:calc(100% + 6px);left:0;z-index:2100;min-width:190px;display:flex;flex-direction:column;gap:6px;
-        padding:8px;background:var(--bg-app,#172218);border:1px solid rgba(255,255,255,0.25);border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,0.35);}
-      .nav-menu-list[hidden]{display:none;}
-      .nav-menu-list .btn{justify-content:flex-start;}
-      .nav-menu-list [hidden]{display:none;}
-      .nav-menu-sep{height:1px;background:rgba(255,255,255,0.2);margin:2px 0;}
+      header.topbar{flex-wrap:nowrap;}
+      .hdr-back{flex:none;font-weight:700;}
+      header.topbar .brand-link{min-width:0;overflow:hidden;}
+      header.topbar .brand{overflow:hidden;text-overflow:ellipsis;}
+      @media (max-width:760px){ header.topbar .hdr-wide{display:none !important;} header.topbar .brand-logo{display:none;} }
+      #tile-menu{position:fixed;inset:0;z-index:5000;background:#101810;color:#EFEAD8;display:none;
+        padding:calc(env(safe-area-inset-top,0px) + 12px) calc(env(safe-area-inset-right,0px) + 12px) calc(env(safe-area-inset-bottom,0px) + 12px) calc(env(safe-area-inset-left,0px) + 12px);
+        box-sizing:border-box;font-family:'Roboto',sans-serif;}
+      #tile-menu.open{display:grid;}
+      #tile-menu{grid-template-columns:1fr;grid-template-rows:auto auto 1fr auto 1fr auto;gap:10px;}
+      .tm-head{display:flex;align-items:center;gap:10px;}
+      .tm-head img{height:34px;border-radius:5px;}
+      .tm-head b{font-family:'Exo 2',sans-serif;font-size:1.35rem;font-weight:700;}
+      .tm-head span{margin-left:auto;font-size:0.82rem;color:#C9B87A;text-align:right;}
+      .tm-lbl{font-size:0.78rem;letter-spacing:0.12em;color:#C9B87A;font-weight:700;margin:2px 2px -4px;}
+      .tm-grp{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0;}
+      .tm-tile{border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+        gap:4px;padding:10px;text-decoration:none;font-family:'Exo 2',sans-serif;font-weight:800;font-size:1.25rem;line-height:1.1;
+        border:3px solid transparent;box-sizing:border-box;min-height:0;}
+      .tm-tile small{font-family:'Roboto',sans-serif;font-weight:500;font-size:0.8rem;opacity:.9;}
+      .tm-tile.cur{border-color:#F1D79A;box-shadow:0 0 0 2px #101810 inset;}
+      .tm-tile:active{filter:brightness(1.1);}
+      .tm-an{background:#4F7048;color:#fff;} .tm-ap{background:#3B5636;color:#fff;}
+      .tm-rn{background:#F5B700;color:#111;} .tm-rp{background:#C99400;color:#111;}
+      .tm-side{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+      .tm-s{border-radius:10px;background:#26342A;border:1px solid #3A4A3C;color:#EFEAD8;display:flex;align-items:center;justify-content:center;
+        text-align:center;padding:12px 8px;font-weight:700;font-size:0.98rem;text-decoration:none;font-family:inherit;cursor:pointer;min-height:48px;box-sizing:border-box;}
+      .tm-s.up{border-color:#C99400;color:#F5D36A;}
+      .tm-s.cur{border-color:#F1D79A;}
+      /* na šířku: Atlas a Roadbook ve sloupcích, vpravo podélné dlaždice */
+      @media (orientation:landscape){
+        /* řádky: hlavička / popisky ATLAS · ROADBOOK / dlaždice – boční dlaždice začínají ve stejné linii jako velké */
+        #tile-menu.open{grid-template-columns:1fr 1fr minmax(150px,0.62fr);grid-template-rows:auto auto 1fr;}
+        .tm-head{grid-column:1 / -1;}
+        .tm-col{display:contents;}
+        .tm-col .tm-lbl{grid-row:2;margin:0 2px;}
+        .tm-col .tm-grp{grid-row:3;grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:8px;}
+        #tile-menu > .tm-col:nth-child(2) > *{grid-column:1;}
+        #tile-menu > .tm-col:nth-child(3) > *{grid-column:2;}
+        .tm-side{grid-column:3;grid-row:3;grid-template-columns:1fr;grid-auto-rows:1fr;}
+      }
+      @media (orientation:portrait){ .tm-col{display:contents;} }
     </style>`);
   }
-  const menuBtn = document.getElementById('nav-menu-btn');
-  const menuList = document.getElementById('nav-menu-list');
-  function setMenu(open){
-    menuList.hidden = !open;
-    menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if(open){
-      // na úzkém displeji ať nabídka nevyjede mimo obrazovku
-      menuList.style.left = '0'; menuList.style.right = 'auto';
-      const r = menuList.getBoundingClientRect();
-      if(r.right > window.innerWidth - 8){ menuList.style.left = 'auto'; menuList.style.right = '0'; }
-    }
+  if(!document.getElementById('tile-menu')){
+    const T = (cls, id, href, title, sub) =>
+      `<a class="tm-tile ${cls}${id===page ? ' cur' : ''}" href="${href}" data-page="${id}">${title}${sub ? '<small>' + sub + '</small>' : ''}</a>`;
+    document.body.insertAdjacentHTML('beforeend', `
+<div id="tile-menu" role="dialog" aria-modal="true" aria-label="Menu CendurOFF">
+  <div class="tm-head"><img src="public/img/pms-logo.png" alt=""><b>CendurOFF</b><span id="tm-user"></span></div>
+  <div class="tm-col"><div class="tm-lbl">ATLAS</div><div class="tm-grp">
+    ${T('tm-an','atlas','index.html','Atlas NAVI','mapa tras a navigace')}
+    ${T('tm-ap','planovac','planovac.html','Atlas Planner','plánování tras')}
+  </div></div>
+  <div class="tm-col"><div class="tm-lbl">ROADBOOK</div><div class="tm-grp">
+    ${T('tm-rn','roadbook-navi','roadbook-navi.html','Roadbook NAVI','jízda podle instrukcí')}
+    ${T('tm-rp','roadbook','roadbook-planner.html','Roadbook planner','jen na PC')}
+  </div></div>
+  <div class="tm-side">
+    <button class="tm-s up" id="tm-upload" type="button">+ Nahrát trasu</button>
+    <button class="tm-s" id="tm-account" type="button">Můj účet</button>
+    <a class="tm-s${page==='faq' ? ' cur' : ''}" href="faq.html">FAQ a o projektu</a>
+    <a class="tm-s${page==='merch' ? ' cur' : ''}" href="merch.html">Merch</a>
+  </div>
+</div>`);
   }
-  menuBtn.addEventListener('click', e=>{ e.stopPropagation(); setMenu(menuList.hidden); });
-  document.addEventListener('click', e=>{ if(!menuList.hidden && !menuList.contains(e.target)) setMenu(false); });
-  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !menuList.hidden){ setMenu(false); menuBtn.focus(); } });
+  const tiles = document.getElementById('tile-menu');
+  let tilesPushed = false;
+  function openTiles(){
+    if(tiles.classList.contains('open')) return;
+    tiles.classList.add('open');
+    // tlačítko Zpět v telefonu zavře dlaždice (vrátí na stránku)
+    try{ history.pushState({ cendurTiles: 1 }, ''); tilesPushed = true; }catch(e){}
+  }
+  function closeTiles(fromPop){
+    if(!tiles.classList.contains('open')) return;
+    tiles.classList.remove('open');
+    if(tilesPushed && !fromPop){ tilesPushed = false; try{ history.back(); }catch(e){} }
+    tilesPushed = false;
+  }
+  window.addEventListener('popstate', ()=>{ if(tiles.classList.contains('open')) closeTiles(true); });
+  document.getElementById('hdr-back').addEventListener('click', openTiles);
+  document.getElementById('hdr-brand').addEventListener('click', e=>{ e.preventDefault(); openTiles(); });
+  // dlaždice aktuální stránky = jen zavřít menu
+  tiles.querySelectorAll('[data-page]').forEach(a=> a.addEventListener('click', e=>{
+    if(a.dataset.page === page){ e.preventDefault(); closeTiles(); }
+  }));
+  tiles.querySelectorAll('a.tm-s').forEach(a=> a.addEventListener('click', e=>{
+    if(a.classList.contains('cur')){ e.preventDefault(); closeTiles(); }
+  }));
+  document.getElementById('tm-upload').addEventListener('click', ()=>{
+    const up = document.getElementById('open-upload');
+    if(page === 'atlas' && up && user){ closeTiles(); up.click(); }
+    else location.href = 'index.html?nahrat=1';
+  });
+  document.getElementById('tm-account').addEventListener('click', ()=>{
+    if(!user){ location.href = 'index.html' + (page==='atlas' ? '' : '?next=' + encodeURIComponent(current.href)); return; }
+    closeTiles();
+    userBtn.click();
+  });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && tiles.classList.contains('open')) closeTiles(); });
+
+  // úvodní obrazovka: při spuštění aplikace (Atlas bez odkazu na konkrétní trasu) nejdřív dlaždice
+  try{
+    if(page === 'atlas' && !location.search && !location.hash && !sessionStorage.getItem('cenduroff.home')){
+      sessionStorage.setItem('cenduroff.home', '1');
+      openTiles();
+    }
+  }catch(e){}
 
   // --- okna (vloží se jen jednou) ---
   if(!document.getElementById('about-overlay')){
@@ -211,12 +291,16 @@
     userBtn.hidden = !user;
     loginLink.hidden = !!user;
     if(user) userBtn.textContent = user.displayName + (user.role==='admin' ? ' · admin' : '');
+    const tu = document.getElementById('tm-user');
+    if(tu) tu.textContent = user ? user.displayName + (user.role==='admin' ? ' · admin' : '') : '';
+    const ta = document.getElementById('tm-account');
+    if(ta) ta.textContent = user ? 'Můj účet' : 'Přihlásit se';
     const ab = document.getElementById('admin-btn');
     if(ab) ab.style.display = (user && user.role==='admin') ? '' : 'none';
     window.dispatchEvent(new Event('resize')); // hlavička mohla změnit výšku (mobil)
   }
 
-  window.CendurHeader = { setUser, page };
+  window.CendurHeader = { setUser, page, openTiles, closeTiles };
 
   if(header.dataset.auth === 'auto'){
     api('/api/auth/me').then(setUser).catch(()=> setUser(null));
