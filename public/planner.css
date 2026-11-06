@@ -121,3 +121,6 @@ body.auth-pending #app-screen{visibility:hidden;}
 .pl-pop-split{border-top:1px solid var(--line);padding-top:8px;}
 .pl-popup button[data-trim]{display:flex;flex-direction:column;align-items:center;color:var(--rust-dark);}
 .pl-popup button[data-trim] small{font-weight:400;color:var(--ink-soft);font-size:0.72rem;}
+/* v3.4: klepnutí na jinou trasu v mapě */
+.pl-pop-other{flex-direction:column;margin-top:10px;}
+.pl-popup .pl-pop-edit{background:var(--moss);border-color:var(--moss);color:#fff;padding:9px 6px;font-size:0.85rem;}

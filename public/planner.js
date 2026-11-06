@@ -875,8 +875,32 @@ function drawOthers(){
   allRoutes.forEach(r=>{
     if(editing && Number(editing.id)===Number(r.id)) return; // upravovaná trasa se kreslí jako plán
     const color = (ROUTE_TYPES[r.route_type] || ROUTE_TYPES.offroad).color;
-    L.polyline(r.points.map(p=>[p[0],p[1]]), { pane:'pl-others', color, weight:4, opacity:0.7, interactive:false }).addTo(othersLayer);
+    const ll = r.points.map(p=>[p[0],p[1]]);
+    const line = L.polyline(ll, { pane:'pl-others', color, weight:4, opacity:0.7, interactive:false }).addTo(othersLayer);
+    // v3.4: trasy, které smím upravit, jdou otevřít klepnutím přímo na mapě
+    if(!canEditRoute(r.owner_id)) return;
+    const hit = L.polyline(ll, { pane:'pl-others', color:'#000', weight:18, opacity:0, bubblingMouseEvents:false }).addTo(othersLayer);
+    hit.on('mouseover', ()=> line.setStyle({ weight:7, opacity:1 }));
+    hit.on('mouseout', ()=> line.setStyle({ weight:4, opacity:0.7 }));
+    hit.on('click', e=>{ L.DomEvent.stopPropagation(e); openOtherPopup(r, e.latlng); });
   });
+}
+function openOtherPopup(r, latlng){
+  const el = document.createElement('div');
+  el.className = 'pl-popup';
+  const own = currentUser && Number(currentUser.id) === Number(r.owner_id);
+  el.innerHTML = `<b>${escapeHtml(r.name)}</b>
+    <div class="pl-pop-row">${(ROUTE_TYPES[r.route_type] || ROUTE_TYPES.offroad).label} · ${Number(r.distance_km).toFixed(1)} km${own ? '' : ' · ' + escapeHtml(r.owner_display || 'jiný uživatel')}</div>
+    <div class="pl-pop-btns pl-pop-other">
+      <button type="button" class="pl-pop-edit">✎ Upravit tuto trasu</button>
+      <button type="button" class="pl-pop-add">+ Přidat bod sem</button>
+    </div>`;
+  el.querySelector('.pl-pop-edit').addEventListener('click', ()=>{
+    map.closePopup();
+    openRouteById(r.id, true).then(ok=>{ if(ok){ if(window.matchMedia('(max-width:760px)').matches) panel.classList.add('collapsed'); } });
+  });
+  el.querySelector('.pl-pop-add').addEventListener('click', ()=>{ map.closePopup(); addPoint(latlng); });
+  L.popup({ closeButton:true, autoPanPadding:[30,30] }).setLatLng(latlng).setContent(el).openOn(map);
 }
 const showRoutesEl = document.getElementById('pl-show-routes');
 showRoutesEl.checked = !!settings.showRoutes;
