@@ -920,7 +920,7 @@ function openSaveDialog(){
   document.getElementById('pl-type').value = (editing && editing.route_type) || '';
   const msg = document.getElementById('pl-save-msg');
   msg.style.color = '';
-  msg.innerHTML = currentUser ? '' : 'Pro uložení do CendurOFF se musíš <a href="index.html">přihlásit na hlavní stránce</a>. GPX si můžeš stáhnout i bez přihlášení.';
+  msg.innerHTML = currentUser ? '' : 'Pro uložení do CendurOFF se musíš <a href="index.html?atlas=1">přihlásit na hlavní stránce</a>. GPX si můžeš stáhnout i bez přihlášení.';
   document.getElementById('pl-save-overwrite').style.display = isOwnerOfEditing() ? '' : 'none';
   const newBtn = document.getElementById('pl-save-new');
   newBtn.className = isOwnerOfEditing() ? 'ghost-btn pl-full' : 'primary-btn';
@@ -1019,7 +1019,7 @@ function restoreDraft(){
         '<div style="margin:auto;max-width:420px;padding:32px;text-align:center;font-family:Roboto,sans-serif">' +
         '<h2 style="font-family:\'Exo 2\',sans-serif">Přihlášení se nepodařilo ověřit</h2>' +
         '<p>Server teď neodpovídá nebo prohlížeč blokuje přihlašovací cookie. Zkus to prosím za chvíli znovu.</p>' +
-        '<p><a href="index.html">Přejít do Atlasu</a></p></div>';
+        '<p><a href="index.html?atlas=1">Přejít do Atlasu</a></p></div>';
       return;
     }
     hops.push(Date.now());

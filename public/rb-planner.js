@@ -736,7 +736,7 @@ function showMobileBlock(){
   $('rb-main').innerHTML = '<div class="rb-mobile-msg"><h2>Roadbook planner je jen pro počítač</h2>' +
     '<p>Plánování roadbooku potřebuje velkou obrazovku a myš, proto ho na mobilu nejde použít. Otevři ho na počítači – doporučujeme prohlížeč <b>Google Chrome</b>.</p>' +
     '<p>Na mobilu můžeš podle hotového roadbooku jet v <b>Roadbook NAVI</b>.</p>' +
-    '<div class="rb-mobile-actions"><a class="btn-rb go" href="roadbook-navi.html">Otevřít Roadbook NAVI</a><a class="btn-rb" href="index.html">Zpět do Atlasu</a><a class="btn-rb" href="faq.html#rb-planner">Jak to funguje (FAQ)</a></div></div>';
+    '<div class="rb-mobile-actions"><a class="btn-rb go" href="roadbook-navi.html">Otevřít Roadbook NAVI</a><a class="btn-rb" href="index.html">Zpět na úvod</a><a class="btn-rb" href="faq.html#rb-planner">Jak to funguje (FAQ)</a></div></div>';
 }
 
 (async function boot(){
@@ -755,7 +755,7 @@ function showMobileBlock(){
     if(hops.length >= 2){
       try{ sessionStorage.removeItem('rbAuthHops'); }catch(e){}
       document.body.classList.remove('auth-pending');
-      $('app-screen').innerHTML = '<div style="margin:auto;max-width:420px;padding:32px;text-align:center"><h2>Přihlášení se nepodařilo ověřit</h2><p>Zkus to prosím za chvíli znovu.</p><p><a href="index.html">Přejít do Atlasu</a></p></div>';
+      $('app-screen').innerHTML = '<div style="margin:auto;max-width:420px;padding:32px;text-align:center"><h2>Přihlášení se nepodařilo ověřit</h2><p>Zkus to prosím za chvíli znovu.</p><p><a href="index.html?atlas=1">Přejít do Atlasu</a></p></div>';
       return;
     }
     hops.push(Date.now());

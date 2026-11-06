@@ -618,7 +618,7 @@ window.addEventListener('resize', () => { if($('nv-ride').classList.contains('op
     if(hops.length >= 2){
       try{ sessionStorage.removeItem('rbAuthHops'); }catch(e){}
       document.body.classList.remove('auth-pending');
-      $('nv-select').innerHTML = '<div class="wrap"><h1>Přihlášení se nepodařilo ověřit</h1><p class="sub"><a href="index.html">Přejít do Atlasu</a></p></div>';
+      $('nv-select').innerHTML = '<div class="wrap"><h1>Přihlášení se nepodařilo ověřit</h1><p class="sub"><a href="index.html?atlas=1">Přejít do Atlasu</a></p></div>';
       return;
     }
     hops.push(Date.now());

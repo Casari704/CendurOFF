@@ -50,7 +50,7 @@
       <button class="btn hdr-back" id="hdr-back" type="button" aria-label="Zpět na úvodní dlaždice">← Zpět</button>
       <button class="btn" id="open-about" type="button" hidden>O projektu</button>
       <button class="btn user-btn hdr-wide" id="user-chip" type="button" hidden></button>
-      <a class="btn hdr-wide" id="login-link" href="index.html${page==='atlas' ? '' : '?next=' + encodeURIComponent(current.href)}" hidden>Přihlásit se</a>
+      <a class="btn hdr-wide" id="login-link" href="index.html${page==='atlas' ? '?atlas=1' : '?next=' + encodeURIComponent(current.href)}" hidden>Přihlásit se</a>
     </div>`;
 
   // --- dlaždicové menu přes celou obrazovku ---
@@ -68,6 +68,7 @@
         padding:calc(env(safe-area-inset-top,0px) + 12px) calc(env(safe-area-inset-right,0px) + 12px) calc(env(safe-area-inset-bottom,0px) + 12px) calc(env(safe-area-inset-left,0px) + 12px);
         box-sizing:border-box;font-family:'Roboto',sans-serif;}
       #tile-menu.open{display:grid;}
+      #account-overlay{z-index:6000;}
       #tile-menu{grid-template-columns:1fr;grid-template-rows:auto auto 1fr auto 1fr auto;gap:10px;}
       .tm-head{display:flex;align-items:center;gap:10px;}
       .tm-head img{height:34px;border-radius:5px;}
@@ -129,48 +130,66 @@
 </div>`);
   }
   const tiles = document.getElementById('tile-menu');
-  let tilesPushed = false;
+  // v3.0: dlaždice jsou úvodní stránka webu i aplikace = index.html bez parametrů.
+  // Atlas NAVI má adresu index.html?atlas=1 (sdílené odkazy ?trasa=… a přihlášení ?next=… vedou rovnou do Atlasu).
+  const ATLAS_URL = 'index.html?atlas=1';
+  const isHomeUrl = () => page === 'atlas' && !location.search && !location.hash;
+  let tilesPushed = false, tilesHome = false;
   function openTiles(){
     if(tiles.classList.contains('open')) return;
     tiles.classList.add('open');
     // tlačítko Zpět v telefonu zavře dlaždice (vrátí na stránku)
     try{ history.pushState({ cendurTiles: 1 }, ''); tilesPushed = true; }catch(e){}
   }
+  function openHome(){
+    tilesHome = true; tilesPushed = false;
+    tiles.classList.add('open', 'home');
+  }
   function closeTiles(fromPop){
-    if(!tiles.classList.contains('open')) return;
+    if(!tiles.classList.contains('open') || tilesHome) return;
     tiles.classList.remove('open');
     if(tilesPushed && !fromPop){ tilesPushed = false; try{ history.back(); }catch(e){} }
     tilesPushed = false;
   }
-  window.addEventListener('popstate', ()=>{ if(tiles.classList.contains('open')) closeTiles(true); });
+  // z úvodu (index.html) do Atlasu bez nového načítání stránky – Atlas už pod dlaždicemi běží
+  function leaveHomeToAtlas(){
+    tilesHome = false;
+    tiles.classList.remove('open', 'home');
+    try{ history.pushState(null, '', ATLAS_URL); }catch(e){}
+    window.dispatchEvent(new Event('resize'));
+  }
+  window.addEventListener('popstate', ()=>{
+    if(isHomeUrl()){ openHome(); return; }            // Zpět v telefonu z Atlasu → úvodní dlaždice
+    if(tiles.classList.contains('open')) closeTiles(true);
+  });
   document.getElementById('hdr-back').addEventListener('click', openTiles);
   document.getElementById('hdr-brand').addEventListener('click', e=>{ e.preventDefault(); openTiles(); });
   // dlaždice aktuální stránky = jen zavřít menu
-  tiles.querySelectorAll('[data-page]').forEach(a=> a.addEventListener('click', e=>{
-    if(a.dataset.page === page){ e.preventDefault(); closeTiles(); }
-  }));
+  tiles.querySelectorAll('[data-page]').forEach(a=>{
+    if(a.dataset.page === 'atlas') a.setAttribute('href', ATLAS_URL);
+    a.addEventListener('click', e=>{
+      if(a.dataset.page !== page) return;
+      e.preventDefault();
+      if(tilesHome) leaveHomeToAtlas(); else closeTiles();
+    });
+  });
   tiles.querySelectorAll('a.tm-s').forEach(a=> a.addEventListener('click', e=>{
     if(a.classList.contains('cur')){ e.preventDefault(); closeTiles(); }
   }));
   document.getElementById('tm-upload').addEventListener('click', ()=>{
     const up = document.getElementById('open-upload');
-    if(page === 'atlas' && up && user){ closeTiles(); up.click(); }
+    if(page === 'atlas' && up && user){ if(tilesHome) leaveHomeToAtlas(); else closeTiles(); up.click(); }
     else location.href = 'index.html?nahrat=1';
   });
+  // Můj účet se otevře nad dlaždicemi (dlaždice zůstanou pod ním)
   document.getElementById('tm-account').addEventListener('click', ()=>{
-    if(!user){ location.href = 'index.html' + (page==='atlas' ? '' : '?next=' + encodeURIComponent(current.href)); return; }
-    closeTiles();
+    if(!user){ location.href = page === 'atlas' ? ATLAS_URL : 'index.html?next=' + encodeURIComponent(current.href); return; }
     userBtn.click();
   });
-  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && tiles.classList.contains('open')) closeTiles(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && tiles.classList.contains('open') && !document.querySelector('.modal-overlay.open')) closeTiles(); });
 
-  // úvodní obrazovka: při spuštění aplikace (Atlas bez odkazu na konkrétní trasu) nejdřív dlaždice
-  try{
-    if(page === 'atlas' && !location.search && !location.hash && !sessionStorage.getItem('cenduroff.home')){
-      sessionStorage.setItem('cenduroff.home', '1');
-      openTiles();
-    }
-  }catch(e){}
+  // úvodní stránka: index.html bez parametrů = dlaždice
+  if(isHomeUrl()) openHome();
 
   // --- okna (vloží se jen jednou) ---
   if(!document.getElementById('about-overlay')){
