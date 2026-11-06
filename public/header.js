@@ -61,6 +61,8 @@
       header.topbar .brand-link{min-width:0;overflow:hidden;}
       header.topbar .brand{overflow:hidden;text-overflow:ellipsis;}
       header.topbar .site-actions{flex-wrap:nowrap;margin-left:auto;}
+      #account-overlay .close-btn{background:none;font-family:inherit;cursor:pointer;}
+      #account-overlay .actions .admin-btn{flex:1;}
       @media (max-width:760px){ header.topbar .hdr-wide{display:none !important;} header.topbar .site-actions{display:flex;} }
       #tile-menu{position:fixed;inset:0;z-index:5000;background:#101810;color:#EFEAD8;display:none;
         padding:calc(env(safe-area-inset-top,0px) + 12px) calc(env(safe-area-inset-right,0px) + 12px) calc(env(safe-area-inset-bottom,0px) + 12px) calc(env(safe-area-inset-left,0px) + 12px);
@@ -208,12 +210,12 @@
       <input type="password" id="cp-confirm" autocomplete="new-password" required minlength="4">
       <div class="form-msg" id="cp-msg"></div>
       <div class="actions">
-        <button class="ghost-btn" id="cp-cancel" type="button">Zavřít</button>
+        <a class="admin-btn" id="admin-btn" href="admin.html" style="display:none">Admin sekce</a>
         <button class="primary-btn" type="submit" style="margin-top:0;">Změnit heslo</button>
       </div>
     </form>
     <div class="account-btns">
-      <a class="admin-btn" id="admin-btn" href="admin.html" style="display:none">Admin sekce</a>
+      <button class="admin-btn close-btn" id="cp-cancel" type="button">Zavřít</button>
       <button class="logout-btn" id="logout-btn" type="button">Odhlásit se</button>
     </div>
   </div>
