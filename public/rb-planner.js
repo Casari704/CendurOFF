@@ -83,7 +83,18 @@ const DRAFT_PREFIX = 'cenduroff.rb.draft.';
 // ---------------------------------------------------------------
 // Mapa
 // ---------------------------------------------------------------
-const map = L.map('rb-map', { zoomControl:true }).setView([49.8711, 17.8756], 12);
+const map = L.map('rb-map', { zoomControl:false }).setView([49.8711, 17.8756], 12);
+// v3.9.1: stejná tlačítka přiblížení jako na ostatních stránkách (+3 / + / − / −3, public/zoom.js)
+(function(){
+  const Z = L.Control.extend({ options:{ position:'topleft' }, onAdd(){
+    const d = L.DomUtil.create('div', 'leaflet-bar rb-zoom');
+    d.innerHTML = '<a href="#" role="button" id="rb-zi3" title="Přiblížit o 3">+3</a><a href="#" role="button" id="rb-zi" title="Přiblížit">+</a><a href="#" role="button" id="rb-zo" title="Oddálit">−</a><a href="#" role="button" id="rb-zo3" title="Oddálit o 3">−3</a>';
+    L.DomEvent.disableClickPropagation(d);
+    return d;
+  }});
+  new Z().addTo(map);
+  window.CendurZoom.bind(map, { in3:'rb-zi3', in1:'rb-zi', out1:'rb-zo', out3:'rb-zo3' }, { min:3, max:19 });
+})();
 // v3.8: podkladové mapy – turistická Mapy.com a satelit (public/basemaps.js), společné s Atlasem
 const baseCtl = window.CendurMaps.attach(map, { toast: t => toast(t, 2500) });
 $('rb-base').value = baseCtl.current;

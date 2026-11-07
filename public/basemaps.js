@@ -123,17 +123,10 @@
         if(!btn) return;
         const sync = () => { btn.textContent = api.icon(); btn.title = api.title() + (onMenu ? ' · podržením výběr mapy, benzínky, CHKO' : ''); };
         sync();
-        let t = null, long = false;
-        const start = () => { long = false; clearTimeout(t); if(onMenu) t = setTimeout(() => { long = true; onMenu(); }, 550); };
-        const stop = () => clearTimeout(t);
-        btn.addEventListener('pointerdown', start);
-        ['pointerup','pointerleave','pointercancel'].forEach(ev => btn.addEventListener(ev, stop));
-        btn.addEventListener('contextmenu', e => { e.preventDefault(); if(onMenu){ long = true; onMenu(); } });
-        btn.addEventListener('click', e => {
-          e.stopPropagation();
-          if(long){ long = false; return; }
-          api.toggle(); sync(); if(api._menuSync) api._menuSync();
-        });
+        // společné klepnutí (public/zoom.js): klepnutí = přepnout, podržení = nabídka
+        const doToggle = () => { api.toggle(); sync(); if(api._menuSync) api._menuSync(); };
+        if(window.CendurZoom && window.CendurZoom.tap) window.CendurZoom.tap(btn, doToggle, { onLong: onMenu });
+        else btn.addEventListener('click', e => { e.stopPropagation(); doToggle(); });
         api._sync = sync;
       }
     };

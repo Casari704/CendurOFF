@@ -211,11 +211,11 @@ $('nv-pick-go').addEventListener('click', () => { if(picked) startRide(picked, p
 // tlačítka nad mapou
 // v3.6: společná funkce přibližování (public/zoom.js)
 window.CendurZoom.bind(() => selMap, { in1:'nv-f-zi', out1:'nv-f-zo', in3:'nv-f-zi3', out3:'nv-f-zo3' }, { min:6, max:18 });
-$('nv-f-me').addEventListener('click', () => {
+window.CendurZoom.tap($('nv-f-me'), () => {
   if(me) selMap.setView(me, Math.max(selMap.getZoom(), 13));
   else { toast('Čekám na polohu z GPS…'); startSelectGps(); }
 });
-$('nv-f-list').addEventListener('click', () => { $('nv-listpanel').hidden = false; renderSelect(); });
+window.CendurZoom.tap($('nv-f-list'), () => { $('nv-listpanel').hidden = false; renderSelect(); });
 $('nv-list-x').addEventListener('click', () => { $('nv-listpanel').hidden = true; });
 
 // --- moje poloha na mapě výběru + nabídka u trasy s roadbookem ---

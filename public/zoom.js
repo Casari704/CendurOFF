@@ -39,35 +39,49 @@
     if(!map._czBusy) apply(map, opt);
     return map._czTarget;
   }
+  // v3.9.1: SPOLEČNÉ klepnutí pro tlačítka na mapě (všechny stránky) – reaguje už na zvednutí
+  // prstu nad tlačítkem, i když prst (v rukavici) při klepnutí trochu sjede; prohlížeč by takové
+  // klepnutí jako „click“ zahodil. touch-action:none – prohlížeč dotyk nesmí vzít jako posun.
+  //   CendurZoom.tap(el, fn)  – fn(e); opt.longMs + opt.onLong = podržení (např. nabídka mapy)
+  function tap(el, fn, o){
+    if(!el || el.dataset.czTap) return;
+    el.dataset.czTap = '1';
+    o = o || {};
+    el.style.touchAction = 'none';
+    let down = false, firedAt = 0, longT = null, longDone = false;
+    el.addEventListener('pointerdown', () => {
+      down = true; longDone = false;
+      clearTimeout(longT);
+      if(o.onLong) longT = setTimeout(() => { longDone = true; down = false; o.onLong(); }, o.longMs || 550);
+    });
+    el.addEventListener('pointercancel', () => { down = false; clearTimeout(longT); });
+    el.addEventListener('pointerup', e => {
+      clearTimeout(longT);
+      if(!down) return;
+      down = false;
+      e.preventDefault();
+      firedAt = Date.now();
+      fn(e);
+    });
+    el.addEventListener('contextmenu', e => { if(o.onLong){ e.preventDefault(); clearTimeout(longT); down = false; longDone = true; o.onLong(); } });
+    el.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      if(longDone){ longDone = false; return; }
+      if(Date.now() - firedAt < 700) return;      // už obslouženo přes pointerup
+      fn(e);                                      // klávesnice, myš bez pointer událostí
+    });
+  }
   function bind(map, buttons, opt){
     const get = b => typeof b === 'string' ? document.getElementById(b) : b;
     [['in3', 3], ['in1', 1], ['out1', -1], ['out3', -3]].forEach(([k, d]) => {
       const el = get(buttons[k]);
       if(!el || el.dataset.czBound) return;
       el.dataset.czBound = '1';
-      const fire = () => {
+      tap(el, () => {
         const m = typeof map === 'function' ? map() : map;
         if(m) by(m, d, typeof opt === 'function' ? opt() : opt);
-      };
-      // v3.9: reaguje už na zvednutí prstu nad tlačítkem – i když se prst (v rukavici)
-      // při klepnutí trochu posune; prohlížeč by takové klepnutí jako „click“ zahodil
-      let down = false, firedAt = 0;
-      el.addEventListener('pointerdown', () => { down = true; });
-      el.addEventListener('pointerleave', () => { down = false; });
-      el.addEventListener('pointercancel', () => { down = false; });
-      el.addEventListener('pointerup', e => {
-        if(!down) return;
-        down = false;
-        e.preventDefault();
-        firedAt = Date.now();
-        fire();
-      });
-      el.addEventListener('click', e => {
-        e.preventDefault();
-        if(Date.now() - firedAt < 700) return;   // už obslouženo přes pointerup
-        fire();                                   // klávesnice, myš bez pointer událostí
       });
     });
   }
-  window.CendurZoom = { target, by, bind };
+  window.CendurZoom = { target, by, bind, tap };
 })();

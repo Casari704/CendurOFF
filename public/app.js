@@ -446,13 +446,7 @@ function panelsChanged(){
 new MutationObserver(panelsChanged).observe(routeListEl, { attributes:true, attributeFilter:['class'] });
 new MutationObserver(panelsChanged).observe(detailPanelEl, { attributes:true, attributeFilter:['class'] });
 // v3.9: jazýček reaguje už na zvednutí prstu (spolehlivější v rukavicích / na starších telefonech)
-function onTap(el, fn){
-  let down = false, at = 0;
-  el.addEventListener('pointerdown', ()=>{ down = true; });
-  el.addEventListener('pointercancel', ()=>{ down = false; });
-  el.addEventListener('pointerup', e=>{ if(!down) return; down = false; e.preventDefault(); at = Date.now(); fn(e); });
-  el.addEventListener('click', e=>{ e.preventDefault(); if(Date.now() - at < 700) return; fn(e); });
-}
+function onTap(el, fn){ window.CendurZoom.tap(el, fn); }   // společné klepnutí (public/zoom.js)
 // v jízdním režimu zavře otevřený seznam / detail i klepnutí do mapy vedle panelu
 document.getElementById('map').parentElement.addEventListener('pointerdown', e=>{
   if(!document.body.classList.contains('ride-ui')) return;
@@ -1339,6 +1333,9 @@ function setFollowView(latlng, animate){
 
 let smoothedHeading = 0;      // úhel po nízkopásmovém filtru
 let displayedHeading = 0;     // úhel skutečně vykreslený (po prahování/limitu reakce)
+// v3.9.1: úhel, o který je otočená MAPA. Normálně = displayedHeading; při ručním posouvání
+// mapy v navigaci zamrzne (mapa se přestane otáčet), šipka dál ukazuje skutečný směr jízdy.
+let mapRotDeg = 0;
 let headingInitialized = false;
 let lastHeadingUpdateTs = 0;
 let currentSpeedKmh = 0;
@@ -1513,6 +1510,10 @@ function feedHeading(rawDeg, alpha, thresholdDeg, minUpdateMs){
     smoothedHeading = rawDeg;
     displayedHeading = rawDeg;
     headingInitialized = true;
+    // v3.9.1: první údaj o směru hned vykreslit (dřív se čekalo na změnu o práh)
+    lastHeadingUpdateTs = performance.now();
+    if(headingMode==='heading'){ if(!panelCoversMap()) setMapRotation(true); } else updateArrowRotation(displayedHeading);
+    return;
   } else {
     smoothedHeading = smoothAngle(smoothedHeading, rawDeg, alpha);
   }
@@ -1593,6 +1594,27 @@ function enableCompass(){
 // ---------------------------------------------------------------
 const FREE_CATCH_M = 40, FREE_RELEASE_M = 90;
 let freeGuide = null, freeGuideId = null;   // v3.1: zvuky k instrukcím roadbooku v Atlasu
+// v3.9.1: kde na trase právě jsem (m od startu) – hledá se kolem minulého místa, ať trasa,
+// která vede dvakrát stejnou cestou (tam a zpět, osmička), „nepřeskakuje“. Připojit se jde kdekoli.
+const FREE_OFF_M = 50, FREE_BACK_WIN = 200, FREE_FWD_WIN = 1500;
+let freeProg = null, freeProgId = null, freeWasOn = false;
+// místo na trase do 60 m od mě, kde trasa vede STEJNÝM směrem, jakým jedu (u tras tam a zpět
+// je stejná cesta na trase dvakrát – v každém směru jednou); null = žádné takové
+function freeMatchDir(R, lat, lon, hdg){
+  const RB = window.CendurRB, px = lon * R.kx, py = lat * R.ky;
+  let best = null;
+  for(let i = 0; i < R.n - 1; i++){
+    const ax = R.x[i], ay = R.y[i], dx = R.x[i+1] - ax, dy = R.y[i+1] - ay, L2 = dx*dx + dy*dy;
+    let t = L2 > 0 ? ((px-ax)*dx + (py-ay)*dy) / L2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const d = Math.hypot(px - (ax + dx*t), py - (ay + dy*t));
+    if(d > 60) continue;
+    const sv = R.s[i] + (R.s[i+1] - R.s[i]) * t;
+    const dir = RB.bearingBetween(R, sv, Math.min(R.total, sv + 40));
+    if(dir == null || Math.abs(RB.angleDiff(hdg, dir)) > 70) continue;
+    if(!best || d < best.dist) best = { dist:d, s:sv };
+  }
+  return best;
+}
 let freeCaughtId = null, freePickedId = null, freeRouteClickTs = 0;
 let freeSums = null;               // stavy roadbooků (route_id → souhrn)
 const freeRb = {};                 // route_id → { R, vis } | 'loading' | null
@@ -1641,6 +1663,8 @@ function freeStop(){
 function freePick(id){
   const old = freeActiveId();
   freePickedId = id;
+  freeProg = null; freeProgId = null; freeWasOn = false;   // nové sledování – poloha na trase znovu od místa, kde jsem
+  if(freeGuide) freeGuide.reset();
   if(id == null && lastLatLng) freeCatch(lastLatLng);
   const now = freeActiveId();
   if(old != null) applyRouteStyle(old);
@@ -1704,20 +1728,47 @@ function freeRender(){
   const id = freeActiveId(), rb = id != null ? freeRb[id] : null;
   let html = '';
   if(RB && rb && rb !== 'loading' && lastLatLng){
-    const p = RB.project(rb.R, lastLatLng[0], lastLatLng[1]);
-    if(p.dist <= 60){
-      const dir = RB.bearingBetween(rb.R, p.s, Math.min(rb.R.total, p.s + 40));
-      const moving = currentSpeedKmh > HEADING_SPEED_THRESHOLD_KMH;
+    const lat = lastLatLng[0], lon = lastLatLng[1], R = rb.R;
+    if(freeProgId !== id){ freeProg = null; freeProgId = id; freeWasOn = false; }
+    // první určení: kdekoli na trase (připojení v půlce); u okruhu / dvakrát projeté cesty
+    // se vezme místo nejblíž začátku
+    const moving = currentSpeedKmh > HEADING_SPEED_THRESHOLD_KMH;
+    if(freeProg == null){
+      const m = moving ? freeMatchDir(R, lat, lon, displayedHeading) : null;
+      const p0 = m || (RB.projectInitial ? RB.projectInitial(R, lat, lon) : RB.project(R, lat, lon));
+      if(p0.dist <= 60) freeProg = p0.s;
+    }
+    let p = freeProg != null
+      ? RB.project(R, lat, lon, Math.max(0, freeProg - FREE_BACK_WIN), Math.min(R.total, freeProg + FREE_FWD_WIN))
+      : RB.project(R, lat, lon);
+    if(p.dist > 40){ const g = RB.project(R, lat, lon); if(g.dist + 15 < p.dist) p = g; }
+    const off = p.dist > FREE_OFF_M;
+    if(!off){ freeProg = p.s; freeWasOn = true; }
+    // zvuky jen u trasy, kterou sleduju (vybraná klepnutím) – stejné jako v Roadbook NAVI
+    const followed = freePickedId != null && freePickedId === id;
+    const guide = () => {
+      if(!window.CendurSound) return null;
+      if(!freeGuide || freeGuideId !== id){ freeGuide = CendurSound.createGuide(); freeGuideId = id; }
+      return freeGuide;
+    };
+    let dir = !off ? RB.bearingBetween(R, p.s, Math.min(R.total, p.s + 40)) : null;
+    // jedu proti směru úseku, na kterém mě to drží → není kousek dál stejná cesta po směru (tam a zpět)?
+    if(!off && moving && dir != null && Math.abs(RB.angleDiff(displayedHeading, dir)) > 110){
+      const m = freeMatchDir(R, lat, lon, displayedHeading);
+      if(m){ p = { dist:m.dist, s:m.s }; freeProg = m.s; dir = RB.bearingBetween(R, p.s, Math.min(R.total, p.s + 40)); }
+    }
+    if(!off){
       if(moving && dir != null && Math.abs(RB.angleDiff(displayedHeading, dir)) > 110){
         html = '<div class="fc-note">Jedeš proti směru roadbooku</div>';
       } else {
-        if(window.CendurSound){
-          if(!freeGuide || freeGuideId !== id){ freeGuide = CendurSound.createGuide(); freeGuideId = id; }
-          freeGuide.update(rb.vis, p.s, currentSpeedKmh / 3.6, false);
-        }
+        if(followed && guide()) freeGuide.update(rb.vis, p.s, currentSpeedKmh / 3.6, false);
         const nx = rb.vis.find(it=>it.s > p.s + 8);
         if(nx) html = '<div class="fc-card">' + RB.tulipSVG(nx, 92) + '<div class="fc-d">' + RB.fmtDist(Math.max(0, nx.s - p.s)) + '</div><div class="fc-l">' + escapeHtml(RB.label(nx)) + '</div></div>';
       }
+    } else if(followed && freeWasOn){
+      // vyjel jsem ze sledované trasy → upozornění (jemný tón + „Jsi mimo trasu, cype!“)
+      html = '<div class="fc-note">Mimo trasu · ' + RB.fmtDist(p.dist) + '</div>';
+      if(guide()) freeGuide.update(rb.vis, freeProg, currentSpeedKmh / 3.6, true);
     }
   }
   box.innerHTML = html;
@@ -1752,7 +1803,8 @@ function setNavMode(on){
   if(recLine) recLine.setStyle({ weight: routeWeight('rec') });
 }
 
-locateBtn.addEventListener('click', ()=>{ if(!navOn && window.CendurSound) CendurSound.unlock(); setNavMode(!navOn); });
+// v3.9.1: společné klepnutí (public/zoom.js) – spolehlivé i v rukavicích
+window.CendurZoom.tap(locateBtn, ()=>{ if(!navOn && window.CendurSound) CendurSound.unlock(); setNavMode(!navOn); });
 
 function startOrientation(){
   if(orientationBound) return;
@@ -1847,15 +1899,16 @@ function tiltStep(){
   if(tiltCur !== tiltTarget) tiltRaf = requestAnimationFrame(tiltStep);
 }
 function mapTransform(){
-  const rot = 'rotate(' + (-displayedHeading) + 'deg)';
+  const rot = 'rotate(' + (-mapRotDeg) + 'deg)';
   return tiltCur > 0.05 ? 'perspective(' + tiltPerspective() + 'px) rotateX(' + tiltCur.toFixed(2) + 'deg) ' + rot : rot;
 }
 
 function setMapRotation(on){
   if(on){
+    if(!navManualActive()) mapRotDeg = displayedHeading;
     mapEl.style.transform = mapTransform();
     // ikonky benzínek se otáčejí zpět, ať zůstávají "rovně" i na otočené mapě
-    mapEl.style.setProperty('--map-rot', displayedHeading + 'deg');
+    mapEl.style.setProperty('--map-rot', mapRotDeg + 'deg');
     map.dragging.disable();
     map.touchZoom.disable();
     map.doubleClickZoom.disable();
@@ -1865,6 +1918,7 @@ function setMapRotation(on){
     // tedy přesně +displayedHeading, aby se s rotací mapy (-displayedHeading) vyrušila na 0.
     updateArrowRotation(displayedHeading);
   } else {
+    mapRotDeg = 0;
     mapEl.style.transform = 'none';
     mapEl.style.setProperty('--map-rot', '0deg');
     map.dragging.enable();
@@ -1892,6 +1946,8 @@ function navManualTouch(){
 function navManualBack(){
   if(navManualActive()){ navBackTimer = setTimeout(navManualBack, navManualUntil - Date.now() + 30); return; }
   navManualUntil = 0;
+  // mapa se znovu natočí po směru jízdy a vystředí na polohu
+  if(headingMode === 'heading' && !panelCoversMap()) setMapRotation(true);
   if(followMode && lastLatLng) setFollowView(lastLatLng, true);
 }
 (function navGestures(){
@@ -1904,7 +1960,7 @@ function navManualBack(){
   function panScreen(dx, dy){
     const tilt = tiltCur * Math.PI / 180;
     if(tilt > 0.01) dy = dy / Math.max(0.5, Math.cos(tilt));
-    const h = displayedHeading * Math.PI / 180, c = Math.cos(h), s = Math.sin(h);
+    const h = mapRotDeg * Math.PI / 180, c = Math.cos(h), s = Math.sin(h);
     const mx = dx * c - dy * s, my = dx * s + dy * c;
     map.panBy(L.point(-mx, -my), { animate:false });
   }

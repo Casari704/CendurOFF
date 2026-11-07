@@ -792,7 +792,7 @@ syncPrefSeg();
 
 // poloha
 let meMarker = null;
-document.getElementById('pl-locate').addEventListener('click', ()=>{
+window.CendurZoom.tap(document.getElementById('pl-locate'), ()=>{
   if(!navigator.geolocation){ toast('Prohlížeč nepodporuje GPS polohu.'); return; }
   toast('Zjišťuji polohu…', 2000);
   navigator.geolocation.getCurrentPosition(pos=>{
