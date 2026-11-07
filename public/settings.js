@@ -51,7 +51,7 @@
     renderSnd();
     if(on) S.announce('gong', 'Zvuky jsou zapnuté.');
   });
-  const TEST_TEXT = { gong: 'Za devadesát metrů ostře vpravo.', buzzer: 'Za sto metrů vlevo, nebezpečí.', gentle: 'Jsi mimo trasu, cype!' };
+  const TEST_TEXT = { gong: 'Za devadesát metrů ostře vpravo.', buzzer: 'Za sto metrů vlevo, nebezpečí.', gentle: 'Jsi mimo trasu.' };
   document.querySelectorAll('[data-test]').forEach(b => b.addEventListener('click', () => {
     if(!S) return;
     if(!S.enabled()){ toast('Zvuky jsou vypnuté – zapni je přepínačem nahoře.'); return; }

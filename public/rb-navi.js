@@ -42,7 +42,9 @@ function unbusy(){ $('rb-busy').classList.remove('open'); }
 // Výběr trasy
 // ---------------------------------------------------------------
 let currentUser = null, routes = [], sums = {};
+// v3.9.2: seznam tras zrušen – trasy se vybírají jen z mapy (funkce zůstává jako prázdná)
 function renderSelect(){
+  if(!$('nv-list')) return;
   const q = ($('nv-search').value || '').trim().toLowerCase();
   const list = routes.filter(r => !q || r.name.toLowerCase().includes(q));
   const titles = { ready:'Roadbook Ready', check:'To check – trasa se změnila nebo čeká na kontrolu', draft:'Rozpracované', auto:'Auto – roadbook se spočítá z GPX' };
@@ -54,7 +56,6 @@ function renderSelect(){
   $('nv-list').querySelectorAll('.nv-route').forEach(b => b.addEventListener('click', () => { $('nv-listpanel').hidden = true; pickRoute(Number(b.dataset.id), true); }));
   if(picked) { const b = $('nv-list').querySelector('.nv-route[data-id="' + picked + '"]'); if(b) b.classList.add('on'); }
 }
-$('nv-search').addEventListener('input', renderSelect);
 
 // --- offline: trasy a roadbooky uložené v telefonu (v2.5) ---
 let offlineMode = false;            // bez signálu: pracuje se jen s uloženými trasami
@@ -215,8 +216,6 @@ window.CendurZoom.tap($('nv-f-me'), () => {
   if(me) selMap.setView(me, Math.max(selMap.getZoom(), 13));
   else { toast('Čekám na polohu z GPS…'); startSelectGps(); }
 });
-window.CendurZoom.tap($('nv-f-list'), () => { $('nv-listpanel').hidden = false; renderSelect(); });
-$('nv-list-x').addEventListener('click', () => { $('nv-listpanel').hidden = true; });
 
 // --- moje poloha na mapě výběru + nabídka u trasy s roadbookem ---
 function routeDistM(r, la, lo, limit){
@@ -644,7 +643,7 @@ window.addEventListener('resize', () => { if($('nv-ride').classList.contains('op
     routes = list; sums = {};
     if(window.CendurRides) window.CendurRides.setRoutes(routes);
     (s || []).forEach(x => { sums[x.route_id] = x; });
-  }catch(e){ $('nv-list').innerHTML = '<p class="sub">Trasy se nepodařilo načíst: ' + esc(e.message) + '</p>'; return; }
+  }catch(e){ toast('Trasy se nepodařilo načíst: ' + e.message, 6000); return; }
   // offline kopie: smazané trasy odebrat, ostatní na pozadí obnovit (máme signál)
   (async () => {
     for(const it of await offlineIndex()){

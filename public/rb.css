@@ -345,3 +345,14 @@ body.rb-mobile-blocked #rb-main{align-items:center;justify-content:center;paddin
 .rb-say:active{transform:scale(0.95);}
 /* v3.9.1: tlačítka přiblížení jako na ostatních stránkách */
 .rb-zoom a{width:40px !important;height:40px !important;line-height:40px !important;font-size:18px !important;font-weight:800;}
+/* v3.9.2: bez seznamu tras; na šířku stejně jako Atlas NAVI – ◎ přes celou šířku, pod ním
+   +3 | +  a  −3 | −  (u okraje ± o 1), tlačítka 1,5× větší (rukavice) */
+@media (orientation:landscape){
+  #nv-fabs, #nv-fabs{display:grid;grid-template-columns:66px 66px;grid-auto-rows:66px;gap:8px;}
+  #nv-fabs button{width:66px;height:66px;font-size:26px;border-radius:16px;}
+  #nv-fabs #nv-f-me{grid-column:1 / -1;grid-row:1;width:100%;}
+  #nv-fabs #nv-f-zi3{grid-column:1;grid-row:2;font-size:21px;}
+  #nv-fabs #nv-f-zi{grid-column:2;grid-row:2;}
+  #nv-fabs #nv-f-zo3{grid-column:1;grid-row:3;font-size:21px;}
+  #nv-fabs #nv-f-zo{grid-column:2;grid-row:3;}
+}

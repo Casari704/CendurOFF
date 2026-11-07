@@ -1766,7 +1766,7 @@ function freeRender(){
         if(nx) html = '<div class="fc-card">' + RB.tulipSVG(nx, 92) + '<div class="fc-d">' + RB.fmtDist(Math.max(0, nx.s - p.s)) + '</div><div class="fc-l">' + escapeHtml(RB.label(nx)) + '</div></div>';
       }
     } else if(followed && freeWasOn){
-      // vyjel jsem ze sledované trasy → upozornění (jemný tón + „Jsi mimo trasu, cype!“)
+      // vyjel jsem ze sledované trasy → upozornění (jemný tón + „Jsi mimo trasu“)
       html = '<div class="fc-note">Mimo trasu · ' + RB.fmtDist(p.dist) + '</div>';
       if(guide()) freeGuide.update(rb.vis, freeProg, currentSpeedKmh / 3.6, true);
     }

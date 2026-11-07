@@ -4,7 +4,7 @@
 //  - instrukce:      Rally gong + hlas telefonu („Za 90 metrů ostře vpravo“)
 //  - nebezpečí:      místo gongu Rally buzzer (+ hlas „…, nebezpečí“)
 //  - dvě instrukce blízko u sebe: jedna hláška „… a hned potom …“, u druhé už gong nezní
-//  - mimo trasu:     jemná výstraha + hlas „Jsi mimo trasu, cype!“
+//  - mimo trasu:     jemná výstraha + hlas „Jsi mimo trasu.“
 //  - když telefon český hlas nemá, zazní jen tóny
 //  - zapnutí / vypnutí: Můj účet → Zvuky v navigaci (uloženo v telefonu)
 //
@@ -126,7 +126,7 @@
         const now = Date.now();
         // mimo trasu: jen při vyjetí (a nejvýš jednou za 30 s)
         if(offRoute){
-          if(!wasOff && now - lastOffAt > OFF_REPEAT_MS){ window.CendurSound.announce('gentle', 'Jsi mimo trasu, cype!'); lastOffAt = now; }
+          if(!wasOff && now - lastOffAt > OFF_REPEAT_MS){ window.CendurSound.announce('gentle', 'Jsi mimo trasu.'); lastOffAt = now; }
           wasOff = true;
           return;
         }

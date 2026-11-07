@@ -13,8 +13,8 @@
 <title>CendurOFF Roadbook NAVI</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=3.9.1">
-<link rel="stylesheet" href="public/rb.css?v=3.9.1">
+<link rel="stylesheet" href="public/style.css?v=3.9.2">
+<link rel="stylesheet" href="public/rb.css?v=3.9.2">
 <style>body.auth-pending #app-screen{visibility:hidden;}</style>
 </head>
 <body class="rb-page rb-navi auth-pending">
@@ -28,7 +28,6 @@
     <div id="nv-label"><b id="nv-title">Vyber trasu na mapě</b><span id="nv-sub">barevně trasy s roadbookem Ready · šedě ostatní</span></div>
     <p class="nv-offline-note" id="nv-offline-note" hidden>📴 Offline – jen trasy uložené v telefonu</p>
     <div id="nv-fabs">
-      <button type="button" id="nv-f-list" class="wide">Seznam</button>
       <button type="button" id="nv-f-me" title="Moje poloha" aria-label="Moje poloha">◎</button>
       <button type="button" id="nv-f-zi3" aria-label="Přiblížit o 3">+3</button>
       <button type="button" id="nv-f-zi" aria-label="Přiblížit">+</button>
@@ -46,12 +45,7 @@
       <div class="nv-offbox" id="nv-pick-off"></div>
       <button type="button" class="btn-rb go" id="nv-pick-go">Jet ▶</button>
     </div>
-    <div id="nv-listpanel" hidden>
-      <div class="hd"><b>Seznam tras</b><button type="button" id="nv-list-x" aria-label="Zavřít seznam">✕</button></div>
-      <label for="nv-search" style="position:absolute;left:-9999px">Hledat trasu</label>
-      <input type="search" id="nv-search" placeholder="Hledat trasu…">
-      <div id="nv-list"><p class="sub">Načítám trasy…</p></div>
-    </div>
+
     <div id="nv-ask" hidden role="dialog" aria-modal="true" aria-labelledby="nv-ask-t">
       <div class="box">
         <b id="nv-ask-t">Roadbook</b>
@@ -94,14 +88,14 @@
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="public/config.js?v=3.9.1"></script>
-<script src="public/header.js?v=3.9.1"></script>
-<script src="public/pwa.js?v=3.9.1"></script>
-<script src="public/regiondata.js?v=3.9.1"></script>
-<script src="public/rb-core.js?v=3.9.1"></script>
-<script src="public/ride-stats.js?v=3.9.1"></script>
-<script src="public/sound.js?v=3.9.1"></script>
-<script src="public/zoom.js?v=3.9.1"></script>
-<script src="public/rb-navi.js?v=3.9.1"></script>
+<script src="public/config.js?v=3.9.2"></script>
+<script src="public/header.js?v=3.9.2"></script>
+<script src="public/pwa.js?v=3.9.2"></script>
+<script src="public/regiondata.js?v=3.9.2"></script>
+<script src="public/rb-core.js?v=3.9.2"></script>
+<script src="public/ride-stats.js?v=3.9.2"></script>
+<script src="public/sound.js?v=3.9.2"></script>
+<script src="public/zoom.js?v=3.9.2"></script>
+<script src="public/rb-navi.js?v=3.9.2"></script>
 </body>
 </html>
