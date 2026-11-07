@@ -1,23 +1,28 @@
 // ---------------------------------------------------------------
 // CendurOFF – podkladové mapy (v3.8), společné pro Atlas, Atlas Planner a Roadbook planner
+//   osm  = OpenStreetMap standard (výchozí)
 //   mapy = turistická mapa Mapy.com (REST API, klíč níže)
 //   sat  = satelit: v ČR letecké snímky ČÚZK, pod nimi Esri (vidět za hranicemi)
-// Klepnutí na tlačítko přepíná mezi těmi dvěma. Volba se pamatuje (stejný klíč v prohlížeči
+// v3.9: klepnutí na tlačítko přepíná mezi „mapou“ (OSM nebo Mapy.com – vybírá se v nabídce
+// po podržení tlačítka) a satelitem. Volba se pamatuje (stejný klíč v prohlížeči
 // na všech stránkách). Když dlaždice Mapy.com nejdou (špatný klíč, došly kredity, výpadek),
 // mapa se sama přepne na OpenStreetMap, aby nezůstala šedá.
 // ---------------------------------------------------------------
 (function(){
   const MAPY_KEY = 'n4wfb3viWHe2NhkIAEa3qhWcSj7YbJR3IQpz-1B3wsg';
-  const STORE = 'baseMap';
-  const ORDER = ['mapy', 'sat'];
-  const NAMES = { mapy:'Turistická (Mapy.com)', sat:'Satelit' };
-  const ICONS = { mapy:'🗺', sat:'🛰' };
+  const STORE = 'baseMap', STORE_STREET = 'baseStreet';
+  const ORDER = ['osm', 'mapy', 'sat'];
+  const NAMES = { osm:'OpenStreetMap', mapy:'Turistická (Mapy.com)', sat:'Satelit' };
+  const ICONS = { osm:'🗺', mapy:'🗺', sat:'🛰' };
 
+  function get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+  function put(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
+  function loadStreet(){ return get(STORE_STREET) === 'mapy' ? 'mapy' : 'osm'; }
   function load(){
-    let k = null; try{ k = localStorage.getItem(STORE); }catch(e){}
-    return k === 'sat' ? 'sat' : 'mapy';     // staré volby (osm, topo) → Mapy.com
+    const k = get(STORE);
+    return k === 'sat' ? 'sat' : (k === 'mapy' || k === 'osm') ? k : loadStreet();
   }
-  function save(k){ try{ localStorage.setItem(STORE, k); }catch(e){} }
+  function save(k){ put(STORE, k); if(k !== 'sat') put(STORE_STREET, k); }
 
   function osmLayer(){
     return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap contributors' });
@@ -66,6 +71,7 @@
     opt = opt || {};
     const say = t => { if(opt.toast) opt.toast(t); };
     const layers = {
+      osm: osmLayer(),
       mapy: mapyLayer(() => say('Mapy.com teď nejdou – zobrazuji OpenStreetMap.')),
       sat: satLayer()
     };
@@ -79,20 +85,43 @@
     const api = {
       get current(){ return current; },
       names: NAMES,
-      other(){ return current === 'mapy' ? 'sat' : 'mapy'; },
+      street(){ return current === 'sat' ? loadStreet() : current; },
+      other(){ return current === 'sat' ? api.street() : 'sat'; },
       icon(){ return ICONS[api.other()]; },              // tlačítko ukazuje, NA CO se přepne
       title(){ return 'Přepnout na: ' + NAMES[api.other()]; },
       set(k){
         if(!layers[k] || k === current) return;
         map.removeLayer(layers[current]);
         current = k; save(k); show(k);
+        if(api._sync) api._sync();
         if(opt.onChange) opt.onChange(k);
+      },
+      // v3.9: volba mapy (OSM / Mapy.com / Satelit) jako první část nabídky vrstev
+      renderMenu(menu){
+        if(!menu || menu.querySelector('.base-opts')) return;
+        const box = document.createElement('div');
+        box.className = 'base-opts';
+        box.innerHTML = ORDER.map(k => '<button type="button" class="layer-opt" data-base="' + k + '" role="menuitemradio"><span class="layer-radio"></span>' + NAMES[k] + '</button>').join('');
+        const title = menu.querySelector('.layer-menu-title');
+        if(title) title.after(box); else menu.prepend(box);
+        const sync = () => box.querySelectorAll('[data-base]').forEach(b => {
+          const on = b.dataset.base === current;
+          b.classList.toggle('active', on); b.setAttribute('aria-checked', String(on));
+        });
+        box.addEventListener('click', e => {
+          const b = e.target.closest('[data-base]'); if(!b) return;
+          api.set(b.dataset.base); sync();
+          menu.classList.remove('open');
+          say('Mapa: ' + NAMES[current]);
+        });
+        sync();
+        api._menuSync = sync;
       },
       toggle(){ api.set(api.other()); say('Mapa: ' + NAMES[current]); },
       // tlačítko: klepnutí = přepnout; podržení (nebo pravé tlačítko) = opt.onMenu (benzínky, CHKO)
       bindButton(btn, onMenu){
         if(!btn) return;
-        const sync = () => { btn.textContent = api.icon(); btn.title = api.title() + (onMenu ? ' · podržením další vrstvy (benzínky, CHKO)' : ''); };
+        const sync = () => { btn.textContent = api.icon(); btn.title = api.title() + (onMenu ? ' · podržením výběr mapy, benzínky, CHKO' : ''); };
         sync();
         let t = null, long = false;
         const start = () => { long = false; clearTimeout(t); if(onMenu) t = setTimeout(() => { long = true; onMenu(); }, 550); };
@@ -103,7 +132,7 @@
         btn.addEventListener('click', e => {
           e.stopPropagation();
           if(long){ long = false; return; }
-          api.toggle(); sync();
+          api.toggle(); sync(); if(api._menuSync) api._menuSync();
         });
         api._sync = sync;
       }

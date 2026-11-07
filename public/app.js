@@ -434,7 +434,35 @@ function syncMobilePanelTabs(){
   routeListTab.style.display = (isMobileViewport() && detailPanelEl.classList.contains('open')) ? 'none' : '';
 }
 if(localStorage.getItem('routeListCollapsed') === '1') routeListEl.classList.add('collapsed');
-routeListTab.addEventListener('click', ()=>{
+// v3.9: v jízdním režimu (mobil) zakrývá seznam / detail trasy skoro celou mapu – dokud je otevřený,
+// mapa se pod ním neotáčí (na starších telefonech, např. Huawei P20, to přes panel problikávalo)
+function panelCoversMap(){
+  return document.body.classList.contains('ride-ui') &&
+    (!routeListEl.classList.contains('collapsed') || detailPanelEl.classList.contains('open'));
+}
+function panelsChanged(){
+  if(typeof headingMode !== 'undefined' && headingMode === 'heading' && !panelCoversMap() && map) setMapRotation(true);
+}
+new MutationObserver(panelsChanged).observe(routeListEl, { attributes:true, attributeFilter:['class'] });
+new MutationObserver(panelsChanged).observe(detailPanelEl, { attributes:true, attributeFilter:['class'] });
+// v3.9: jazýček reaguje už na zvednutí prstu (spolehlivější v rukavicích / na starších telefonech)
+function onTap(el, fn){
+  let down = false, at = 0;
+  el.addEventListener('pointerdown', ()=>{ down = true; });
+  el.addEventListener('pointercancel', ()=>{ down = false; });
+  el.addEventListener('pointerup', e=>{ if(!down) return; down = false; e.preventDefault(); at = Date.now(); fn(e); });
+  el.addEventListener('click', e=>{ e.preventDefault(); if(Date.now() - at < 700) return; fn(e); });
+}
+// v jízdním režimu zavře otevřený seznam / detail i klepnutí do mapy vedle panelu
+document.getElementById('map').parentElement.addEventListener('pointerdown', e=>{
+  if(!document.body.classList.contains('ride-ui')) return;
+  if(e.target.closest('#route-list, #detail-panel, #selection-bar, .map-btn')) return;
+  if(!routeListEl.classList.contains('collapsed') && !routeListEl.classList.contains('selecting')){
+    routeListEl.classList.add('collapsed');
+    e.stopPropagation();
+  }
+}, true);
+onTap(routeListTab, ()=>{
   const opening = routeListEl.classList.contains('collapsed');
   routeListEl.classList.toggle('collapsed');
   localStorage.setItem('routeListCollapsed', routeListEl.classList.contains('collapsed') ? '1' : '0');
@@ -443,7 +471,7 @@ routeListTab.addEventListener('click', ()=>{
   if(opening && isMobileViewport() && detailPanelEl.classList.contains('open')) closeDetail();
 });
 // detail trasy se zavírá jazýčkem se šipkou (nahrazuje dřívější křížek)
-document.getElementById('detail-panel-tab').addEventListener('click', closeDetail);
+onTap(document.getElementById('detail-panel-tab'), closeDetail);
 window.addEventListener('resize', syncMobilePanelTabs);
 
 // okna „O projektu“ a „Můj účet“ (změna hesla, odhlášení) obsluhuje společná hlavička – public/header.js
@@ -453,6 +481,7 @@ function initMap(){
   map = L.map('map', { zoomControl:false }).setView([49.8711, 17.8756], 11); // výchozí pohled: Hradec nad Moravicí
   baseCtl = window.CendurMaps.attach(map, { toast: t => toast(t, 1800) });
   baseCtl.bindButton(document.getElementById('satellite-btn'), openLayerMenu);
+  baseCtl.renderMenu(document.getElementById('layer-menu'));
   // samostatná vrstva pro každý typ trasy: offroad dole, cenduro nad ním, transportní
   // nahoře; úplně navrch právě vybraná (modrá) trasa
   ROUTE_TYPE_ORDER.forEach(t=>{ map.createPane('route-' + t).style.zIndex = ROUTE_TYPES[t].z; });
@@ -1321,7 +1350,8 @@ const mapEl = document.getElementById('map');
 // v3.6: přibližování přes společnou funkci (public/zoom.js); při sledování polohy se šipka
 // po změně hned vrátí na své místo (i na otočené / nakloněné mapě)
 function zoomOpts(){
-  return { min:3, max:19, after: (followMode && lastLatLng) ? ()=> setFollowView(lastLatLng, false) : null };
+  // při ručním prohlížení (gesta v navigaci) se přibližuje kolem středu, na polohu se mapa vrátí sama
+  return { min:3, max:19, after: (followMode && lastLatLng && !navManualActive()) ? ()=> setFollowView(lastLatLng, false) : null };
 }
 
 // Fullscreen + satelitní tlačítko jsou (kvůli overflow:hidden na main.mapwrap)
@@ -1353,7 +1383,8 @@ if('ResizeObserver' in window){
 // Jízdní režim (mobil na výšku a nízké displeje na šířku):
 // tlačítka ve sloupcích u okrajů, hlavička a seznam tras schované za tlačítkem ☰
 // ---------------------------------------------------------------
-const RIDE_MQ = window.matchMedia('(max-width:760px), (max-height:520px)');
+// v3.9: + každý dotykový displej na šířku do výšky 700 px – ať je rozložení na všech telefonech stejné
+const RIDE_MQ = window.matchMedia('(max-width:760px), (max-height:520px), (pointer:coarse) and (orientation:landscape) and (max-height:700px)');
 const menuBtn = document.getElementById('menu-btn');
 function setHeaderOpen(open){
   document.body.classList.toggle('header-open', !!open);
@@ -1418,7 +1449,7 @@ if(RIDE_MQ.addEventListener) RIDE_MQ.addEventListener('change', applyRideUi); el
 // dalších vrstev (benzínky, CHKO – doplní je fuel.js / chko.js)
 const satelliteBtn = document.getElementById('satellite-btn');
 document.body.insertAdjacentHTML('beforeend', `<div id="layer-menu" role="menu">
-  <div class="layer-menu-title">Vrstvy na mapě</div>
+  <div class="layer-menu-title">Podkladová mapa</div>
 </div>`);
 const layerMenu = document.getElementById('layer-menu');
 function openLayerMenu(){ placeLayerMenu(); layerMenu.classList.add('open'); }
@@ -1490,7 +1521,7 @@ function feedHeading(rawDeg, alpha, thresholdDeg, minUpdateMs){
   if(change >= thresholdDeg && (now - lastHeadingUpdateTs) >= minUpdateMs){
     displayedHeading = smoothedHeading;
     lastHeadingUpdateTs = now;
-    if(headingMode==='heading') setMapRotation(true); else updateArrowRotation(displayedHeading);
+    if(headingMode==='heading'){ if(!panelCoversMap()) setMapRotation(true); } else updateArrowRotation(displayedHeading);
   }
 }
 
@@ -1509,7 +1540,7 @@ function onPosition(pos){
     feedHeading(pos.coords.heading, HEADING_FILTER_ALPHA_GPS, HEADING_UPDATE_THRESHOLD_DEG_GPS, HEADING_MIN_UPDATE_MS_GPS);
   }
 
-  if(followMode) setFollowView(latlng, true);
+  if(followMode && !navManualActive()) setFollowView(latlng, true);
   updateTilt(currentSpeedKmh);
   freeUpdate(latlng);
   recOnPosition(pos);
@@ -1812,7 +1843,7 @@ function tiltStep(){
   // plynule: ~1,5 s na celý náklon
   tiltCur += Math.sign(d) * Math.min(Math.abs(d), 0.35);
   if(Math.abs(tiltTarget - tiltCur) < 0.05) tiltCur = tiltTarget;
-  if(headingMode === 'heading') setMapRotation(true);
+  if(headingMode === 'heading' && !panelCoversMap()) setMapRotation(true);
   if(tiltCur !== tiltTarget) tiltRaf = requestAnimationFrame(tiltStep);
 }
 function mapTransform(){
@@ -1844,6 +1875,91 @@ function setMapRotation(on){
 }
 
 // (samostatné tlačítko „Sever nahoru / Směr jízdy“ je od v1.47 sloučené do tlačítka polohy – setNavMode)
+
+// ---------------------------------------------------------------
+// v3.9: gesta při navigaci – jedním prstem posun, dvěma přiblížení (i na otočené a nakloněné
+// mapě, kde vestavěná gesta Leafletu nefungují správně). Po 4 s bez dotyku se mapa sama vrátí
+// na sledování polohy; přiblížení zůstává, jak si ho nastavíš (stejně jako v Roadbook NAVI).
+// ---------------------------------------------------------------
+const NAV_MANUAL_MS = 4000;
+let navManualUntil = 0, navBackTimer = null;
+function navManualActive(){ return navManualUntil > Date.now(); }
+function navManualTouch(){
+  navManualUntil = Date.now() + NAV_MANUAL_MS;
+  clearTimeout(navBackTimer);
+  navBackTimer = setTimeout(navManualBack, NAV_MANUAL_MS + 30);
+}
+function navManualBack(){
+  if(navManualActive()){ navBackTimer = setTimeout(navManualBack, navManualUntil - Date.now() + 30); return; }
+  navManualUntil = 0;
+  if(followMode && lastLatLng) setFollowView(lastLatLng, true);
+}
+(function navGestures(){
+  const wrap = mapEl.parentElement;
+  const pts = new Map();           // pointerId -> {x, y}
+  let panning = false, start = null, pinch = null, raf = 0, pendingZoom = null, gestureEnd = 0;
+  const active = () => navOn && headingMode === 'heading';
+  // posun na obrazovce → posun na mapě: mapa je otočená o -heading (a nakloněná), proto vektor
+  // otočíme zpět a svislou složku zvětšíme podle náklonu
+  function panScreen(dx, dy){
+    const tilt = tiltCur * Math.PI / 180;
+    if(tilt > 0.01) dy = dy / Math.max(0.5, Math.cos(tilt));
+    const h = displayedHeading * Math.PI / 180, c = Math.cos(h), s = Math.sin(h);
+    const mx = dx * c - dy * s, my = dx * s + dy * c;
+    map.panBy(L.point(-mx, -my), { animate:false });
+  }
+  function dist(){ const a = [...pts.values()]; return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); }
+  function mid(){ const a = [...pts.values()]; return { x:(a[0].x + a[1].x) / 2, y:(a[0].y + a[1].y) / 2 }; }
+  wrap.addEventListener('pointerdown', e => {
+    if(!active() || e.target.closest('#route-list, #detail-panel, .leaflet-control, .leaflet-popup')) return;
+    pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if(pts.size === 1){ start = { x:e.clientX, y:e.clientY }; panning = false; }
+    if(pts.size === 2){
+      pinch = { d0: Math.max(10, dist()), z0: map.getZoom(), m: mid() };
+      map.options.zoomSnap = 0;     // plynulé přiblížení během gesta
+      navManualTouch();
+    }
+  });
+  wrap.addEventListener('pointermove', e => {
+    if(!pts.has(e.pointerId) || !active()) return;
+    const prev = pts.get(e.pointerId);
+    pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if(pinch && pts.size >= 2){
+      const m = mid();
+      panScreen(m.x - pinch.m.x, m.y - pinch.m.y);
+      pinch.m = m;
+      pendingZoom = Math.max(3, Math.min(19, pinch.z0 + Math.log2(dist() / pinch.d0)));
+      if(!raf) raf = requestAnimationFrame(() => { raf = 0; if(pendingZoom != null) map.setZoom(pendingZoom, { animate:false }); });
+      navManualTouch();
+      return;
+    }
+    if(pts.size === 1){
+      if(!panning && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 8) return;
+      panning = true;
+      panScreen(e.clientX - prev.x, e.clientY - prev.y);
+      navManualTouch();
+    }
+  });
+  function up(e){
+    if(!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId);
+    if(pinch && pts.size < 2){
+      pinch = null; gestureEnd = Date.now();
+      if(raf){ cancelAnimationFrame(raf); raf = 0; }
+      map.options.zoomSnap = 1;
+      map.setZoom(Math.round(pendingZoom != null ? pendingZoom : map.getZoom()), { animate:false });
+      pendingZoom = null;
+      // zbývající prst dál posouvá od místa, kde je
+      const rest = [...pts.values()][0];
+      if(rest){ start = { x:rest.x, y:rest.y }; panning = true; }
+    }
+    if(pts.size === 0){ if(panning) gestureEnd = Date.now(); panning = false; }
+  }
+  wrap.addEventListener('pointerup', up);
+  wrap.addEventListener('pointercancel', up);
+  // posunutá mapa nesmí po klepnutí hned vybrat trasu – klepnutí po posunu zahodit
+  wrap.addEventListener('click', e => { if(panning || Date.now() - gestureEnd < 400){ e.stopPropagation(); e.preventDefault(); } }, true);
+})();
 
 // ---------------------------------------------------------------
 // Wake Lock - zabránění zhasnutí/vypnutí displeje během používání

@@ -861,3 +861,43 @@ body:not(.ride-ui) .nav-grid #zoom-out3-btn{ display:flex; }
 /* v3.8: logo Mapy.com (podmínka použití jejich map) */
 .leaflet-control.mapy-logo{display:block;line-height:0;margin-left:8px !important;margin-bottom:6px !important;}
 .leaflet-control.mapy-logo img{width:100px;height:auto;}
+
+/* ===== v3.9: jízdní režim – úpravy pro rukavice ===== */
+/* tlačítka přiblížení: reakce bez prodlevy, prohlížeč nesmí dotyk brát jako posun stránky */
+#zoom-in-btn,#zoom-out-btn,#zoom-in3-btn,#zoom-out3-btn,#locate-btn,.panel-tab{touch-action:none;}
+/* mapa vždy pod panely (oprava problikávání mapy přes seznam tras na starších telefonech) */
+main.mapwrap{isolation:isolate;}
+#map{z-index:0;}
+body.ride-ui #route-list,body.ride-ui #detail-panel{will-change:transform;}
+/* větší jazýček panelů na mobilu */
+body.ride-ui .panel-tab{width:40px;height:96px;font-size:1.4rem;}
+body.ride-ui #route-list-tab{right:-40px;}
+body.ride-ui #detail-panel-tab{left:-40px;}
+/* logo Mapy.com doprostřed dolního okraje – vlevo dole překrývalo NAVIGOVAT */
+body.ride-ui .leaflet-bottom.leaflet-left{left:50%;transform:translateX(-50%);}
+body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !important;}
+
+/* na šířku: stejné rozložení na všech telefonech; přiblížení ve 2 sloupcích a 1,5× větší,
+   NAVIGOVAT vpravo vedle nich (palec pravé ruky) */
+@media (orientation:landscape){
+  body.ride-ui{ --rb:46px; --rg:6px; --re:8px; --rz:66px; --rzg:8px; }
+  body.ride-ui #zoom-in-btn, body.ride-ui #zoom-out-btn,
+  body.ride-ui #zoom-in3-btn, body.ride-ui #zoom-out3-btn{
+    width:var(--rz); height:var(--rz); border-radius:16px; font-size:calc(var(--rz) * 0.46);
+  }
+  body.ride-ui #zoom-in3-btn, body.ride-ui #zoom-out3-btn{ font-size:calc(var(--rz) * 0.34); }
+  /* vnější sloupec (u okraje): + a −, vnitřní: +3 a −3 */
+  body.ride-ui #zoom-out-btn { bottom:var(--rbm); right:var(--rr); }
+  body.ride-ui #zoom-in-btn  { bottom:calc(var(--rbm) + var(--rz) + var(--rzg)); right:var(--rr); }
+  body.ride-ui #zoom-out3-btn{ bottom:var(--rbm); right:calc(var(--rr) + var(--rz) + var(--rzg)); }
+  body.ride-ui #zoom-in3-btn { bottom:calc(var(--rbm) + var(--rz) + var(--rzg)); right:calc(var(--rr) + var(--rz) + var(--rzg)); }
+  /* NAVIGOVAT: vysoké tlačítko vlevo od bloku přiblížení, s větší mezerou */
+  body.ride-ui #locate-btn{
+    left:auto; bottom:var(--rbm); right:calc(var(--rr) + (var(--rz) + var(--rzg)) * 2 + 10px);
+    width:var(--rz); height:calc(var(--rz) * 2 + var(--rzg)); border-radius:16px;
+  }
+  body.ride-ui #locate-btn .map-btn-icon{ width:calc(var(--rz) * 0.55); height:calc(var(--rz) * 0.55); }
+  /* logo Mapy.com zpět vlevo dole – tam už teď nic není */
+  body.ride-ui .leaflet-bottom.leaflet-left{left:0;transform:none;}
+  body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:8px !important;}
+}

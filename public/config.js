@@ -5,4 +5,4 @@
 window.CENDUROFF_API_URL = 'https://cenduroff-web.up.railway.app';
 
 // Verze webu (zobrazí se v Nastavení účtu). Zvyšuj spolu s VERSION v sw.js.
-window.CENDUROFF_WEB_VERSION = '3.8';
+window.CENDUROFF_WEB_VERSION = '3.9';

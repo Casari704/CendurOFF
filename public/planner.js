@@ -369,11 +369,12 @@ const baseCtl = window.CendurMaps.attach(map, { toast: t => toast(t, 1800) });
 window.CendurZoom.bind(map, { in1:'pl-zoom-in', out1:'pl-zoom-out', in3:'pl-zoom-in3', out3:'pl-zoom-out3' }, { min:3, max:19 });
 const layersBtn = document.getElementById('pl-layers-btn');
 document.body.insertAdjacentHTML('beforeend', `<div id="layer-menu" role="menu">
-  <div class="layer-menu-title">Vrstvy na mapě</div>
+  <div class="layer-menu-title">Podkladová mapa</div>
 </div>`);
 const layerMenu = document.getElementById('layer-menu');
 // klepnutí = přepnout Mapy.com / satelit, podržení = benzínky, CHKO
 baseCtl.bindButton(layersBtn, ()=>{ placeLayerMenu(); layerMenu.classList.add('open'); });
+baseCtl.renderMenu(layerMenu);
 function placeLayerMenu(){
   const r = layersBtn.getBoundingClientRect();
   layerMenu.style.left = 'auto';

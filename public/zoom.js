@@ -45,10 +45,27 @@
       const el = get(buttons[k]);
       if(!el || el.dataset.czBound) return;
       el.dataset.czBound = '1';
-      el.addEventListener('click', e => {
-        e.preventDefault();
+      const fire = () => {
         const m = typeof map === 'function' ? map() : map;
         if(m) by(m, d, typeof opt === 'function' ? opt() : opt);
+      };
+      // v3.9: reaguje už na zvednutí prstu nad tlačítkem – i když se prst (v rukavici)
+      // při klepnutí trochu posune; prohlížeč by takové klepnutí jako „click“ zahodil
+      let down = false, firedAt = 0;
+      el.addEventListener('pointerdown', () => { down = true; });
+      el.addEventListener('pointerleave', () => { down = false; });
+      el.addEventListener('pointercancel', () => { down = false; });
+      el.addEventListener('pointerup', e => {
+        if(!down) return;
+        down = false;
+        e.preventDefault();
+        firedAt = Date.now();
+        fire();
+      });
+      el.addEventListener('click', e => {
+        e.preventDefault();
+        if(Date.now() - firedAt < 700) return;   // už obslouženo přes pointerup
+        fire();                                   // klávesnice, myš bez pointer událostí
       });
     });
   }
