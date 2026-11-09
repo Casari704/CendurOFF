@@ -901,3 +901,12 @@ body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !import
   body.ride-ui .leaflet-bottom.leaflet-left{left:0;transform:none;}
   body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:8px !important;}
 }
+
+/* ===== v4.0: stav GPS (společné pro Atlas NAVI i Roadbook NAVI, public/gps.js) ===== */
+.gps-badge{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom, 0px) + 44px);z-index:1500;
+  background:#111;color:#F5B700;border:2px solid #F5B700;border-radius:999px;padding:6px 14px;
+  font:700 0.9rem 'Exo 2',sans-serif;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,.35);pointer-events:none;}
+.gps-badge[hidden]{display:none;}
+.gps-badge.bad{color:#fff;background:#B3261E;border-color:#fff;}
+/* dopočtená poloha (bez signálu): šipka poloprůhledná */
+.gps-predicted{opacity:0.55;}

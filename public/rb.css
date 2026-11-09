@@ -356,3 +356,6 @@ body.rb-mobile-blocked #rb-main{align-items:center;justify-content:center;paddin
   #nv-fabs #nv-f-zo3{grid-column:1;grid-row:3;font-size:21px;}
   #nv-fabs #nv-f-zo{grid-column:2;grid-row:3;}
 }
+/* v4.0: stav GPS v Roadbook NAVI – na horní hraně žlutého pruhu „DALŠÍ ZA“ (nic nezakrývá) */
+#nv-next{position:relative;}
+#nv-next .gps-badge{position:absolute;bottom:auto;top:0;left:50%;transform:translate(-50%, -50%);font-size:0.85rem;padding:4px 12px;}

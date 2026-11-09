@@ -1348,7 +1348,7 @@ const mapEl = document.getElementById('map');
 // po změně hned vrátí na své místo (i na otočené / nakloněné mapě)
 function zoomOpts(){
   // při ručním prohlížení (gesta v navigaci) se přibližuje kolem středu, na polohu se mapa vrátí sama
-  return { min:3, max:19, after: (followMode && lastLatLng && !navManualActive()) ? ()=> setFollowView(lastLatLng, false) : null };
+  return { min:3, max:19, after: (followMode && lastLatLng && !navManualActive()) ? ()=> setFollowView(shownLatLng || lastLatLng, false) : null };
 }
 
 // Fullscreen + satelitní tlačítko jsou (kvůli overflow:hidden na main.mapwrap)
@@ -1529,7 +1529,7 @@ function feedHeading(rawDeg, alpha, thresholdDeg, minUpdateMs){
 function onPosition(pos){
   const latlng = [pos.coords.latitude, pos.coords.longitude];
   lastLatLng = latlng;
-  ensureGpsMarker(latlng, pos.coords.accuracy);
+  freePosPredicted = !!pos.predicted;
 
   // rychlost v km/h (GPS coords.speed je v m/s); chybějící/neplatnou hodnotu bereme jako 0
   currentSpeedKmh = (pos.coords.speed != null && !isNaN(pos.coords.speed)) ? pos.coords.speed * 3.6 : 0;
@@ -1541,9 +1541,16 @@ function onPosition(pos){
     feedHeading(pos.coords.heading, HEADING_FILTER_ALPHA_GPS, HEADING_UPDATE_THRESHOLD_DEG_GPS, HEADING_MIN_UPDATE_MS_GPS);
   }
 
-  if(followMode && !navManualActive()) setFollowView(latlng, true);
-  updateTilt(currentSpeedKmh);
   freeUpdate(latlng);
+  // v4.0: šipka přichycená ke sledované trase (když jsem na ní), jinak skutečná poloha
+  const shown = (navOn && freeSnapLL) ? freeSnapLL : latlng;
+  shownLatLng = shown;
+  ensureGpsMarker(shown, pos.coords.accuracy);
+  if(gpsMarker){ const el = gpsMarker.getElement(); if(el) el.classList.toggle('gps-predicted', !!pos.predicted); }
+  if(followMode && !navManualActive()) setFollowView(shown, true);
+  updateTilt(currentSpeedKmh);
+  // dopočtená poloha (výpadek signálu) se do záznamu jízdy ani projetí tras nepočítá
+  if(pos.predicted) return;
   recOnPosition(pos);
   // v2.5: projetí tras se počítá jen při navigaci nebo záznamu jízdy a jen přihlášeným
   if(window.CendurRides && currentUser && (navOn || rec.state === 'recording')){
@@ -1559,7 +1566,7 @@ function onPositionError(err){
   }
   // zamítnuté oprávnění: odběr zrušíme, ať další klik na tlačítko polohy požádá znovu
   if(err && err.code === 1 && watchId != null){
-    navigator.geolocation.clearWatch(watchId);
+    if(gpsW){ gpsW.stop(); gpsW = null; }
     watchId = null;
   }
   toast('Polohu se nepodařilo získat: ' + (err.message || 'neznámá chyba'));
@@ -1567,10 +1574,20 @@ function onPositionError(err){
 }
 
 // Zapne jen odběr GPS (pokud ještě neběží) - poloha a šipka se aktualizují, záznam jízdy běží.
+// v4.0: poloha přes společný modul public/gps.js (filtr nepřesných poloh a skoků, dopočet
+// při výpadku – po sledované trase, v aplikaci přímo z GPS čipu)
+let gpsW = null, gpsBadge = null;
+function onGpsStatus(st){
+  if(!gpsBadge && window.CendurGPS) gpsBadge = window.CendurGPS.badge(document.getElementById('app-screen'));
+  if(!gpsBadge) return;
+  if(navOn) gpsBadge.update(st); else gpsBadge.hide();
+}
 function startGpsWatch(){
-  if(!navigator.geolocation){ toast('Prohlížeč nepodporuje GPS polohu.'); return false; }
+  if(!navigator.geolocation && !(window.CendurApp && window.CendurApp.startGps)){ toast('Prohlížeč nepodporuje GPS polohu.'); return false; }
   if(watchId!=null) return true;
-  watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, { enableHighAccuracy:true, maximumAge:2000, timeout:15000 });
+  gpsW = window.CendurGPS.watch(onPosition, onPositionError, { predict:true, onStatus:onGpsStatus });
+  gpsW.setPredictor(freePredict);
+  watchId = 1;
   return true;
 }
 
@@ -1598,6 +1615,26 @@ let freeGuide = null, freeGuideId = null;   // v3.1: zvuky k instrukcím roadboo
 // která vede dvakrát stejnou cestou (tam a zpět, osmička), „nepřeskakuje“. Připojit se jde kdekoli.
 const FREE_OFF_M = 50, FREE_BACK_WIN = 200, FREE_FWD_WIN = 1500;
 let freeProg = null, freeProgId = null, freeWasOn = false;
+// v4.0: přichycení k trase a dopočet polohy po trase při výpadku GPS
+const FREE_SNAP_M = 25;
+let freeSnapLL = null, freeR = null, shownLatLng = null;
+let freeProgReal = null, freePosPredicted = false;   // místo na trase z poslední SKUTEČNÉ polohy (základ dopočtu)
+const freePlainCache = {};
+function freePlainR(id){
+  if(freePlainCache[id] === undefined){
+    const r = routesCache[id];
+    freePlainCache[id] = (r && Array.isArray(r.points) && r.points.length > 1) ? window.CendurRB.prepareRoute(r.points, false) : null;
+  }
+  return freePlainCache[id];
+}
+// dopočet polohy po sledované trase (public/gps.js volá při výpadku signálu)
+function freePredict(lastPos, meters){
+  const RB = window.CendurRB;
+  if(!RB || !freeR || freeProgReal == null || !freeWasOn) return null;
+  const R = freeR.R, s = Math.min(R.total, freeProgReal + meters);
+  const q = RB.pointAt(R, s);
+  return { lat:q[0], lon:q[1], heading: RB.bearingBetween(R, s, Math.min(R.total, s + 30)) };
+}
 // místo na trase do 60 m od mě, kde trasa vede STEJNÝM směrem, jakým jedu (u tras tam a zpět
 // je stejná cesta na trase dvakrát – v každém směru jednou); null = žádné takové
 function freeMatchDir(R, lat, lon, hdg){
@@ -1655,6 +1692,7 @@ async function freeStart(){
   if(lastLatLng) freeUpdate(lastLatLng); else freeRender();
 }
 function freeStop(){
+  freeSnapLL = null; freeR = null;
   const old = freeActiveId();
   freeCaughtId = null; freePickedId = null;
   if(old != null) applyRouteStyle(old);
@@ -1663,7 +1701,7 @@ function freeStop(){
 function freePick(id){
   const old = freeActiveId();
   freePickedId = id;
-  freeProg = null; freeProgId = null; freeWasOn = false;   // nové sledování – poloha na trase znovu od místa, kde jsem
+  freeProg = null; freeProgReal = null; freeProgId = null; freeWasOn = false;   // nové sledování – poloha na trase znovu od místa, kde jsem
   if(freeGuide) freeGuide.reset();
   if(id == null && lastLatLng) freeCatch(lastLatLng);
   const now = freeActiveId();
@@ -1725,11 +1763,16 @@ function freeRender(){
   lab.querySelector('span').textContent = picked ? 'klepnutím do mapy zpět do volné jízdy' : caught ? 'na trase: ' + freeShort(caught.name) : '';
   // roh s další instrukcí roadbooku
   const box = document.getElementById('free-corner');
-  const id = freeActiveId(), rb = id != null ? freeRb[id] : null;
+  const id = freeActiveId(), rbRaw = id != null ? freeRb[id] : null;
+  const rb = rbRaw && rbRaw !== 'loading' ? rbRaw : null;
+  const followed = freePickedId != null && freePickedId === id;
+  // v4.0: sledovaná trasa i bez roadbooku – kvůli přichycení šipky a dopočtu polohy po trase
+  const R = rb ? rb.R : (followed && RB ? freePlainR(id) : null);
   let html = '';
-  if(RB && rb && rb !== 'loading' && lastLatLng){
-    const lat = lastLatLng[0], lon = lastLatLng[1], R = rb.R;
-    if(freeProgId !== id){ freeProg = null; freeProgId = id; freeWasOn = false; }
+  freeSnapLL = null;
+  if(RB && R && lastLatLng){
+    const lat = lastLatLng[0], lon = lastLatLng[1];
+    if(freeProgId !== id){ freeProg = null; freeProgReal = null; freeProgId = id; freeWasOn = false; }
     // první určení: kdekoli na trase (připojení v půlce); u okruhu / dvakrát projeté cesty
     // se vezme místo nejblíž začátku
     const moving = currentSpeedKmh > HEADING_SPEED_THRESHOLD_KMH;
@@ -1743,9 +1786,8 @@ function freeRender(){
       : RB.project(R, lat, lon);
     if(p.dist > 40){ const g = RB.project(R, lat, lon); if(g.dist + 15 < p.dist) p = g; }
     const off = p.dist > FREE_OFF_M;
-    if(!off){ freeProg = p.s; freeWasOn = true; }
+    if(!off){ freeProg = p.s; freeWasOn = true; if(!freePosPredicted) freeProgReal = p.s; }
     // zvuky jen u trasy, kterou sleduju (vybraná klepnutím) – stejné jako v Roadbook NAVI
-    const followed = freePickedId != null && freePickedId === id;
     const guide = () => {
       if(!window.CendurSound) return null;
       if(!freeGuide || freeGuideId !== id){ freeGuide = CendurSound.createGuide(); freeGuideId = id; }
@@ -1757,7 +1799,12 @@ function freeRender(){
       const m = freeMatchDir(R, lat, lon, displayedHeading);
       if(m){ p = { dist:m.dist, s:m.s }; freeProg = m.s; dir = RB.bearingBetween(R, p.s, Math.min(R.total, p.s + 40)); }
     }
-    if(!off){
+    // v4.0: přichycení šipky k sledované trase (do 25 m, po směru) – klidnější šipka, přesnější instrukce
+    freeR = followed ? { id, R } : null;
+    if(followed && !off && p.dist <= FREE_SNAP_M && !(moving && dir != null && Math.abs(RB.angleDiff(displayedHeading, dir)) > 110)){
+      freeSnapLL = RB.pointAt(R, p.s);
+    }
+    if(!off && rb){
       if(moving && dir != null && Math.abs(RB.angleDiff(displayedHeading, dir)) > 110){
         html = '<div class="fc-note">Jedeš proti směru roadbooku</div>';
       } else {
@@ -1765,10 +1812,10 @@ function freeRender(){
         const nx = rb.vis.find(it=>it.s > p.s + 8);
         if(nx) html = '<div class="fc-card">' + RB.tulipSVG(nx, 92) + '<div class="fc-d">' + RB.fmtDist(Math.max(0, nx.s - p.s)) + '</div><div class="fc-l">' + escapeHtml(RB.label(nx)) + '</div></div>';
       }
-    } else if(followed && freeWasOn){
+    } else if(off && followed && freeWasOn){
       // vyjel jsem ze sledované trasy → upozornění (jemný tón + „Jsi mimo trasu“)
       html = '<div class="fc-note">Mimo trasu · ' + RB.fmtDist(p.dist) + '</div>';
-      if(guide()) freeGuide.update(rb.vis, freeProg, currentSpeedKmh / 3.6, true);
+      if(rb && guide()) freeGuide.update(rb.vis, freeProg, currentSpeedKmh / 3.6, true);
     }
   }
   box.innerHTML = html;
@@ -1788,11 +1835,12 @@ function setNavMode(on){
     navOn = false;
     followMode = false;
     headingMode = 'north';
+    if(gpsBadge) gpsBadge.hide();
   }
   if(!navOn){ tiltCur = tiltTarget = 0; tiltLayout = false; if(tiltRaf){ cancelAnimationFrame(tiltRaf); tiltRaf = 0; } }
   layoutMapForMode();
   setMapRotation(headingMode === 'heading');
-  if(followMode && lastLatLng) setFollowView(lastLatLng, false);
+  if(followMode && lastLatLng) setFollowView(shownLatLng || lastLatLng, false);
   if(navOn) freeStart(); else freeStop();
   locateBtn.classList.toggle('active', navOn);
   locateBtnLabel.textContent = navOn ? 'Ukončit navigaci' : 'NAVIGOVAT';
@@ -1860,7 +1908,7 @@ window.addEventListener('resize', ()=>{
   if(map && headingMode==='heading'){
     layoutMapForMode();
     // po otočení displeje se mění i výška šipky -> znovu ji posadit do středu otáčení
-    if(followMode && lastLatLng) setFollowView(lastLatLng, false);
+    if(followMode && lastLatLng) setFollowView(shownLatLng || lastLatLng, false);
   }
 });
 
@@ -1882,10 +1930,10 @@ function updateTilt(kmh){
   tiltTarget = want;
   // větší mapa (víc dlaždic) jen když se opravdu jede rychle; zpět až po 15 s pod 20 km/h
   const now = Date.now();
-  if(want > 0 && !tiltLayout){ tiltLayout = true; layoutMapForMode(); if(lastLatLng) setFollowView(lastLatLng, false); }
+  if(want > 0 && !tiltLayout){ tiltLayout = true; layoutMapForMode(); if(lastLatLng) setFollowView(shownLatLng || lastLatLng, false); }
   if(tiltLayout && want === 0 && tiltCur < 0.5){
     if(kmh < 20){ if(!tiltLowSince) tiltLowSince = now; } else tiltLowSince = 0;
-    if(tiltLowSince && now - tiltLowSince > 15000){ tiltLayout = false; tiltLowSince = 0; layoutMapForMode(); if(lastLatLng) setFollowView(lastLatLng, false); }
+    if(tiltLowSince && now - tiltLowSince > 15000){ tiltLayout = false; tiltLowSince = 0; layoutMapForMode(); if(lastLatLng) setFollowView(shownLatLng || lastLatLng, false); }
   } else tiltLowSince = 0;
   if(!tiltRaf && Math.abs(tiltTarget - tiltCur) > 0.05) tiltRaf = requestAnimationFrame(tiltStep);
 }
@@ -1948,7 +1996,7 @@ function navManualBack(){
   navManualUntil = 0;
   // mapa se znovu natočí po směru jízdy a vystředí na polohu
   if(headingMode === 'heading' && !panelCoversMap()) setMapRotation(true);
-  if(followMode && lastLatLng) setFollowView(lastLatLng, true);
+  if(followMode && lastLatLng) setFollowView(shownLatLng || lastLatLng, true);
 }
 (function navGestures(){
   const wrap = mapEl.parentElement;

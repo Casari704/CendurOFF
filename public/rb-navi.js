@@ -240,17 +240,18 @@ function routeDistM(r, la, lo, limit){
   return Math.sqrt(best);
 }
 function startSelectGps(){
-  if(selWatch != null || !navigator.geolocation) return;
-  selWatch = navigator.geolocation.watchPosition(pos => {
+  if(selWatch != null || !window.CendurGPS) return;
+  // v4.0: společný modul polohy (public/gps.js) – bez nepřesných poloh a skoků
+  selWatch = window.CendurGPS.watch(pos => {
     me = [pos.coords.latitude, pos.coords.longitude];
     if(!selMap) return;
     if(!meMarker) meMarker = L.marker(me, { icon: L.divIcon({ className:'', html:'<div class="nv-me-dot"></div>', iconSize:[22, 22], iconAnchor:[11, 11] }), interactive:false, zIndexOffset:3000 }).addTo(selMap);
     else meMarker.setLatLng(me);
     if(firstFix){ firstFix = false; if(!picked) selMap.setView(me, 13); }
     checkNearby();
-  }, () => {}, { enableHighAccuracy: true, maximumAge: 3000, timeout: 20000 });
+  }, () => {});
 }
-function stopSelectGps(){ if(selWatch != null){ navigator.geolocation.clearWatch(selWatch); selWatch = null; } }
+function stopSelectGps(){ if(selWatch != null){ selWatch.stop(); selWatch = null; } }
 function checkNearby(){
   if(!me || !$('nv-ask').hidden || $('nv-ride').classList.contains('open')) return;
   // trasy, od kterých jsem odjel dál, se můžou zeptat znovu
@@ -335,7 +336,7 @@ async function startRide(id, reverseNoRb){
   }finally{ unbusy(); }
   RB.recompute(R, items);
   vis = RB.visible(items);
-  prog = null; offset = 0; curIdx = -1; warned = {}; heading = null; speed = 0; manualUntil = 0;
+  prog = null; progReal = null; offset = 0; curIdx = -1; warned = {}; heading = null; speed = 0; manualUntil = 0;
   $('nv-ride').classList.add('open');
   stopSelectGps();
   // zvuky: odemknout (klepnutí na Jet) a nový hlídač instrukcí pro tuhle jízdu
@@ -350,7 +351,8 @@ async function startRide(id, reverseNoRb){
 
 function stopRide(){
   soundGuide = null;
-  if(watchId != null){ navigator.geolocation.clearWatch(watchId); watchId = null; }
+  if(watchId != null){ watchId.stop(); watchId = null; }
+  if(gpsBadge) gpsBadge.hide();
   stopSim();
   if(wakeLock){ try{ wakeLock.release(); }catch(e){} wakeLock = null; }
   $('nv-ride').classList.remove('open');
@@ -372,21 +374,34 @@ document.addEventListener('visibilitychange', () => { if(document.visibilityStat
 // ---------------------------------------------------------------
 // GPS
 // ---------------------------------------------------------------
+// v4.0: poloha přes společný modul public/gps.js – bez nepřesných poloh (most, tunel) a skoků,
+// při výpadku signálu se poloha dopočítává po trase; v aplikaci přímo z GPS čipu
+let gpsBadge = null, posPredicted = false, progReal = null;   // progReal = místo na trase z poslední skutečné polohy
 function startGps(){
-  if(!navigator.geolocation){ toast('Prohlížeč nepodporuje GPS.'); return; }
+  if(!window.CendurGPS){ toast('Prohlížeč nepodporuje GPS.'); return; }
   $('nv-wait').classList.add('open');
-  watchId = navigator.geolocation.watchPosition(pos => {
+  if(!gpsBadge) gpsBadge = window.CendurGPS.badge($('nv-next'));   // na horní hraně žlutého pruhu
+  watchId = window.CendurGPS.watch(pos => {
     $('nv-wait').classList.remove('open');
     const c = pos.coords;
     speed = (c.speed != null && !isNaN(c.speed)) ? c.speed : 0;
     heading = (speed > 1.5 && c.heading != null && !isNaN(c.heading)) ? c.heading : null;
+    posPredicted = !!pos.predicted;
     onPosition(c.latitude, c.longitude);
-    // v2.5: počítání projetí tras (jen skutečná jízda, ne simulace)
-    if(window.CendurRides && currentUser) window.CendurRides.track(c.latitude, c.longitude, 'roadbook');
+    // v2.5: počítání projetí tras (jen skutečná jízda, ne simulace ani dopočtená poloha)
+    if(!pos.predicted && window.CendurRides && currentUser) window.CendurRides.track(c.latitude, c.longitude, 'roadbook');
   }, err => {
     if(err && err.code === 1){ toast('Bez povolení polohy NAVI nefunguje.', 5000); return; }
     $('nv-wait').classList.add('open');
-  }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 });
+  }, { predict:true, onStatus: st => { if(gpsBadge) gpsBadge.update(st); } });
+  // dopočet po trase: od posledního místa na trase dál o ujetou vzdálenost
+  watchId.setPredictor((last, meters) => {
+    const base = progReal != null ? progReal : prog;
+    if(!R || base == null) return null;
+    const sv = Math.min(R.total, base + meters);
+    const q = RB.pointAt(R, sv);
+    return { lat:q[0], lon:q[1], heading: RB.bearingBetween(R, sv, Math.min(R.total, sv + 30)) };
+  });
 }
 
 function onPosition(lat, lon){
@@ -402,7 +417,7 @@ function onPosition(lat, lon){
     if(!p || g.dist + 15 < p.dist) p = g;
   }
   const off = p.dist > OFF_ROUTE_M;
-  if(!off) prog = p.s;
+  if(!off){ prog = p.s; if(!posPredicted) progReal = p.s; }
   // mimo trasu
   if(off){
     const q = RB.pointAt(R, p.s);
@@ -412,7 +427,10 @@ function onPosition(lat, lon){
     $('nv-off-text').textContent = 'MIMO TRASU · ' + RB.fmtDist(p.dist);
   }
   $('nv-off').classList.toggle('open', off);
-  updateMaps(lat, lon);
+  // v4.0: na trase (do 25 m) se šipka přichytí na čáru – klidnější šipka, přesnější instrukce
+  if(!off && p.dist <= 25){ const q = RB.pointAt(R, p.s); updateMaps(q[0], q[1]); }
+  else updateMaps(lat, lon);
+  [miniMe, bigMe].forEach(m => { const el = m && m.getElement(); if(el) el.classList.toggle('gps-predicted', posPredicted); });
   render(false);
   placeOff();
   if(soundGuide) soundGuide.update(vis, odo(), speed, off);
