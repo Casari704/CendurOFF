@@ -13,8 +13,8 @@
 <title>CendurOFF Roadbook NAVI</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.0.2">
-<link rel="stylesheet" href="public/rb.css?v=4.0.2">
+<link rel="stylesheet" href="public/style.css?v=4.1">
+<link rel="stylesheet" href="public/rb.css?v=4.1">
 <style>body.auth-pending #app-screen{visibility:hidden;}</style>
 </head>
 <body class="rb-page rb-navi auth-pending">
@@ -77,9 +77,11 @@
     <button type="button" id="nv-mapbtn">Mapa</button>
     <button type="button" id="nv-end" class="go">Konec</button>
   </div>
-  <div id="nv-off"><svg id="nv-off-arrow" width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 18-7-4-7 4z" fill="#fff"/></svg><span id="nv-off-text">MIMO TRASU</span></div>
+  <!-- v4.1: všechny hlášky jízdy na jednom místě a ve stejném rámečku jako MIMO TRASU (public/status.js) -->
+  <div id="nv-alerts">
+    <div id="nv-off"><svg id="nv-off-arrow" width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 18-7-4-7 4z" fill="#fff"/></svg><span id="nv-off-text">MIMO TRASU</span></div>
+  </div>
   <div id="nv-wait">Čekám na GPS signál…</div>
-  <div id="nv-manual">Ruční posun – návrat za <span id="nv-manual-s">4</span> s</div>
   <div id="nv-sim"><button type="button" id="nv-sim-pause">⏸ Pauza</button><button type="button" id="nv-sim-speed">30 km/h</button></div>
   <div id="nv-bigmap"><div id="nv-bigmap-map"></div><button type="button" id="nv-bigmap-close">Zpět na roadbook</button></div>
 </div>
@@ -88,15 +90,16 @@
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="public/config.js?v=4.0.2"></script>
-<script src="public/header.js?v=4.0.2"></script>
-<script src="public/pwa.js?v=4.0.2"></script>
-<script src="public/regiondata.js?v=4.0.2"></script>
-<script src="public/rb-core.js?v=4.0.2"></script>
-<script src="public/ride-stats.js?v=4.0.2"></script>
-<script src="public/sound.js?v=4.0.2"></script>
-<script src="public/zoom.js?v=4.0.2"></script>
-<script src="public/gps.js?v=4.0.2"></script>
-<script src="public/rb-navi.js?v=4.0.2"></script>
+<script src="public/config.js?v=4.1"></script>
+<script src="public/header.js?v=4.1"></script>
+<script src="public/pwa.js?v=4.1"></script>
+<script src="public/regiondata.js?v=4.1"></script>
+<script src="public/rb-core.js?v=4.1"></script>
+<script src="public/ride-stats.js?v=4.1"></script>
+<script src="public/sound.js?v=4.1"></script>
+<script src="public/zoom.js?v=4.1"></script>
+<script src="public/status.js?v=4.1"></script>
+<script src="public/gps.js?v=4.1"></script>
+<script src="public/rb-navi.js?v=4.1"></script>
 </body>
 </html>

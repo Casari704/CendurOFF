@@ -1576,9 +1576,10 @@ function onPositionError(err){
 // Zapne jen odběr GPS (pokud ještě neběží) - poloha a šipka se aktualizují, záznam jízdy běží.
 // v4.0: poloha přes společný modul public/gps.js (filtr nepřesných poloh a skoků, dopočet
 // při výpadku – po sledované trase, v aplikaci přímo z GPS čipu)
-let gpsW = null, gpsBadge = null;
+let gpsW = null, gpsBadge = null, freeStatus = null;
 function onGpsStatus(st){
-  if(!gpsBadge && window.CendurGPS) gpsBadge = window.CendurGPS.badge(document.getElementById('app-screen'));
+  if(!freeStatus) freeEnsureHud();
+  if(!gpsBadge && window.CendurGPS && freeStatus) gpsBadge = window.CendurGPS.badge(freeStatus);
   if(!gpsBadge) return;
   if(navOn) gpsBadge.update(st); else gpsBadge.hide();
 }
@@ -1680,7 +1681,9 @@ function freeDistM(route, la, lo, limit){
 function freeEnsureHud(){
   if(document.getElementById('free-hud')) return;
   document.getElementById('app-screen').insertAdjacentHTML('beforeend',
-    '<div id="free-hud" aria-live="polite"><div id="free-label"><b></b><span></span></div><div id="free-corner"></div></div>');
+    '<div id="free-hud"><div id="free-corner"></div></div>');
+  // v4.1: všechny hlášky (GPS, mimo trasu, režim) ve společném sloupci nahoře (public/status.js)
+  freeStatus = window.CendurStatus.create(document.getElementById('free-hud'), { prepend:true, className:'cs-atlas' });
 }
 async function freeStart(){
   freeEnsureHud();
@@ -1757,10 +1760,11 @@ function freeRender(){
   const RB = window.CendurRB;
   const picked = freePickedId != null ? routesCache[freePickedId] : null;
   const caught = freeCaughtId != null ? routesCache[freeCaughtId] : null;
-  const lab = document.getElementById('free-label');
-  lab.classList.toggle('sel', !!picked);
-  lab.querySelector('b').textContent = picked ? 'Trasa: ' + freeShort(picked.name) : 'Volná jízda';
-  lab.querySelector('span').textContent = picked ? 'klepnutím do mapy zpět do volné jízdy' : caught ? 'na trase: ' + freeShort(caught.name) : '';
+  freeStatus.set('mode', {
+    title: picked ? 'Trasa: ' + freeShort(picked.name) : 'Volná jízda',
+    sub: picked ? 'klepnutím do mapy zpět do volné jízdy' : caught ? 'na trase: ' + freeShort(caught.name) : '',
+    tone: picked ? 'blue' : 'dark', prio: 10 });
+  let routeNote = null;   // hláška „mimo trasu“ / „proti směru“ (do společného sloupce)
   // roh s další instrukcí roadbooku
   const box = document.getElementById('free-corner');
   const id = freeActiveId(), rbRaw = id != null ? freeRb[id] : null;
@@ -1806,7 +1810,7 @@ function freeRender(){
     }
     if(!off && rb){
       if(moving && dir != null && Math.abs(RB.angleDiff(displayedHeading, dir)) > 110){
-        html = '<div class="fc-note">Jedeš proti směru roadbooku</div>';
+        routeNote = { title:'Jedeš proti směru roadbooku', tone:'warn', prio:5 };
       } else {
         if(followed && guide()) freeGuide.update(rb.vis, p.s, currentSpeedKmh / 3.6, false);
         const nx = rb.vis.find(it=>it.s > p.s + 8);
@@ -1814,10 +1818,11 @@ function freeRender(){
       }
     } else if(off && followed && freeWasOn){
       // vyjel jsem ze sledované trasy → upozornění (jemný tón + „Jsi mimo trasu“)
-      html = '<div class="fc-note">Mimo trasu · ' + RB.fmtDist(p.dist) + '</div>';
+      routeNote = { title:'Mimo trasu · ' + RB.fmtDist(p.dist), tone:'bad', prio:5 };
       if(rb && guide()) freeGuide.update(rb.vis, freeProg, currentSpeedKmh / 3.6, true);
     }
   }
+  if(routeNote) freeStatus.set('route', routeNote); else freeStatus.clear('route');
   box.innerHTML = html;
 }
 

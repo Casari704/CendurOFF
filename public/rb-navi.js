@@ -376,11 +376,15 @@ document.addEventListener('visibilitychange', () => { if(document.visibilityStat
 // ---------------------------------------------------------------
 // v4.0: poloha přes společný modul public/gps.js – bez nepřesných poloh (most, tunel) a skoků,
 // při výpadku signálu se poloha dopočítává po trase; v aplikaci přímo z GPS čipu
-let gpsBadge = null, posPredicted = false, progReal = null;   // progReal = místo na trase z poslední skutečné polohy
+let gpsBadge = null, posPredicted = false, progReal = null;
+// v4.1: všechny hlášky jízdy (GPS, ruční posun) ve společném sloupci (public/status.js) –
+// na stejném místě a ve stejném rámečku jako MIMO TRASU (u spodního okraje aktuální karty)
+// – vždy jen JEDNA hláška (nejdůležitější): MIMO TRASU > GPS > ruční posun
+const rbStatus = window.CendurStatus.create($('nv-alerts'), { prepend:true, single:true, className:'cs-rb', onChange: () => placeOff() });   // progReal = místo na trase z poslední skutečné polohy
 function startGps(){
   if(!window.CendurGPS){ toast('Prohlížeč nepodporuje GPS.'); return; }
   $('nv-wait').classList.add('open');
-  if(!gpsBadge) gpsBadge = window.CendurGPS.badge($('nv-next'));   // na horní hraně žlutého pruhu
+  if(!gpsBadge) gpsBadge = window.CendurGPS.badge(rbStatus);   // společné hlášky (rámeček jako MIMO TRASU)
   watchId = window.CendurGPS.watch(pos => {
     $('nv-wait').classList.remove('open');
     const c = pos.coords;
@@ -437,18 +441,24 @@ function onPosition(lat, lon){
 }
 // pruh MIMO TRASU: dole v aktuální instrukci, zarovnaný k jejímu pravému okraji (v2.11)
 function placeOff(){
-  const box = $('nv-off');
-  if(!box.classList.contains('open')) return;
+  // v4.1: umísťuje se celý sloupec hlášek (#nv-alerts: GPS, ruční posun, MIMO TRASU)
+  const wrap = $('nv-alerts');
+  const offOpen = $('nv-off').classList.contains('open');
+  rbStatus.el.style.display = offOpen ? 'none' : '';   // MIMO TRASU má vždy přednost
+  const any = offOpen || !rbStatus.el.hidden;
+  wrap.classList.toggle('open', any);
+  if(!any) return;
   const el = cards[curIdx], ride = $('nv-ride').getBoundingClientRect(), rows = $('nv-rows').getBoundingClientRect();
-  if(!el) return;
-  const r = el.getBoundingClientRect();
+  const r = el ? el.getBoundingClientRect() : rows;
   const bottom = Math.min(r.bottom, rows.bottom);
-  box.style.width = Math.round(r.width * 0.66) + 'px';
-  // text ať se vejde na jeden řádek
-  let fs = 28; box.style.fontSize = fs + 'px';
-  while(box.scrollWidth > box.clientWidth && fs > 14){ fs -= 2; box.style.fontSize = fs + 'px'; }
-  box.style.right = Math.round(ride.right - r.right) + 'px';
-  box.style.top = Math.round(Math.max(rows.top, bottom - box.offsetHeight) - ride.top) + 'px';
+  wrap.style.width = Math.round(r.width * 0.66) + 'px';
+  // text každé hlášky ať se vejde na jeden řádek
+  wrap.querySelectorAll('#nv-off, .cs-item').forEach(box => {
+    let fs = 28; box.style.fontSize = fs + 'px';
+    while(box.scrollWidth > box.clientWidth && fs > 14){ fs -= 2; box.style.fontSize = fs + 'px'; }
+  });
+  wrap.style.right = Math.round(ride.right - r.right) + 'px';
+  wrap.style.top = Math.round(Math.max(rows.top, bottom - wrap.offsetHeight) - ride.top) + 'px';
 }
 $('nv-rows').addEventListener('scroll', placeOff, { passive: true });
 window.addEventListener('resize', () => setTimeout(placeOff, 120));
@@ -574,9 +584,11 @@ function autoScroll(smooth){
   setInterval(() => {
     if(!$('nv-ride').classList.contains('open')) return;
     const left = manualUntil - Date.now();
-    $('nv-manual').classList.toggle('open', left > 0);
-    if(left > 0) $('nv-manual-s').textContent = Math.ceil(left / 1000);
-    else if(manualUntil){ manualUntil = 0; autoScroll(true); }
+    if(left > 0) rbStatus.set('manual', { title:'Ruční posun – zpět za ' + Math.ceil(left / 1000) + ' s', tone:'dark', prio:20 });   // nejnižší priorita – nic nepřekryje
+    else {
+      rbStatus.clear('manual');
+      if(manualUntil){ manualUntil = 0; autoScroll(true); }
+    }
   }, 250);
 })();
 

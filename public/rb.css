@@ -284,9 +284,7 @@ body.rb-mobile-blocked #rb-main{align-items:center;justify-content:center;paddin
 
 /* když je vidět „MIMO TRASU“, ruční posun se ukáže pod ním (ne přes něj) */
 
-@media (orientation:landscape) and (max-height:600px){
-  #nv-off.open ~ #nv-manual{top:8px;}
-}
+
 
 /* =====================================================================
    v2.11 – Roadbook NAVI: výběr trasy na mapě přes celou plochu (jako v autě)
@@ -356,6 +354,15 @@ body.rb-mobile-blocked #rb-main{align-items:center;justify-content:center;paddin
   #nv-fabs #nv-f-zo3{grid-column:1;grid-row:3;font-size:21px;}
   #nv-fabs #nv-f-zo{grid-column:2;grid-row:3;}
 }
-/* v4.0: stav GPS v Roadbook NAVI – na horní hraně žlutého pruhu „DALŠÍ ZA“ (nic nezakrývá) */
-#nv-next{position:relative;}
-#nv-next .gps-badge{position:absolute;bottom:auto;top:0;left:50%;transform:translate(-50%, -50%);font-size:0.85rem;padding:4px 12px;}
+
+/* ===== v4.1: hlášky jízdy (public/status.js) – sloupec u spodního okraje aktuální karty,
+   každá hláška ve stejném rámečku jako MIMO TRASU (umísťuje placeOff) ===== */
+#nv-alerts{position:absolute;right:0;top:0;z-index:5;display:none;flex-direction:column;}
+#nv-alerts.open{display:flex;}
+#nv-alerts #nv-off{position:static;width:100% !important;}
+#nv-alerts .cs-rb{display:flex;flex-direction:column;}
+#nv-alerts .cs-item{height:62px;box-sizing:border-box;padding:0 12px;display:flex;align-items:center;justify-content:center;
+  background:var(--rb-red);color:#fff;font-weight:800;font-size:28px;white-space:nowrap;overflow:hidden;border-bottom:2px solid rgba(255,255,255,.35);}
+#nv-alerts .cs-item b{font-weight:800;}
+#nv-alerts .cs-item span{display:none;}   /* v rámečku jen krátký nadpis (jako MIMO TRASU) */
+#nv-alerts .cs-dark{background:#111;color:#F5B700;}

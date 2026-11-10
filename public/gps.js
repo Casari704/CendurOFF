@@ -103,10 +103,12 @@
   function tick(){
     if(!last) { status('wait'); return; }
     const age = Date.now() - last.t;
-    if(age > LOST_MS){ status('lost'); return; }
+    if(age > LOST_MS && last.speed > PREDICT_MIN_SPEED){ status('lost'); return; }
     const wantPredict = [...subs].some(w => w.predict);
     if(!wantPredict || age < PREDICT_AFTER_MS || !(last.speed > PREDICT_MIN_SPEED) || age > PREDICT_MAX_MS) {
-      if(age >= PREDICT_AFTER_MS) status('weak');
+      // v4.1: když stojíš, telefon nové polohy posílá jen občas – to není slabý signál
+      // (dřív svítilo „Slabý GPS · ±9 m“ i při dobré přesnosti)
+      if(age >= PREDICT_AFTER_MS && last.speed > PREDICT_MIN_SPEED) status('weak');
       return;
     }
     const meters = last.speed * age / 1000;
@@ -164,24 +166,18 @@
     nativeOn = false;   // prohlížeč běží dál a polohu dodá sám
   }
 
-  // společný štítek stavu GPS (stejný na všech stránkách)
-  function badge(parent){
-    const el = document.createElement('div');
-    el.className = 'gps-badge'; el.hidden = true; el.setAttribute('aria-live', 'polite');
-    (parent || document.body).appendChild(el);
-    return {
-      el,
-      update(s){
-        let txt = '';
-        if(s.state === 'wait') txt = '📡 Hledám GPS signál…';
-        else if(s.state === 'weak') txt = '📡 Slabý GPS' + (s.accuracy ? ' · ±' + Math.round(s.accuracy) + ' m' : '');
-        else if(s.state === 'predict') txt = '📡 Bez signálu – dopočítávám';
-        else if(s.state === 'lost') txt = '📡 GPS ztracena';
-        el.textContent = txt; el.hidden = !txt;
-        el.classList.toggle('bad', s.state === 'lost');
-      },
-      hide(){ el.hidden = true; }
+  // stav GPS do společných stavových hlášek (public/status.js): st = CendurStatus.create(…)
+  // – hláška má nejvyšší prioritu (nahoře nad „Volná jízda“ apod.)
+  function badge(st){
+    const show = s => {
+      let title = '', sub = '', tone = 'warn';
+      if(s.state === 'wait'){ title = '📡 Hledám GPS'; sub = 'čekám na signál'; }
+      else if(s.state === 'weak'){ title = '📡 Slabý GPS'; sub = (s.accuracy != null && s.accuracy > ACC_GOOD) ? 'přesnost ±' + Math.round(s.accuracy) + ' m' : ''; }
+      else if(s.state === 'predict'){ title = '📡 Bez signálu'; sub = 'dopočítávám polohu'; }
+      else if(s.state === 'lost'){ title = '📡 GPS ztracena'; tone = 'bad'; }
+      if(title) st.set('gps', { title, sub, tone, prio:0 }); else st.clear('gps');
     };
+    return { update: show, hide(){ st.clear('gps'); } };
   }
 
   // společná šipka polohy (stejná jako v Atlas NAVI) – pro stránky bez vlastní navigace (Planner)
