@@ -448,7 +448,9 @@ function placeOff(){
   const any = offOpen || !rbStatus.el.hidden;
   wrap.classList.toggle('open', any);
   if(!any) return;
-  const el = cards[curIdx], ride = $('nv-ride').getBoundingClientRect(), rows = $('nv-rows').getBoundingClientRect();
+  // v4.1: hláška se ukazuje přes PŘEDCHOZÍ (už projetou) instrukci – aktuální zůstane vidět;
+  // u první instrukce (není předchozí) přes aktuální
+  const el = cards[curIdx - 1] || cards[curIdx], ride = $('nv-ride').getBoundingClientRect(), rows = $('nv-rows').getBoundingClientRect();
   const r = el ? el.getBoundingClientRect() : rows;
   const bottom = Math.min(r.bottom, rows.bottom);
   wrap.style.width = Math.round(r.width * 0.66) + 'px';
