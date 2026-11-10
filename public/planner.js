@@ -790,17 +790,23 @@ document.querySelectorAll('.pl-pref-seg button').forEach(b=> b.addEventListener(
 }));
 syncPrefSeg();
 
-// poloha
-let meMarker = null;
+// poloha – v4.0.2: stejná šipka a stejný zdroj polohy jako Atlas NAVI (public/gps.js);
+// první klepnutí zapne sledování polohy a vycentruje mapu, další klepnutí mapu znovu vycentruje
+let meArrow = null, meWatch = null, meCenterNext = false;
 window.CendurZoom.tap(document.getElementById('pl-locate'), ()=>{
-  if(!navigator.geolocation){ toast('Prohlížeč nepodporuje GPS polohu.'); return; }
+  if(!window.CendurGPS){ toast('Prohlížeč nepodporuje GPS polohu.'); return; }
+  if(meArrow && meArrow.latlng){ map.setView(meArrow.latlng, Math.max(map.getZoom(), 14)); return; }
+  meCenterNext = true;
+  if(meWatch) return;
   toast('Zjišťuji polohu…', 2000);
-  navigator.geolocation.getCurrentPosition(pos=>{
-    const ll = [pos.coords.latitude, pos.coords.longitude];
-    if(!meMarker) meMarker = L.circleMarker(ll, { radius:8, color:'#fff', weight:3, fillColor:'#1E64D6', fillOpacity:1, interactive:false }).addTo(map);
-    else meMarker.setLatLng(ll);
-    map.setView(ll, Math.max(map.getZoom(), 14));
-  }, err=> toast('Polohu se nepodařilo zjistit: ' + (err.message || 'neznámá chyba')), { enableHighAccuracy:true, timeout:15000, maximumAge:30000 });
+  if(!meArrow) meArrow = window.CendurGPS.arrow(map);
+  meWatch = window.CendurGPS.watch(pos=>{
+    const c = pos.coords, ll = [c.latitude, c.longitude];
+    meArrow.set(ll, c.accuracy, (c.speed > 1.5 && c.heading != null) ? c.heading : null);
+    if(meCenterNext){ meCenterNext = false; map.setView(ll, Math.max(map.getZoom(), 14)); }
+  }, err=>{
+    if(err && err.code === 1){ toast('Bez povolení polohy to nejde.', 4000); if(meWatch){ meWatch.stop(); meWatch = null; } }
+  });
 });
 
 // ---------------------------------------------------------------

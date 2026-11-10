@@ -7,8 +7,10 @@
 //  2) nesmyslné skoky pryč: poloha, která by znamenala rychlost přes ~250 km/h, je chyba měření
 //  3) dopočet při výpadku: bez polohy (déle než 2,5 s) a za jízdy se poloha dopočítává podle
 //     poslední rychlosti a směru – nebo po sledované trase (setPredictor), nejvýš 30 s
-//  4) zdroj: v aplikaci pro Android (od 2.16) poloha přímo z GPS čipu (CendurApp.startGps),
-//     jinak z prohlížeče
+//  4) zdroj: v aplikaci pro Android (od 2.16) poloha přímo z GPS čipu (CendurApp.startGps)
+//     A ZÁROVEŇ z prohlížeče (Wi-Fi / síť). GPS čip má přednost; když mlčí (start bez mobilních
+//     dat, uvnitř budovy – první poloha z čipu pak trvá i minuty), bere se poloha z prohlížeče.
+//     (v4.0.2 – ve 4.0 se prohlížeč při zapnutém čipu vypnul a navigace zůstala bez polohy)
 //
 //  const w = CendurGPS.watch(onFix, onError, { predict:true, onStatus })
 //    onFix(pos)  – pos jako Geolocation Position ({ coords:{latitude, longitude, accuracy, speed,
@@ -30,6 +32,8 @@
   let browserWatch = null, nativeOn = false, timer = null;
   let last = null;              // poslední přijatá poloha {lat, lon, acc, speed, heading, t}
   let lastGoodAt = 0, jumpCount = 0, jumpRef = null, lastStatus = '';
+  let lastNativeAt = 0;          // poslední poloha z GPS čipu (aplikace)
+  const NATIVE_PRIORITY_MS = 3000;
 
   function hav(a, b){
     const R = 6371000, toR = Math.PI / 180;
@@ -124,9 +128,13 @@
         nativeOn = true;
       }
     }catch(e){ nativeOn = false; }
-    if(nativeOn || browserWatch != null || !navigator.geolocation) return;
+    if(browserWatch != null || !navigator.geolocation) return;
     browserWatch = navigator.geolocation.watchPosition(
-      pos => { if(!nativeOn) raw(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, pos.coords.speed, pos.coords.heading, pos.timestamp); },
+      pos => {
+        // když GPS čip v aplikaci právě posílá polohu, má přednost (prohlížeč by míchal Wi-Fi/síť)
+        if(nativeOn && Date.now() - lastNativeAt < NATIVE_PRIORITY_MS) return;
+        raw(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy, pos.coords.speed, pos.coords.heading, pos.timestamp);
+      },
       err => { subs.forEach(w => { if(w.onError) try{ w.onError(err); }catch(e){} }); },
       { enableHighAccuracy:true, maximumAge:0, timeout:15000 });
   }
@@ -151,11 +159,9 @@
   }
 
   // volá aplikace pro Android (MainActivity) při každé poloze z GPS čipu
-  function _native(lat, lon, acc, speed, heading, t){ raw(+lat, +lon, +acc, speed < 0 ? null : +speed, heading < 0 ? null : +heading, +t); }
+  function _native(lat, lon, acc, speed, heading, t){ lastNativeAt = Date.now(); raw(+lat, +lon, +acc, speed < 0 ? null : +speed, heading < 0 ? null : +heading, +t); }
   function _nativeError(code){
-    nativeOn = false;
-    subs.forEach(w => { if(w.onError) try{ w.onError({ code: code || 2, message:'GPS v telefonu není zapnutá' }); }catch(e){} });
-    if(subs.size) startSource();   // zkusit prohlížeč
+    nativeOn = false;   // prohlížeč běží dál a polohu dodá sám
   }
 
   // společný štítek stavu GPS (stejný na všech stránkách)
@@ -167,7 +173,8 @@
       el,
       update(s){
         let txt = '';
-        if(s.state === 'weak') txt = '📡 Slabý GPS' + (s.accuracy ? ' · ±' + Math.round(s.accuracy) + ' m' : '');
+        if(s.state === 'wait') txt = '📡 Hledám GPS signál…';
+        else if(s.state === 'weak') txt = '📡 Slabý GPS' + (s.accuracy ? ' · ±' + Math.round(s.accuracy) + ' m' : '');
         else if(s.state === 'predict') txt = '📡 Bez signálu – dopočítávám';
         else if(s.state === 'lost') txt = '📡 GPS ztracena';
         el.textContent = txt; el.hidden = !txt;
@@ -177,6 +184,23 @@
     };
   }
 
-  window.CendurGPS = { watch, badge, _native, _nativeError, ACC_GOOD,
-    _test:{ raw, tick, reset(){ last = null; lastGoodAt = 0; jumpCount = 0; jumpRef = null; lastStatus = ''; } } };
+  // společná šipka polohy (stejná jako v Atlas NAVI) – pro stránky bez vlastní navigace (Planner)
+  function arrow(map){
+    let m = null, circle = null;
+    return {
+      set(latlng, acc, heading){
+        if(!m){
+          const icon = L.divIcon({ className:'gps-marker-icon', html:'<div class="gps-heading-icon"><img src="public/img/gps-arrow.png" alt="Moje poloha"></div>', iconSize:[34,34], iconAnchor:[17,17] });
+          circle = L.circle(latlng, { radius:acc || 20, color:'#4F7048', fillColor:'#4F7048', fillOpacity:0.15, weight:1, interactive:false }).addTo(map);
+          m = L.marker(latlng, { icon, zIndexOffset:1000, interactive:false }).addTo(map);
+        } else { m.setLatLng(latlng); circle.setLatLng(latlng); circle.setRadius(acc || 20); }
+        const el = m.getElement() && m.getElement().querySelector('.gps-heading-icon');
+        if(el && heading != null) el.style.transform = 'rotate(' + heading + 'deg)';
+      },
+      get latlng(){ return m ? m.getLatLng() : null; }
+    };
+  }
+
+  window.CendurGPS = { watch, badge, arrow, _native, _nativeError, ACC_GOOD,
+    _test:{ raw, tick, native:_native, setNative(v){ nativeOn = v; }, reset(){ last = null; lastGoodAt = 0; jumpCount = 0; jumpRef = null; lastStatus = ''; } } };
 })();
