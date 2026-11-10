@@ -8,6 +8,7 @@
 //   st.set('mode', { title:'Volná jízda', sub:'na trase: …', tone:'dark', prio:10 })
 //   st.clear('gps')
 //   CendurStatus.create(parent, { single:true }) – ukazuje jen nejdůležitější hlášku
+//   … { keepLast:true } – poslední hláška zůstane v prvku i po zrušení (animace zajetí)
 // tone: dark (černá), blue (vybraná trasa), warn (žlutá na černé), bad (červená)
 // Doporučené prio: 0 GPS · 5 mimo trasu / proti směru · 10 režim (Volná jízda, Trasa: …)
 // ---------------------------------------------------------------
@@ -25,10 +26,13 @@
       let list = [...items.entries()].sort((a, b) => (a[1].prio || 0) - (b[1].prio || 0));
       // single: jen jedna (nejdůležitější) hláška naráz – kde je málo místa (Roadbook NAVI)
       if(opt.single) list = list.slice(0, 1);
+      // keepLast: poslední hláška zůstane v prvku, když už žádná není (kvůli animaci zajetí)
+      if(!list.length && opt.keepLast && el.innerHTML){ el.dataset.empty = '1'; if(opt.onChange && ready) try{ opt.onChange(0); }catch(e){} return; }
+      el.dataset.empty = list.length ? '' : '1';
       el.innerHTML = list.map(([k, it]) =>
         '<div class="cs-item cs-' + (it.tone || 'dark') + '" data-key="' + esc(k) + '"><b>' + esc(it.title) + '</b>' +
         (it.sub ? '<span>' + esc(it.sub) + '</span>' : '') + '</div>').join('');
-      el.hidden = !list.length;
+      el.hidden = !list.length && !opt.keepLast;
       if(opt.onChange && ready) try{ opt.onChange(list.length); }catch(e){}
     }
     let ready = false;
@@ -42,7 +46,8 @@
         items.set(key, it); render();
       },
       clear(key){ if(items.delete(key)) render(); },
-      has(key){ return items.has(key); }
+      has(key){ return items.has(key); },
+      get count(){ return items.size; }
     };
   }
   window.CendurStatus = { create };

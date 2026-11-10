@@ -366,3 +366,16 @@ body.rb-mobile-blocked #rb-main{align-items:center;justify-content:center;paddin
 #nv-alerts .cs-item b{font-weight:800;}
 #nv-alerts .cs-item span{display:none;}   /* v rámečku jen krátký nadpis (jako MIMO TRASU) */
 #nv-alerts .cs-dark{background:#111;color:#F5B700;}
+
+/* v4.1.2: stavový pruh dole přes celou šířku – nižší, text menší než instrukce */
+#nv-alerts #nv-off,#nv-alerts .cs-item{height:44px;}
+#nv-alerts #nv-off svg{width:24px;height:24px;}
+#nv-alerts .cs-item{border-bottom:0;border-top:2px solid rgba(255,255,255,.35);}
+
+/* v4.1.2: pruh vyjíždí zespodu (a zajíždí) – schová se pod žlutý pruh / pod okraj displeje */
+#nv-alerts{display:flex !important;transform:translateY(110%);visibility:hidden;
+  transition:transform .28s ease, visibility 0s linear .28s;overflow:hidden;}
+#nv-alerts.open{transform:none;visibility:visible;transition:transform .28s ease, visibility 0s;}
+#nv-alerts #nv-off{display:none;}
+#nv-alerts #nv-off.keep,#nv-alerts #nv-off.open{display:flex;}
+#nv-next{position:relative;z-index:6;}
