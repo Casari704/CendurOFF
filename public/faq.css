@@ -28,3 +28,8 @@ body.faq-page header.topbar{position:sticky;top:0;}
 .f-wrap details ol li{margin:4px 0;}
 .f-dl{display:inline-block;padding:10px 18px;border-radius:8px;background:#F5A300;color:#111;font-weight:800;text-decoration:none;}
 .f-dl:hover{background:#E09400;}
+/* changelog aplikace */
+.f-log h3{font-size:1.05rem;margin:14px 0 4px;}
+.f-log h3:first-child{margin-top:4px;}
+.f-log h3 span{font-weight:400;font-size:0.85rem;color:var(--ink-soft);margin-left:6px;}
+.f-log ul{margin:0 0 4px;padding-left:20px;}

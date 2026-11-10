@@ -10,8 +10,8 @@
 <title>CendurOFF FAQ – jak to funguje</title>
 <meta name="description" content="Nápověda k CendurOFF: Atlas NAVI, navigace, záznam jízdy, Atlas Planner, Roadbook planner a Roadbook NAVI.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.0">
-<link rel="stylesheet" href="public/faq.css?v=4.0">
+<link rel="stylesheet" href="public/style.css?v=4.0.1">
+<link rel="stylesheet" href="public/faq.css?v=4.0.1">
 </head>
 <body class="faq-page">
 <header class="topbar" data-page="faq" data-auth="auto"></header>
@@ -23,6 +23,7 @@
   <nav class="f-toc" aria-label="Obsah">
     <a href="#o-projektu">O projektu</a>
     <a href="#jak">Jak to celé funguje</a>
+    <a href="#aplikace">Aplikace pro Android</a>
     <a href="#ucet">Účet</a>
     <a href="#atlas">Atlas NAVI</a>
     <a href="#navigace">Navigace v Atlas NAVI</a>
@@ -59,17 +60,39 @@
       </ol>
     </details>
     <details>
-      <summary>Kde stáhnu aplikaci pro Android?</summary>
-      <p><a class="f-dl" href="download/CendurOFF.apk" download>⬇ Stáhnout CendurOFF.apk</a></p>
-      <p>Aplikace zatím není na Google Play – instaluje se přímo ze souboru: stáhni APK v telefonu, otevři ho a povol instalaci z tohoto zdroje. Kdo měl starší vývojářskou verzi, musí ji nejdřív odinstalovat.</p>
-    </details>
-    <details>
       <summary>Jak kvalitní je roadbook? (Auto vs. upravený)</summary>
       <p><b>Auto</b> (šedá) – trasa nemá uložený roadbook. Při jízdě se spočítá automaticky jen ze zatáček v GPX: pozná ostřejší zatáčky a vracáky, ale <b>nezná křižovatky</b> (odbočky ostatních cest), symboly, nebezpečí ani poznámky. Hodí se na rychlé vyzkoušení trasy.</p>
       <p><b>Rozpracovaný</b> (fialová) – roadbook je v Roadbook planneru uložený (obvykle se staženými křižovatkami z OSM), ale autor ho ještě nemá zkontrolovaný.</p>
       <p><b>Ready</b> (žlutá) – roadbook upravený na míru: křižovatky, symboly, nebezpečí a poznámky zkontroloval člověk, který trasu zná. Tohle je plnohodnotný rally roadbook.</p>
       <p><b>To check</b> (červená) – trasa (GPX) se od uložení roadbooku změnila, nebo některá místa čekají na kontrolu. Jet se dá, ale roadbook nemusí všude sedět.</p>
       <p>Víc o roadbooku: <a href="#roadbook">Roadbook – co to je</a>, <a href="#rb-planner">Roadbook planner</a>, <a href="#rb-navi">Roadbook NAVI</a>.</p>
+    </details>
+  </section>
+
+  <!-- ===================== APLIKACE PRO ANDROID ===================== -->
+  <section id="aplikace">
+    <h2>Aplikace pro Android</h2>
+    <details open>
+      <summary>Kde stáhnu aplikaci a jak ji nainstaluju?</summary>
+      <p><a class="f-dl" href="download/CendurOFF.apk" download>⬇ Stáhnout CendurOFF.apk</a></p>
+      <p>Aplikace zatím není na Google Play – instaluje se přímo ze souboru: stáhni APK v telefonu, otevři ho a povol instalaci z tohoto zdroje. Kdo měl starší vývojářskou verzi, musí ji nejdřív odinstalovat.</p>
+    </details>
+    <details>
+      <summary>Jakou verzi mám?</summary>
+      <p>Verzi aplikace najdeš v <a href="nastaveni.html">Nastavení účtu</a> → <b>Aplikace</b>.</p>
+    </details>
+    <details>
+      <summary>Co je nového</summary>
+      <div class="f-log">
+        <h3>2.16 <span>10. 11. 2026</span></h3>
+        <ul>
+          <li>Poloha přímo z GPS čipu telefonu – přesnější navigace a rychlejší nalezení signálu po průjezdu mostem nebo tunelem.</li>
+        </ul>
+        <h3>2.15 <span>6. 11. 2026</span></h3>
+        <ul>
+          <li>Hlasové pokyny v navigaci přes českou hlasovou syntézu telefonu.</li>
+        </ul>
+      </div>
     </details>
   </section>
 
@@ -123,7 +146,7 @@
     </details>
     <details>
       <summary>Jak mít CendurOFF přes celý displej?</summary>
-      <p>Nainstaluj si aplikaci pro Android (viz <a href="#jak">Jak to celé funguje</a>), nebo si web přidej na plochu (Chrome: ⋮ → Přidat na plochu, iPhone: Sdílet → Přidat na plochu). Pak se otevírá přes celý displej jako aplikace.</p>
+      <p>Nainstaluj si aplikaci pro Android (viz <a href="#aplikace">Aplikace pro Android</a>), nebo si web přidej na plochu (Chrome: ⋮ → Přidat na plochu, iPhone: Sdílet → Přidat na plochu). Pak se otevírá přes celý displej jako aplikace.</p>
     </details>
   </section>
 
@@ -329,9 +352,9 @@
 </main>
 
 <div class="toast" id="toast"></div>
-<script src="public/config.js?v=4.0"></script>
-<script src="public/header.js?v=4.0"></script>
-<script src="public/pwa.js?v=4.0"></script>
+<script src="public/config.js?v=4.0.1"></script>
+<script src="public/header.js?v=4.0.1"></script>
+<script src="public/pwa.js?v=4.0.1"></script>
 <script>
 // otevře sekci, na kterou vede odkaz (#rb-planner apod.)
 (function(){
