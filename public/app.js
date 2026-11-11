@@ -297,7 +297,16 @@ function nextPageAfterLogin(){
 let appEntered = false;
 function requireLogin(what){
   if(currentUser) return true;
-  showLoginOverlay(what);
+  // v4.3.1: nejdřív malé okno s křížkem (stejné jako v Roadbook NAVI), přihlášení až na „Přihlásit se“
+  const nav = what === 'navigaci';
+  if(window.CendurHeader && window.CendurHeader.ask){
+    window.CendurHeader.ask({
+      title: nav ? 'Navigace je pro přihlášené' : 'Jen pro přihlášené',
+      msg: (nav ? 'Navigaci podle GPS můžou používat jen přihlášení členové.' : 'Pro ' + what + ' se musíš přihlásit.') +
+        ' Mapu a trasy si můžeš prohlížet i bez účtu.',
+      yes: { label: 'Přihlásit se', fn: () => showLoginOverlay(what) }
+    });
+  } else showLoginOverlay(what);
   return false;
 }
 function showLoginOverlay(what){

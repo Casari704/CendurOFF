@@ -253,7 +253,7 @@ function startSelectGps(){
 }
 function stopSelectGps(){ if(selWatch != null){ selWatch.stop(); selWatch = null; } }
 function checkNearby(){
-  if(!me || !$('nv-ask').hidden || $('nv-ride').classList.contains('open')) return;
+  if(!me || window.CendurHeader.askOpen() || $('nv-ride').classList.contains('open')) return;
   if(!currentUser) return;   // v4.2: host – nabídka navigace u trasy jen pro přihlášené
   // trasy, od kterých jsem odjel dál, se můžou zeptat znovu
   [...asked].forEach(id => { const r = routes.find(x => x.id === id); if(!r || routeDistM(r, me[0], me[1], ASK_RESET_M + 100) > ASK_RESET_M) asked.delete(id); });
@@ -267,42 +267,24 @@ function checkNearby(){
   asked.add(best.id);
   pickRoute(best.id, false);
   const st = RB.stateOf(sums[best.id]);
-  $('nv-ask-msg').textContent = 'Jsi u trasy „' + best.name + '“' +
-    (st === 'check' ? ' – roadbook je To check (trasa se změnila nebo čeká na kontrolu)' : st === 'draft' ? ' – roadbook je zatím rozpracovaný' : '') +
-    '. Chceš navigovat podle roadbooku?';
-  askMode('ride');
-  $('nv-ask').hidden = false;
-  $('nv-ask').dataset.id = best.id;
+  window.CendurHeader.ask({
+    title: 'Roadbook',
+    msg: 'Jsi u trasy „' + best.name + '“' +
+      (st === 'check' ? ' – roadbook je To check (trasa se změnila nebo čeká na kontrolu)' : st === 'draft' ? ' – roadbook je zatím rozpracovaný' : '') +
+      '. Chceš navigovat podle roadbooku?',
+    yes: { label: 'Navigovat', fn: () => startRide(best.id, false) },
+    no: { label: 'Ne' }
+  });
 }
-// v4.2: stejné okno slouží i pro „navigace jen pro přihlášené“ (host může spustit simulaci)
-function askMode(mode){
-  $('nv-ask').dataset.mode = mode;
-  $('nv-ask-t').textContent = mode === 'login' ? 'Navigace je pro přihlášené' : 'Roadbook';
-  $('nv-ask-yes').textContent = mode === 'login' ? 'Přihlásit se' : 'Navigovat';
-  $('nv-ask-no').textContent = mode === 'login' ? 'Spustit simulaci' : 'Ne';
-}
+// v4.2: host – skutečná navigace jen pro přihlášené, simulaci může spustit každý (sdílené okno s křížkem)
 function askLogin(id, rev){
-  askMode('login');
-  $('nv-ask-msg').textContent = 'Skutečnou navigaci podle GPS můžou používat jen přihlášení členové. Bez účtu si můžeš roadbook projet v simulaci.';
-  $('nv-ask').dataset.id = id;
-  $('nv-ask').dataset.rev = rev ? '1' : '';
-  $('nv-ask').hidden = false;
+  window.CendurHeader.ask({
+    title: 'Navigace je pro přihlášené',
+    msg: 'Skutečnou navigaci podle GPS můžou používat jen přihlášení členové. Bez účtu si můžeš roadbook projet v simulaci.',
+    yes: { label: 'Přihlásit se', fn: () => { location.href = 'index.html?next=' + encodeURIComponent('roadbook-navi.html?trasa=' + id); } },
+    no: { label: 'Spustit simulaci', fn: () => { $('nv-simopt').checked = true; startRide(id, !!rev); } }
+  });
 }
-$('nv-ask-yes').addEventListener('click', () => {
-  const id = Number($('nv-ask').dataset.id); $('nv-ask').hidden = true;
-  if($('nv-ask').dataset.mode === 'login'){
-    location.href = 'index.html?next=' + encodeURIComponent('roadbook-navi.html?trasa=' + id);
-    return;
-  }
-  startRide(id, false);
-});
-$('nv-ask-no').addEventListener('click', () => {
-  $('nv-ask').hidden = true;
-  if($('nv-ask').dataset.mode === 'login'){
-    $('nv-simopt').checked = true;
-    startRide(Number($('nv-ask').dataset.id), !!$('nv-ask').dataset.rev);
-  }
-});
 
 // ---------------------------------------------------------------
 // Jízda – stav

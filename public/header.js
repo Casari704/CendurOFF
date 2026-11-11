@@ -259,7 +259,45 @@
     window.dispatchEvent(new Event('resize')); // hlavička mohla změnit výšku (mobil)
   }
 
-  window.CendurHeader = { setUser, page, openTiles, closeTiles };
+  // v4.3.1: sdílené potvrzovací okno (Atlas i Roadbook NAVI) – titulek, text, 1–2 tlačítka a křížek
+  //  ask({ title, msg, yes:{label, fn}, no:{label, fn}, onClose })
+  let askEl = null, askOpts = null, askAt = 0;
+  function askClose(viaX){
+    if(!askEl || askEl.hidden) return;
+    askEl.hidden = true;
+    const o = askOpts; askOpts = null;
+    if(viaX && o && o.onClose) o.onClose();
+  }
+  function ask(o){
+    if(!askEl){
+      askEl = document.createElement('div');
+      askEl.className = 'c-ask'; askEl.hidden = true;
+      askEl.setAttribute('role', 'dialog'); askEl.setAttribute('aria-modal', 'true'); askEl.setAttribute('aria-labelledby', 'c-ask-t');
+      askEl.innerHTML = '<div class="c-ask-box"><button type="button" class="c-ask-x" aria-label="Zavřít">×</button>' +
+        '<b id="c-ask-t"></b><p class="c-ask-msg"></p><div class="c-ask-row"><button type="button" class="c-ask-yes"></button><button type="button" class="c-ask-no"></button></div></div>';
+      document.body.appendChild(askEl);
+      askEl.querySelector('.c-ask-x').addEventListener('click', () => askClose(true));
+      // klik do tmavého pozadí zavře – ale ne „dojezd“ ťuknutí, které okno právě otevřelo
+      askEl.addEventListener('click', e => { if(e.target === askEl && Date.now() - askAt > 600) askClose(true); });
+      document.addEventListener('keydown', e => { if(e.key === 'Escape') askClose(true); });
+      ['yes', 'no'].forEach(k => askEl.querySelector('.c-ask-' + k).addEventListener('click', () => {
+        const fn = askOpts && askOpts[k] && askOpts[k].fn; askClose(false); if(fn) fn();
+      }));
+    }
+    // nové okno nahradí případné otevřené (bez onClose toho starého)
+    askOpts = o || {};
+    askEl.querySelector('#c-ask-t').textContent = askOpts.title || '';
+    askEl.querySelector('.c-ask-msg').textContent = askOpts.msg || '';
+    const y = askEl.querySelector('.c-ask-yes'), n = askEl.querySelector('.c-ask-no');
+    y.textContent = askOpts.yes ? askOpts.yes.label : 'OK';
+    n.hidden = !askOpts.no; n.textContent = askOpts.no ? askOpts.no.label : '';
+    askEl.querySelector('.c-ask-row').classList.toggle('one', !askOpts.no);
+    askEl.hidden = false; askAt = Date.now();
+    try{ y.focus({ preventScroll:true }); }catch(e){}
+  }
+  const askOpen = () => !!(askEl && !askEl.hidden);
+
+  window.CendurHeader = { setUser, page, openTiles, closeTiles, ask, askClose: () => askClose(false), askOpen };
 
   if(header.dataset.auth === 'auto'){
     api('/api/auth/me').then(setUser).catch(()=> setUser(null));
