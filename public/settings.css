@@ -46,3 +46,19 @@ body.settings-page header.topbar{position:sticky;top:0;}
   .s-btns{width:100%;justify-content:flex-start;}
   .s-btns .s-btn{flex:1;}
 }
+
+/* v4.3: profil jezdce */
+.s-badge-row{align-items:flex-start;}
+.s-badge{flex:none;width:56px;height:56px;border-radius:14px;background:var(--ink);display:flex;align-items:center;justify-content:center;font-size:30px;}
+.s-prog{height:8px;border-radius:4px;background:#E5E0D2;overflow:hidden;margin:6px 0 4px;}
+.s-prog i{display:block;height:100%;width:0;background:var(--moss);border-radius:4px;transition:width .4s;}
+.s-bike{display:flex;gap:8px;padding:0 0 14px;}
+.s-bike input{flex:1;min-width:0;height:42px;border:1px solid var(--line);border-radius:8px;padding:0 12px;font-size:1rem;background:#fff;}
+.s-badges{padding:4px 0 12px;border-top:1px solid var(--line);}
+.s-badges summary{cursor:pointer;font-weight:700;padding:10px 0 4px;}
+.s-badges ul{list-style:none;margin:6px 0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.s-badges li{opacity:.45;}
+.s-badges li.got{opacity:1;}
+.s-badges li span{font-size:1.2rem;}
+.s-badges li small{color:var(--ink-soft);margin-left:4px;}
+.s-hint{font-size:0.8rem;color:var(--ink-soft);margin:8px 0 0;}

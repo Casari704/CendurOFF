@@ -29,7 +29,36 @@
     $('s-name').textContent = user.displayName;
     $('s-role').textContent = (user.role === 'admin' ? 'administrátor' : 'uživatel') + (user.username && user.username.toLowerCase() !== String(user.displayName).toLowerCase() ? ' · přihlašovací jméno ' + user.username : '');
     $('s-admin-row').hidden = user.role !== 'admin';
+    loadProfile();
   }
+
+  // ---------- profil jezdce (v4.3) ----------
+  const R = window.CendurRider;
+  function showProfile(p){
+    if(!R) return;
+    const b = R.badgeFor(p.km);
+    $('s-badge-icon').textContent = b.icon;
+    $('s-badge-name').textContent = b.name + ' · odznak ' + b.level + '/5';
+    $('s-km').textContent = 'najeto ' + R.fmtKm(p.km);
+    $('s-prog-bar').style.width = b.pct + '%';
+    $('s-next').textContent = b.next ? 'do odznaku ' + b.next.icon + ' ' + b.next.name + ' zbývá ' + R.fmtKm(b.toNext) : 'nejvyšší odznak – klobouk dolů!';
+    $('s-badge-list').innerHTML = R.BADGES.map((x, i) => '<li class="' + (p.km >= x.km ? 'got' : '') + '"><span>' + x.icon + '</span> <b>' + x.name + '</b> <small>od ' + R.fmtKm(x.km) + '</small></li>').join('');
+  }
+  async function loadProfile(){
+    try{
+      const p = await api('/api/profile');
+      $('s-bike').value = p.bike || '';
+      showProfile(p);
+    }catch(e){ $('s-km').textContent = 'profil se nepodařilo načíst'; }
+  }
+  $('s-bike-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    try{
+      const r = await api('/api/profile', { method:'PUT', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ bike: $('s-bike').value }) });
+      $('s-bike').value = r.bike || '';
+      toast(r.bike ? 'Motorka uložena: ' + r.bike : 'Motorka smazána.');
+    }catch(err){ toast(err.message || 'Uložení se nepovedlo.'); }
+  });
   $('s-logout').addEventListener('click', async () => {
     try{ await api('/api/auth/logout', { method:'POST' }); }catch(e){}
     try{ localStorage.removeItem('cenduroff.token'); }catch(e){}

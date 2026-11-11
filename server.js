@@ -651,6 +651,12 @@ app.delete('/api/routes/:id', requireAuth, async (req, res) => {
 require('./roadbook-api').mount(app, { pool, requireAuth, optionalAuth, canEdit });
 // Admin (v2.5) – archiv smazaných tras a statistiky projetí tras
 require('./admin-api').mount(app, { pool, requireAuth, isAdmin });
+// Profil jezdce a hlášení chyb (v4.3) – samostatný modul; kdyby selhal, zbytek serveru běží dál
+try {
+  require('./profile-api').mount(app, { pool, requireAuth, optionalAuth, isAdmin });
+} catch (e) {
+  console.error('Profil/chyby: modul se nepodařilo připojit:', e);
+}
 
 // ---------------------------------------------------------------
 // Handlery pro API chybějící cesty & statické soubory

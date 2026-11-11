@@ -10,8 +10,8 @@
 <title>CendurOFF FAQ – jak to funguje</title>
 <meta name="description" content="Nápověda k CendurOFF: Atlas NAVI, navigace, záznam jízdy, Atlas Planner, Roadbook planner a Roadbook NAVI.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.2">
-<link rel="stylesheet" href="public/faq.css?v=4.2">
+<link rel="stylesheet" href="public/style.css?v=4.3">
+<link rel="stylesheet" href="public/faq.css?v=4.3">
 </head>
 <body class="faq-page">
 <header class="topbar" data-page="faq" data-auth="auto"></header>
@@ -102,6 +102,11 @@
     <details>
       <summary>Co můžu bez přihlášení?</summary>
       <p>Bez účtu si můžeš prohlížet <b>Atlas</b> – mapu, trasy a jejich detail – a v <b>Roadbook NAVI</b> si roadbook projet v <b>simulaci</b>. Navigace podle GPS, záznam jízdy, nahrávání tras, stažení GPX, hodnocení, recenze a fotky, Plannery a Nastavení účtu jsou jen pro přihlášené členy – když na ně klepneš, nabídne se přihlášení.</p>
+    </details>
+    <details>
+      <summary>Co je profil jezdce a odznaky?</summary>
+      <p>V <b>Nastavení účtu</b> najdeš svůj <b>profil jezdce</b>. Můžeš si tam napsat, <b>jakou motorku sedláš</b> – ostatní ji uvidí v detailu tvých tras. Podle toho, kolik kilometrů najezdíš, dostaneš jeden z pěti odznaků: 🔰 Nováček (0 km), 🟫 Prašák (100 km), 🐗 Bahňák (500 km), 🐺 Enduro vlk (1 500 km) a 🏆 Legenda CendurOFF (5 000 km).</p>
+      <p>Kilometry se počítají jen ze skutečné polohy GPS, když jedeš s navigací (v Atlasu nebo v Roadbook NAVI) nebo nahráváš záznam jízdy. Simulace se nepočítá a počítat se začalo od verze 4.3.</p>
     </details>
     <details>
       <summary>Jak se zaregistruju a přihlásím?</summary>
@@ -356,9 +361,10 @@
 </main>
 
 <div class="toast" id="toast"></div>
-<script src="public/config.js?v=4.2"></script>
-<script src="public/header.js?v=4.2"></script>
-<script src="public/pwa.js?v=4.2"></script>
+<script src="public/config.js?v=4.3"></script>
+<script src="public/errors.js?v=4.3"></script>
+<script src="public/header.js?v=4.3"></script>
+<script src="public/pwa.js?v=4.3"></script>
 <script>
 // otevře sekci, na kterou vede odkaz (#rb-planner apod.)
 (function(){

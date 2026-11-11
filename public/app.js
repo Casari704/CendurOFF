@@ -1084,6 +1084,19 @@ async function openDetail(id){
         <button class="danger-btn" id="delete-route-btn">Smazat trasu</button>
       </div>` : ''}
   `;
+  // v4.3: odznak a motorka autora trasy (veřejný profil jezdce)
+  if(route.owner_id && window.CendurRider){
+    fetch(API_URL + '/api/riders/' + encodeURIComponent(route.owner_id)).then(r => r.ok ? r.json() : null).then(p => {
+      const el = inner.querySelector('.detail-owner');
+      if(!p || !el || !el.isConnected) return;
+      const b = window.CendurRider.badgeFor(p.km);
+      const d = document.createElement('div');
+      d.className = 'owner-rider';
+      d.innerHTML = '<span class="owner-badge" title="' + escapeHtml(b.name + ' – najeto ' + window.CendurRider.fmtKm(p.km)) + '">' + b.icon + ' ' + escapeHtml(b.name) + '</span>' +
+        (p.bike ? '<span class="owner-bike">🏍 ' + escapeHtml(p.bike) + '</span>' : '');
+      el.appendChild(d);
+    }).catch(() => {});
+  }
 
   document.getElementById('download-gpx-btn').addEventListener('click', ()=> downloadGPX(route.points, route.name));
   if(currentUser && currentUser.role === 'admin') loadAdminStats(route.id);
@@ -1591,6 +1604,8 @@ function onPosition(pos){
   // dopočtená poloha (výpadek signálu) se do záznamu jízdy ani projetí tras nepočítá
   if(pos.predicted) return;
   recOnPosition(pos);
+  // v4.3: najeté km do profilu jezdce (jen přihlášený, navigace nebo záznam jízdy)
+  if(currentUser && window.CendurRider && (navOn || rec.state === 'recording')) window.CendurRider.track(pos);
   // v2.5: projetí tras se počítá jen při navigaci nebo záznamu jízdy a jen přihlášeným
   if(window.CendurRides && currentUser && (navOn || rec.state === 'recording')){
     window.CendurRides.track(latlng[0], latlng[1], navOn ? 'atlas' : 'record');

@@ -8,8 +8,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
 <title>CendurOFF Admin sekce</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.2">
-<link rel="stylesheet" href="public/faq.css?v=4.2">
+<link rel="stylesheet" href="public/style.css?v=4.3">
+<link rel="stylesheet" href="public/faq.css?v=4.3">
 <style>
   .a-wrap{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
   .a-wrap h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);}
@@ -33,6 +33,9 @@
   .a-deleted{font-size:0.72rem;font-weight:700;background:#E4E0D6;color:#333;padding:1px 6px;border-radius:4px;margin-left:6px;}
   .a-riders{margin:4px 0;padding-left:18px;}
   .a-note{color:var(--ink-soft);margin:0 0 6px;font-size:0.92rem;}
+  .a-err-msg{font-family:monospace;font-size:0.82rem;word-break:break-word;}
+  .a-err-stack{white-space:pre-wrap;font-family:monospace;font-size:0.76rem;background:#F6F3EA;border-radius:6px;padding:8px;margin:6px 0;max-height:240px;overflow:auto;}
+  .a-err-meta{font-size:0.8rem;color:var(--ink-soft);}
 </style>
 </head>
 <body class="faq-page">
@@ -62,12 +65,21 @@
       <th>Trasa</th><th class="num">km</th><th>Autor</th><th>Smazal</th><th>Smazáno</th><th></th>
     </tr></thead><tbody></tbody></table></div>
   </section>
+
+  <section id="a-err-sec" hidden>
+    <h2>Chyby z telefonů <small>chyby JavaScriptu, které se staly uživatelům (web i aplikace) za posledních 30 dní · stejné chyby jsou sloučené · klikni pro detail</small></h2>
+    <p style="margin:0 0 8px"><button class="a-btn" type="button" id="a-err-reload">↻ Obnovit</button><button class="a-btn red" type="button" id="a-err-clear">Smazat všechny</button></p>
+    <div class="a-box"><table class="a-t" id="a-err"><thead><tr>
+      <th>Chyba</th><th class="num">Výskyt</th><th class="num">Zařízení</th><th>Stránky</th><th>Naposledy</th><th></th>
+    </tr></thead><tbody></tbody></table></div>
+  </section>
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.2"></script>
-<script src="public/header.js?v=4.2"></script>
-<script src="public/pwa.js?v=4.2"></script>
+<script src="public/config.js?v=4.3"></script>
+<script src="public/errors.js?v=4.3"></script>
+<script src="public/header.js?v=4.3"></script>
+<script src="public/pwa.js?v=4.3"></script>
 <script>
 (function(){
   const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
@@ -174,9 +186,40 @@
       : '<tr><td colspan="9" class="a-empty">Žádní uživatelé.</td></tr>';
   }
 
+  // ---------- chyby z telefonů (v4.3) ----------
+  let errs = [], errOpen = null;
+  function renderErrs(){
+    const tb = $('a-err').querySelector('tbody');
+    tb.innerHTML = errs.length ? errs.map((e, i) => '<tr class="row" data-i="' + i + '"><td class="name a-err-msg">' + esc(e.message) + '</td>' +
+      '<td class="num big">' + e.count + '</td><td class="num">' + e.devices + '</td><td>' + esc((e.pages || []).join(', ')) + '</td><td>' + fmtDate(e.last_at) + '</td>' +
+      '<td><button class="a-btn red" type="button" data-del="' + i + '">Smazat</button></td></tr>' +
+      (errOpen === i ? '<tr class="det"><td colspan="6">' +
+        (e.stack ? '<div class="a-err-stack">' + esc(e.stack) + '</div>' : '<div class="a-err-meta">bez stacku</div>') +
+        '<div class="a-err-meta">Poprvé: ' + fmtDate(e.first_at) + ' · web ' + esc(e.web_version || '?') + (e.app_version ? ' · aplikace ' + esc(e.app_version) : ' · prohlížeč') +
+        ((e.users || []).length ? ' · uživatelé: ' + esc(e.users.join(', ')) : '') + '<br>' + esc(e.ua || '') + '</div></td></tr>' : '')).join('')
+      : '<tr><td colspan="6" class="a-empty">Žádné chyby – paráda. 🎉</td></tr>';
+  }
+  async function loadErrs(){ errs = await api('/api/admin/errors'); renderErrs(); }
+  $('a-err').addEventListener('click', async ev => {
+    const del = ev.target.closest('[data-del]');
+    if(del){
+      const e = errs[+del.dataset.del];
+      try{ await api('/api/admin/errors?message=' + encodeURIComponent(e.message), { method:'DELETE' }); errOpen = null; await loadErrs(); toast('Chyba smazána.'); }catch(x){ toast(x.message); }
+      return;
+    }
+    const tr = ev.target.closest('tr.row'); if(!tr) return;
+    const i = +tr.dataset.i; errOpen = errOpen === i ? null : i; renderErrs();
+  });
+  $('a-err-reload').addEventListener('click', () => loadErrs().then(() => toast('Načteno.')).catch(x => toast(x.message)));
+  $('a-err-clear').addEventListener('click', async () => {
+    if(!errs.length || !confirm('Smazat všechny chyby z telefonů?')) return;
+    try{ await api('/api/admin/errors', { method:'DELETE' }); errOpen = null; await loadErrs(); toast('Všechny chyby smazány.'); }catch(x){ toast(x.message); }
+  });
+
   async function loadAll(){
     const [s, ar, us] = await Promise.all([ api('/api/admin/stats'), api('/api/admin/archive'), api('/api/admin/users') ]);
     stats = s; arch = ar; renderStats(); renderArch(); renderUsers(us);
+    try{ await loadErrs(); $('a-err-sec').hidden = false; }catch(e){}
   }
 
   (async function boot(){
@@ -185,7 +228,7 @@
     if(window.CendurHeader) window.CendurHeader.setUser(user);
     if(!user){ location.replace('index.html?next=' + encodeURIComponent('admin.html')); return; }
     if(user.role !== 'admin'){ $('a-msg').textContent = 'Tahle stránka je jen pro admina.'; return; }
-    try{ await loadAll(); $('a-msg').textContent = 'Uživatelé, statistiky projetí tras a archiv smazaných tras.'; $('a-users-sec').hidden = false; $('a-stats-sec').hidden = false; $('a-arch-sec').hidden = false; }
+    try{ await loadAll(); $('a-msg').textContent = 'Uživatelé, statistiky projetí tras, archiv smazaných tras a chyby z telefonů.'; $('a-users-sec').hidden = false; $('a-stats-sec').hidden = false; $('a-arch-sec').hidden = false; }
     catch(e){ $('a-msg').textContent = 'Nepodařilo se načíst: ' + e.message; }
   })();
 })();

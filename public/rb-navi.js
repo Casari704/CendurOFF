@@ -425,6 +425,8 @@ function startGps(){
     onPosition(c.latitude, c.longitude);
     // v2.5: počítání projetí tras (jen skutečná jízda, ne simulace ani dopočtená poloha)
     if(!pos.predicted && window.CendurRides && currentUser) window.CendurRides.track(c.latitude, c.longitude, 'roadbook');
+    // v4.3: najeté km do profilu jezdce (skutečná jízda, ne simulace)
+    if(currentUser && window.CendurRider) window.CendurRider.track(pos);
   }, err => {
     if(err && err.code === 1){ toast('Bez povolení polohy NAVI nefunguje.', 5000); return; }
     $('nv-wait').classList.add('open');

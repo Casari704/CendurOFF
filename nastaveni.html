@@ -9,8 +9,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
 <title>CendurOFF Nastavení účtu</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.2">
-<link rel="stylesheet" href="public/settings.css?v=4.2">
+<link rel="stylesheet" href="public/style.css?v=4.3">
+<link rel="stylesheet" href="public/settings.css?v=4.3">
 <style>body.auth-pending .s-wrap{visibility:hidden;}</style>
 </head>
 <body class="settings-page auth-pending">
@@ -20,6 +20,26 @@
   <h1>Nastavení účtu</h1>
 
   <!-- ===== ÚČET ===== -->
+  <!-- ===== PROFIL JEZDCE (v4.3) ===== -->
+  <section class="s-card" aria-labelledby="s-prof">
+    <h2 id="s-prof">Profil jezdce</h2>
+    <div class="s-row s-badge-row">
+      <div class="s-badge" id="s-badge-icon" aria-hidden="true">🔰</div>
+      <div class="s-txt"><b id="s-badge-name">—</b><small id="s-km">najeto 0 km</small>
+        <div class="s-prog" aria-hidden="true"><i id="s-prog-bar"></i></div>
+        <small id="s-next"></small></div>
+    </div>
+    <div class="s-row">
+      <div class="s-txt"><b>Moje motorka</b><small>uvidí ji ostatní u tvých tras</small></div>
+    </div>
+    <form class="s-bike" id="s-bike-form">
+      <input type="text" id="s-bike" maxlength="60" placeholder="např. KTM 350 EXC-F" autocomplete="off">
+      <button class="s-btn primary" type="submit">Uložit</button>
+    </form>
+    <details class="s-badges"><summary>Všechny odznaky</summary><ul id="s-badge-list"></ul>
+      <p class="s-hint">Km se počítají z jízdy s navigací (Atlas NAVI, Roadbook NAVI) nebo se záznamem jízdy – jen ze skutečné polohy GPS, simulace se nepočítá.</p></details>
+  </section>
+
   <section class="s-card" aria-labelledby="s-ucet">
     <h2 id="s-ucet">Účet</h2>
     <div class="s-row">
@@ -89,10 +109,12 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.2"></script>
-<script src="public/header.js?v=4.2"></script>
-<script src="public/pwa.js?v=4.2"></script>
-<script src="public/sound.js?v=4.2"></script>
-<script src="public/settings.js?v=4.2"></script>
+<script src="public/config.js?v=4.3"></script>
+<script src="public/errors.js?v=4.3"></script>
+<script src="public/rider.js?v=4.3"></script>
+<script src="public/header.js?v=4.3"></script>
+<script src="public/pwa.js?v=4.3"></script>
+<script src="public/sound.js?v=4.3"></script>
+<script src="public/settings.js?v=4.3"></script>
 </body>
 </html>

@@ -936,3 +936,8 @@ body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !import
   .login-hero{padding:24px 32px;}
   .login-hero .hero-logo{max-height:110px;width:auto;}
 }
+
+/* v4.3: profil autora v detailu trasy */
+.owner-rider{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.owner-badge,.owner-bike{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;background:#EFEADC;color:var(--ink);font-size:0.8rem;font-weight:600;}
+.owner-bike{background:transparent;border:1px solid var(--line);font-weight:500;}
