@@ -302,8 +302,7 @@ function requireLogin(what){
   if(window.CendurHeader && window.CendurHeader.ask){
     window.CendurHeader.ask({
       title: nav ? 'Navigace je pro přihlášené' : 'Jen pro přihlášené',
-      msg: (nav ? 'Navigaci podle GPS můžou používat jen přihlášení členové.' : 'Pro ' + what + ' se musíš přihlásit.') +
-        ' Mapu a trasy si můžeš prohlížet i bez účtu.',
+      msg: 'Tato funkce je k dispozici jen pro přihlášené členy.',
       yes: { label: 'Přihlásit se', fn: () => showLoginOverlay(what) }
     });
   } else showLoginOverlay(what);
