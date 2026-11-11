@@ -254,6 +254,7 @@ function startSelectGps(){
 function stopSelectGps(){ if(selWatch != null){ selWatch.stop(); selWatch = null; } }
 function checkNearby(){
   if(!me || !$('nv-ask').hidden || $('nv-ride').classList.contains('open')) return;
+  if(!currentUser) return;   // v4.2: host – nabídka navigace u trasy jen pro přihlášené
   // trasy, od kterých jsem odjel dál, se můžou zeptat znovu
   [...asked].forEach(id => { const r = routes.find(x => x.id === id); if(!r || routeDistM(r, me[0], me[1], ASK_RESET_M + 100) > ASK_RESET_M) asked.delete(id); });
   let best = null, bestD = ASK_M;
@@ -269,11 +270,39 @@ function checkNearby(){
   $('nv-ask-msg').textContent = 'Jsi u trasy „' + best.name + '“' +
     (st === 'check' ? ' – roadbook je To check (trasa se změnila nebo čeká na kontrolu)' : st === 'draft' ? ' – roadbook je zatím rozpracovaný' : '') +
     '. Chceš navigovat podle roadbooku?';
+  askMode('ride');
   $('nv-ask').hidden = false;
   $('nv-ask').dataset.id = best.id;
 }
-$('nv-ask-yes').addEventListener('click', () => { const id = Number($('nv-ask').dataset.id); $('nv-ask').hidden = true; startRide(id, false); });
-$('nv-ask-no').addEventListener('click', () => { $('nv-ask').hidden = true; });
+// v4.2: stejné okno slouží i pro „navigace jen pro přihlášené“ (host může spustit simulaci)
+function askMode(mode){
+  $('nv-ask').dataset.mode = mode;
+  $('nv-ask-t').textContent = mode === 'login' ? 'Navigace je pro přihlášené' : 'Roadbook';
+  $('nv-ask-yes').textContent = mode === 'login' ? 'Přihlásit se' : 'Navigovat';
+  $('nv-ask-no').textContent = mode === 'login' ? 'Spustit simulaci' : 'Ne';
+}
+function askLogin(id, rev){
+  askMode('login');
+  $('nv-ask-msg').textContent = 'Skutečnou navigaci podle GPS můžou používat jen přihlášení členové. Bez účtu si můžeš roadbook projet v simulaci.';
+  $('nv-ask').dataset.id = id;
+  $('nv-ask').dataset.rev = rev ? '1' : '';
+  $('nv-ask').hidden = false;
+}
+$('nv-ask-yes').addEventListener('click', () => {
+  const id = Number($('nv-ask').dataset.id); $('nv-ask').hidden = true;
+  if($('nv-ask').dataset.mode === 'login'){
+    location.href = 'index.html?next=' + encodeURIComponent('roadbook-navi.html?trasa=' + id);
+    return;
+  }
+  startRide(id, false);
+});
+$('nv-ask-no').addEventListener('click', () => {
+  $('nv-ask').hidden = true;
+  if($('nv-ask').dataset.mode === 'login'){
+    $('nv-simopt').checked = true;
+    startRide(Number($('nv-ask').dataset.id), !!$('nv-ask').dataset.rev);
+  }
+});
 
 // ---------------------------------------------------------------
 // Jízda – stav
@@ -292,6 +321,8 @@ function odo(){ return prog == null ? 0 : Math.max(0, Math.min(R.total, prog + o
 async function startRide(id, reverseNoRb){
   const r = routes.find(x => x.id === id);
   if(!r) return;
+  // v4.2: bez přihlášení jen simulace
+  if(!currentUser && !$('nv-simopt').checked){ askLogin(id, reverseNoRb); return; }
   route = r;
   let items = null, reversed = false;
   try{
@@ -653,21 +684,10 @@ window.addEventListener('resize', () => { if($('nv-ride').classList.contains('op
     renderSelect(); drawSelectMap(); startSelectGps();
     return;
   }
-  if(!currentUser){
-    let hops = [];
-    try{ hops = JSON.parse(sessionStorage.getItem('rbAuthHops') || '[]').filter(t => Date.now() - t < 20000); }catch(e){}
-    if(hops.length >= 2){
-      try{ sessionStorage.removeItem('rbAuthHops'); }catch(e){}
-      document.body.classList.remove('auth-pending');
-      $('nv-select').innerHTML = '<div class="wrap"><h1>Přihlášení se nepodařilo ověřit</h1><p class="sub"><a href="index.html?atlas=1">Přejít do Atlasu</a></p></div>';
-      return;
-    }
-    hops.push(Date.now());
-    try{ sessionStorage.setItem('rbAuthHops', JSON.stringify(hops)); }catch(e){}
-    location.replace('index.html?next=' + encodeURIComponent('roadbook-navi.html' + location.search));
-    return;
-  }
+  // v4.2: bez přihlášení se stránka otevře taky – trasy a roadbooky jdou prohlížet a projet
+  // v simulaci; skutečná navigace podle GPS nabídne přihlášení (startRide → askLogin)
   try{ sessionStorage.removeItem('rbAuthHops'); }catch(e){}
+  if(!currentUser) $('nv-simopt').checked = true;
   document.body.classList.remove('auth-pending');
   if(window.CendurHeader) window.CendurHeader.setUser(currentUser);
   try{

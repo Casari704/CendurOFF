@@ -185,6 +185,7 @@ function gpxFileName(tracks){
   return base.trim().replace(/[^a-z0-9_\-]+/gi,'_') + '.gpx';
 }
 function downloadTracks(tracks){
+  if(!requireLogin('stažení GPX')) return;
   const blob = new Blob([tracksToGPX(tracks)], { type:'application/gpx+xml' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -287,8 +288,34 @@ let pendingLinkId = routeIdFromUrl(); // trasa z odkazu, otevře se po přihlá�
 // Povolené jsou jen naše vlastní stránky, ať se odkaz nedá zneužít k přesměrování jinam.
 function nextPageAfterLogin(){
   const n = new URLSearchParams(location.search).get('next');
-  return (n && /^(planovac|merch|faq|admin|roadbook-planner|roadbook-navi)\.html(\?[^#]*)?$/.test(n)) ? n : null;
+  return (n && /^(planovac|merch|faq|admin|nastaveni|roadbook-planner|roadbook-navi)\.html(\?[^#]*)?$/.test(n)) ? n : null;
 }
+// ---------------------------------------------------------------
+// v4.2: Atlas bez přihlášení – host vidí mapu a trasy; navigace, záznam jízdy, nahrávání,
+// stažení GPX a hodnocení vyžadují přihlášení (requireLogin otevře přihlášení nad mapou)
+// ---------------------------------------------------------------
+let appEntered = false;
+function requireLogin(what){
+  if(currentUser) return true;
+  showLoginOverlay(what);
+  return false;
+}
+function showLoginOverlay(what){
+  const ls = document.getElementById('login-screen');
+  const why = document.getElementById('login-why');
+  if(why){ why.textContent = what ? 'Pro ' + what + ' se přihlas.' : ''; why.hidden = !what; }
+  ls.style.display = 'flex';
+}
+function hideLoginOverlay(){
+  document.getElementById('login-screen').style.display = 'none';
+  // přišel jsem na přihlášení z jiné stránky (?next / ?login) → pokračovat v Atlasu bez účtu
+  if(!appEntered){
+    try{ history.replaceState(null, '', 'index.html?atlas=1'); }catch(e){}
+    enterApp();
+  }
+}
+document.getElementById('login-close').addEventListener('click', hideLoginOverlay);
+window.CendurLogin = what => showLoginOverlay(what);   // pro header (Přihlásit se / dlaždice)
 function goNextIfAny(){
   const n = nextPageAfterLogin();
   if(n){ location.replace(n); return true; }
@@ -336,6 +363,12 @@ function withAuth(options){
   return o;
 }
 async function api(url, options){
+  // v4.2: host (nepřihlášený) smí jen číst – jakýkoli zápis nabídne přihlášení
+  const method = ((options && options.method) || 'GET').toUpperCase();
+  if(method !== 'GET' && !currentUser && !url.startsWith('/api/auth/')){
+    requireLogin('hodnocení, recenze, fotky a ukládání');
+    const err = new Error('Pro tohle se musíš přihlásit.'); err.needsLogin = true; throw err;
+  }
   // Automaticky připojí adresu backendu z Railway ke všem voláním
   const fullUrl = url.startsWith('http') ? url : API_URL + url;
   const res = await fetch(fullUrl, withAuth(options));
@@ -404,6 +437,11 @@ loginForm.addEventListener('submit', async (e)=>{
     if(user.token){ setToken(user.token); delete user.token; }
     currentUser = user;
     if(goNextIfAny()) return;
+    // přihlášení z prohlížení bez účtu → stránku načíst znovu už přihlášený (trasy s oprávněními)
+    if(appEntered){
+      try{ const u = new URL(location.href); u.searchParams.delete('login'); history.replaceState(null, '', u); }catch(e){}
+      location.reload(); return;
+    }
     enterApp();
   }catch(err){
     formMsg.textContent = err.message || 'Něco se nepovedlo, zkuste to prosím znovu.';
@@ -1232,6 +1270,7 @@ function closeDetail(){
 // ---------------------------------------------------------------
 const overlay = document.getElementById('upload-overlay');
 document.getElementById('open-upload').addEventListener('click', ()=>{
+  if(!requireLogin('nahrání trasy')) return;
   document.getElementById('gpx-file').value='';
   document.getElementById('route-name').value='';
   document.getElementById('route-desc').value='';
@@ -1831,6 +1870,7 @@ function freeRender(){
 //  vypnuto  = mapa volně posouvatelná, sever nahoru, normální čáry (GPS a záznam běží dál)
 function setNavMode(on){
   if(on){
+    if(!requireLogin('navigaci')) return;
     if(!startGpsWatch()) return;
     navOn = true;
     followMode = true;
@@ -2250,6 +2290,7 @@ function startRecTimer(){
 function stopRecTimer(){ if(recTimer){ clearInterval(recTimer); recTimer = null; } }
 
 function recStart(){
+  if(!requireLogin('záznam jízdy')) return;
   if(!startGpsWatch()) return;
   if(!navOn) setNavMode(true);
   setRecCompact(document.body.classList.contains('ride-ui'));
@@ -2486,6 +2527,7 @@ window.addEventListener('beforeunload', (e)=>{
 // Boot
 // ---------------------------------------------------------------
 async function enterApp(){
+  appEntered = true;
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app-screen').style.display='flex';
   if(window.CendurHeader) window.CendurHeader.setUser(currentUser);
@@ -2509,7 +2551,7 @@ async function enterApp(){
       document.getElementById('open-upload').click();
     }
   }catch(e){}
-  if(rec.state==='idle') restoreRecording();
+  if(rec.state==='idle' && currentUser) restoreRecording();
   if(pendingLinkId){
     const linked = pendingLinkId;
     pendingLinkId = null;
@@ -2532,8 +2574,12 @@ async function enterApp(){
     document.body.classList.remove('auth-pending');
     enterApp();
   }catch(e){
-    // nepřihlášený – teprve teď ukázat přihlašovací obrazovku
+    // v4.2: nepřihlášený – Atlas bez účtu; přihlašovací obrazovka jen když o ni stránka
+    // výslovně žádá (?next=… z Planneru apod., ?login=1)
     document.body.classList.remove('auth-pending');
+    const q = new URLSearchParams(location.search);
+    if(q.get('next') || q.get('login')) return;
+    enterApp();
   }
 })();
 // pojistka: kdyby server dlouho neodpovídal, přihlašovací obrazovka se ukáže nejpozději po 8 s

@@ -182,7 +182,7 @@
   });
   // v3.2: Nastavení účtu = samostatná stránka nastaveni.html
   document.getElementById('tm-account').addEventListener('click', ()=>{
-    if(!user){ location.href = page === 'atlas' ? ATLAS_URL : 'index.html?next=' + encodeURIComponent(current.href); return; }
+    if(!user){ goLogin(); return; }
     if(page === 'nastaveni'){ closeTiles(); return; }
     location.href = 'nastaveni.html';
   });
@@ -217,6 +217,12 @@
   const userBtn = document.getElementById('user-chip');
   const loginLink = document.getElementById('login-link');
   let user = null;
+  // v4.2: přihlášení – v Atlasu nad mapou (window.CendurLogin z app.js), jinde přes Atlas a zpět sem
+  function goLogin(){
+    if(typeof window.CendurLogin === 'function'){ closeTiles(); window.CendurLogin(); return; }
+    location.href = page === 'atlas' ? 'index.html?login=1' : 'index.html?next=' + encodeURIComponent(current.href);
+  }
+  if(loginLink) loginLink.addEventListener('click', e=>{ e.preventDefault(); goLogin(); });
 
   async function api(url, options){
     const o = Object.assign({ credentials:'include' }, options);
