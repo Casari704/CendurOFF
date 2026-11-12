@@ -59,12 +59,14 @@
       need:[['rbAuthor', 1, 'roadbook projetý ostatními']] }
   ];
   // [{ ...odznak, got, parts:[{cur, need, label}], pct }]
-  function achievements(stats){
-    stats = stats || {};
+  // earned = { id: datum } – odznaky uložené natrvalo na serveru (v4.5.1), ty už nezmizí
+  function achievements(stats, earned){
+    stats = stats || {}; earned = earned || {};
     return ACHIEVEMENTS.map(a => {
       const parts = a.need.map(([k, n, label]) => ({ cur: Math.min(n, Number(stats[k]) || 0), need: n, label }));
-      const got = parts.every(p => p.cur >= p.need);
-      const pct = Math.round(parts.reduce((t, p) => t + p.cur / p.need, 0) / parts.length * 100);
+      const got = !!earned[a.id] || parts.every(p => p.cur >= p.need);
+      if(got) parts.forEach(p => { p.cur = p.need; });
+      const pct = got ? 100 : Math.round(parts.reduce((t, p) => t + p.cur / p.need, 0) / parts.length * 100);
       return Object.assign({}, a, { got, parts, pct });
     });
   }
@@ -72,7 +74,7 @@
   function earnedIds(p){
     const ids = [];
     BADGES.forEach(b => { if(b.km > 0 && (Number(p.km) || 0) >= b.km) ids.push('rank:' + b.km); });
-    achievements(p.stats).forEach(a => { if(a.got) ids.push(a.id); });
+    achievements(p.stats, p.earned).forEach(a => { if(a.got) ids.push(a.id); });
     return ids;
   }
   function fmtKm(km){ km = Number(km) || 0; return (km >= 100 ? Math.round(km) : Math.round(km * 10) / 10).toLocaleString('cs-CZ') + ' km'; }

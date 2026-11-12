@@ -47,7 +47,7 @@
   // v4.4: sběratelské odznaky – získané nahoře, u ostatních postup
   function showAchievements(p){
     if(!R || !R.achievements) return;
-    const list = R.achievements(p.stats).sort((a, b) => (b.got - a.got) || (b.pct - a.pct));
+    const list = R.achievements(p.stats, p.earned).sort((a, b) => (b.got - a.got) || (b.pct - a.pct));
     const got = list.filter(a => a.got).length;
     $('s-ach-count').textContent = got + ' z ' + list.length;
     $('s-ach').innerHTML = list.map(a => '<div class="s-ach-i' + (a.got ? ' got' : '') + '">' +

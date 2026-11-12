@@ -55,9 +55,9 @@ function mount(app, { pool, requireAuth, isAdmin }) {
         FROM users u
         ORDER BY u.is_approved ASC, COALESCE(u.last_seen_at, u.last_login_at, u.created_at) DESC`);
       // v4.4: čísla pro hodnost a odznaky (web z nich spočítá, co kdo má)
-      let riderStats = null; try { riderStats = require('./profile-api').riderStats; } catch (e) {}
-      if (riderStats) {
-        for (const u of r.rows) { try { u.stats = await riderStats(pool, u.id); } catch (e) { u.stats = null; } }
+      let riderBadges = null; try { riderBadges = require('./profile-api').riderBadges; } catch (e) {}
+      if (riderBadges) {
+        for (const u of r.rows) { try { const b = await riderBadges(pool, u.id); u.stats = b.stats; u.earned = b.earned; } catch (e) { u.stats = null; } }
       }
       res.json(r.rows);
     } catch (e) { console.error(e); res.status(500).json({ error: 'Uživatele se nepodařilo načíst.' }); }

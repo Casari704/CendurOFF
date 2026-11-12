@@ -8,8 +8,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
 <title>CendurOFF Admin sekce</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.5">
-<link rel="stylesheet" href="public/faq.css?v=4.5">
+<link rel="stylesheet" href="public/style.css?v=4.5.1">
+<link rel="stylesheet" href="public/faq.css?v=4.5.1">
 <style>
   .a-wrap{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
   .a-wrap h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);}
@@ -84,11 +84,11 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.5"></script>
-<script src="public/errors.js?v=4.5"></script>
-<script src="public/rider.js?v=4.5"></script>
-<script src="public/header.js?v=4.5"></script>
-<script src="public/pwa.js?v=4.5"></script>
+<script src="public/config.js?v=4.5.1"></script>
+<script src="public/errors.js?v=4.5.1"></script>
+<script src="public/rider.js?v=4.5.1"></script>
+<script src="public/header.js?v=4.5.1"></script>
+<script src="public/pwa.js?v=4.5.1"></script>
 <script>
 (function(){
   const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
@@ -212,7 +212,7 @@
     $('a-pending').hidden = !pending;
     tb.innerHTML = users.length ? users.map(u => {
       const st = u.stats || {}; const b = R ? R.badgeFor(st.km) : null;
-      const ach = R && u.stats ? R.achievements(st).filter(a => a.got) : [];
+      const ach = R && u.stats ? R.achievements(st, u.earned).filter(a => a.got) : [];
       return '<tr' + (u.is_approved ? '' : ' class="a-pend"') + '><td class="name">' + esc(u.display_name) + (u.role === 'admin' ? ' <small>(admin)</small>' : '') + (u.is_approved ? '' : ' <span class="a-deleted">čeká na schválení</span>') + '</td>' +
       '<td>' + esc(u.username) + '</td>' +
       '<td>' + (b ? b.icon + ' ' + esc(b.name) : '—') + '</td><td class="num">' + (u.stats ? R.fmtKm(st.km).replace(' km', '') : '—') + '</td>' +

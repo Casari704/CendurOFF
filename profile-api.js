@@ -18,6 +18,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS ride_m_at TIMESTAMPTZ;
 ALTER TABLE routes ADD COLUMN IF NOT EXISTS source TEXT;
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS user_id INTEGER;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS badges_seen JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS badges_earned JSONB NOT NULL DEFAULT '{}'::jsonb;
 CREATE TABLE IF NOT EXISTS client_errors (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -82,6 +83,37 @@ async function riderStats(pool, uid){
   };
 }
 
+// v4.5.1: získané odznaky se ukládají natrvalo k profilu (id → datum získání) – pozdější změny
+// (smazaná trasa, jiný vlastník, smazaná fotka…) je už nevezmou. Podmínky musí odpovídat public/rider.js.
+const RANK_KM = [10, 100, 500, 1500, 5000];
+const BADGE_RULES = {
+  stopar:    s => s.recRoutes >= 2,
+  fotograf:  s => s.photoRoutes >= 2,
+  ledoborec: s => s.winterRides >= 1,
+  dakarista: s => s.rbRides >= 2,
+  recenzent: s => s.reviewsRidden >= 5,
+  prukopnik: s => s.pioneer >= 1,
+  pruvodce:  s => s.ownRoutes >= 5 && s.ridden >= 5 && s.ownRiddenByOthers >= 1,
+  kartograf: s => s.ownRoutes >= 10 && s.ownRiddenByOthers >= 8,
+  rbautor:   s => s.rbAuthor >= 1
+};
+async function riderBadges(pool, uid){
+  const stats = await riderStats(pool, uid);
+  const now = [];
+  RANK_KM.forEach(k => { if (stats.km >= k) now.push('rank:' + k); });
+  Object.keys(BADGE_RULES).forEach(id => { if (BADGE_RULES[id](stats)) now.push(id); });
+  const cur = await pool.query('SELECT badges_earned FROM users WHERE id = $1', [uid]);
+  let earned = (cur.rows[0] && cur.rows[0].badges_earned) || {};
+  if (typeof earned === 'string') { try { earned = JSON.parse(earned); } catch (e) { earned = {}; } }
+  const add = {};
+  now.forEach(id => { if (!earned[id]) add[id] = new Date().toISOString(); });
+  if (Object.keys(add).length) {
+    await pool.query('UPDATE users SET badges_earned = badges_earned || $2::jsonb WHERE id = $1', [uid, JSON.stringify(add)]);
+    Object.assign(earned, add);
+  }
+  return { stats, earned };
+}
+
 function cut(v, n){ return v == null ? null : String(v).slice(0, n); }
 
 function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
@@ -101,8 +133,8 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
       const r = await pool.query('SELECT id, username, display_name, bike, ride_m, badges_seen FROM users WHERE id = $1', [req.user.id]);
       const u = r.rows[0];
       if (!u) return res.status(404).json({ error: 'Účet nenalezen.' });
-      const stats = await riderStats(pool, u.id);
-      res.json({ id: u.id, username: u.username, displayName: u.display_name, bike: u.bike || '', km: stats.km, stats, seen: Array.isArray(u.badges_seen) ? u.badges_seen : [] });
+      const { stats, earned } = await riderBadges(pool, u.id);
+      res.json({ id: u.id, username: u.username, displayName: u.display_name, bike: u.bike || '', km: stats.km, stats, earned, seen: Array.isArray(u.badges_seen) ? u.badges_seen : [] });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Profil se nepodařilo načíst.' }); }
   });
 
@@ -151,8 +183,8 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
       const r = await pool.query('SELECT id, display_name, bike, ride_m FROM users WHERE id = $1 AND is_approved = true', [Number(req.params.id)]);
       const u = r.rows[0];
       if (!u) return res.status(404).json({ error: 'Jezdec nenalezen.' });
-      const stats = await riderStats(pool, u.id);
-      res.json({ id: u.id, displayName: u.display_name, bike: u.bike || '', km: stats.km, stats });
+      const { stats, earned } = await riderBadges(pool, u.id);
+      res.json({ id: u.id, displayName: u.display_name, bike: u.bike || '', km: stats.km, stats, earned });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Profil se nepodařilo načíst.' }); }
   });
 
@@ -215,4 +247,4 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
   });
 }
 
-module.exports = { mount, PROFILE_SCHEMA_SQL, riderStats };
+module.exports = { mount, PROFILE_SCHEMA_SQL, riderStats, riderBadges };
