@@ -62,3 +62,16 @@ body.settings-page header.topbar{position:sticky;top:0;}
 .s-badges li span{font-size:1.2rem;}
 .s-badges li small{color:var(--ink-soft);margin-left:4px;}
 .s-hint{font-size:0.8rem;color:var(--ink-soft);margin:8px 0 0;}
+
+/* v4.4: sběratelské odznaky */
+.s-ach-intro{margin:0 0 10px;}
+.s-ach{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;padding-bottom:14px;}
+.s-ach-i{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff;}
+.s-ach-i:not(.got) .s-ach-ic{filter:grayscale(1);opacity:.45;}
+.s-ach-i.got{border-color:var(--moss);background:#F3F6EE;}
+.s-ach-ic{font-size:2rem;line-height:1;flex:none;width:40px;text-align:center;}
+.s-ach-t{min-width:0;flex:1;}
+.s-ach-t b{display:block;}
+.s-ach-t small{display:block;color:var(--ink-soft);font-size:0.82rem;}
+.s-ach-p{font-size:0.78rem;margin-top:4px;color:var(--ink);}
+#odznaky small{font-weight:500;color:var(--ink-soft);font-size:0.85rem;margin-left:6px;}

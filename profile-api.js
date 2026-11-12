@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------
-// CendurOFF – profil jezdce a hlášení chyb (v4.3)
+// CendurOFF – profil jezdce, odznaky a hlášení chyb (v4.3, odznaky v4.4)
 //
 //  - profil jezdce: motorka (volný text) a najeté km – počítají se ze skutečné polohy GPS
 //    při navigaci (Atlas NAVI, Roadbook NAVI) a při záznamu jízdy; odznaky podle km
@@ -15,6 +15,8 @@ const PROFILE_SCHEMA_SQL = `
 ALTER TABLE users ADD COLUMN IF NOT EXISTS bike TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS ride_m DOUBLE PRECISION NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS ride_m_at TIMESTAMPTZ;
+ALTER TABLE routes ADD COLUMN IF NOT EXISTS source TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS badges_seen JSONB NOT NULL DEFAULT '[]'::jsonb;
 CREATE TABLE IF NOT EXISTS client_errors (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -35,6 +37,48 @@ const KM_MAX_SPEED_MS = 60;           // a nejvýš ~216 km/h od minulého odesl
 const ERR_PER_IP_PER_MIN = 20;
 const ERR_KEEP_DAYS = 60;
 
+// ---------------------------------------------------------------
+// v4.4: odznaky – server spočítá čísla, web (public/rider.js) z nich určí odznaky a postup.
+// „Projel“ = záznam v route_rides (aspoň 20 % trasy, nejvýš 1× za 24 h – stejně jako počet projetí).
+// „Někdo jiný“ = jiný schválený člen než majitel odznaku.
+// ---------------------------------------------------------------
+async function riderStats(pool, uid){
+  const t = await pool.query(`SELECT to_regclass('public.route_rides') IS NOT NULL AS rr, to_regclass('public.roadbooks') IS NOT NULL AS rb`);
+  const hasRR = t.rows[0].rr, hasRB = t.rows[0].rb && t.rows[0].rr;
+  const z = '0';
+  const q = `
+    WITH my AS (SELECT id FROM routes WHERE owner_id = $1 AND deleted_at IS NULL),
+    ok AS (SELECT id FROM users WHERE is_approved = true AND id <> $1)
+    SELECT
+      (SELECT ride_m FROM users WHERE id = $1) AS ride_m,
+      (SELECT COUNT(*) FROM my) AS own_routes,
+      (SELECT COUNT(*) FROM routes WHERE owner_id = $1 AND deleted_at IS NULL AND source = 'record') AS rec_routes,
+      (SELECT COUNT(DISTINCT p.route_id) FROM photos p JOIN my ON my.id = p.route_id) AS photo_routes,
+      ${hasRR ? `(SELECT COUNT(DISTINCT rr.route_id) FROM route_rides rr JOIN routes r ON r.id = rr.route_id AND r.deleted_at IS NULL WHERE rr.user_id = $1)` : z} AS ridden,
+      ${hasRR ? `(SELECT COUNT(DISTINCT rr.route_id) FROM route_rides rr JOIN my ON my.id = rr.route_id JOIN ok ON ok.id = rr.user_id)` : z} AS own_ridden_by_others,
+      ${hasRR ? `(SELECT COUNT(DISTINCT rr.route_id) FROM route_rides rr JOIN routes r ON r.id = rr.route_id AND r.deleted_at IS NULL WHERE rr.user_id = $1 AND rr.source = 'roadbook')` : z} AS rb_rides,
+      ${hasRR ? `(SELECT COUNT(*) FROM route_rides rr WHERE rr.user_id = $1 AND EXTRACT(MONTH FROM rr.created_at AT TIME ZONE 'Europe/Prague') IN (11,12,1,2))` : z} AS winter_rides,
+      ${hasRR ? `(SELECT COUNT(*) FROM reviews v JOIN routes r ON r.id = v.route_id AND r.deleted_at IS NULL
+                   WHERE v.user_id = $1 AND EXISTS (SELECT 1 FROM route_rides rr WHERE rr.user_id = $1 AND rr.route_id = v.route_id))` : z} AS reviews_ridden,
+      ${hasRR ? `(SELECT COUNT(*) FROM (
+                   SELECT DISTINCT ON (rr.route_id) rr.route_id, rr.user_id
+                   FROM route_rides rr JOIN routes r ON r.id = rr.route_id AND r.deleted_at IS NULL
+                   JOIN users u ON u.id = rr.user_id AND u.is_approved = true
+                   WHERE rr.user_id <> r.owner_id
+                   ORDER BY rr.route_id, rr.created_at, rr.id) f WHERE f.user_id = $1)` : z} AS pioneer,
+      ${hasRB ? `(SELECT COUNT(DISTINCT b.route_id) FROM roadbooks b JOIN routes r ON r.id = b.route_id AND r.deleted_at IS NULL
+                   WHERE b.status = 'ready' AND (r.owner_id = $1 OR b.updated_by = $1)
+                   AND EXISTS (SELECT 1 FROM route_rides rr JOIN ok ON ok.id = rr.user_id WHERE rr.route_id = b.route_id AND rr.source = 'roadbook'))` : z} AS rb_author`;
+  const r = (await pool.query(q, [uid])).rows[0] || {};
+  const n = k => Number(r[k]) || 0;
+  return {
+    km: Math.round((Number(r.ride_m) || 0) / 100) / 10,
+    ownRoutes: n('own_routes'), recRoutes: n('rec_routes'), photoRoutes: n('photo_routes'),
+    ridden: n('ridden'), ownRiddenByOthers: n('own_ridden_by_others'), rbRides: n('rb_rides'),
+    winterRides: n('winter_rides'), reviewsRidden: n('reviews_ridden'), pioneer: n('pioneer'), rbAuthor: n('rb_author')
+  };
+}
+
 function cut(v, n){ return v == null ? null : String(v).slice(0, n); }
 
 function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
@@ -51,10 +95,11 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
   // ---------------- profil jezdce ----------------
   app.get('/api/profile', whenReady, requireAuth, async (req, res) => {
     try {
-      const r = await pool.query('SELECT id, username, display_name, bike, ride_m FROM users WHERE id = $1', [req.user.id]);
+      const r = await pool.query('SELECT id, username, display_name, bike, ride_m, badges_seen FROM users WHERE id = $1', [req.user.id]);
       const u = r.rows[0];
       if (!u) return res.status(404).json({ error: 'Účet nenalezen.' });
-      res.json({ id: u.id, username: u.username, displayName: u.display_name, bike: u.bike || '', km: Math.round((u.ride_m || 0) / 100) / 10 });
+      const stats = await riderStats(pool, u.id);
+      res.json({ id: u.id, username: u.username, displayName: u.display_name, bike: u.bike || '', km: stats.km, stats, seen: Array.isArray(u.badges_seen) ? u.badges_seen : [] });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Profil se nepodařilo načíst.' }); }
   });
 
@@ -64,6 +109,18 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
       await pool.query('UPDATE users SET bike = $2 WHERE id = $1', [req.user.id, bike || null]);
       res.json({ ok: true, bike });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Profil se nepodařilo uložit.' }); }
+  });
+
+  // v4.4: odznaky, o kterých už uživatel dostal okno „Nový odznak“ (aby vyskočilo jen jednou za účet)
+  app.post('/api/profile/seen', whenReady, requireAuth, async (req, res) => {
+    try {
+      const ids = (Array.isArray(req.body && req.body.ids) ? req.body.ids : [])
+        .map(x => String(x).slice(0, 40)).filter(x => /^[a-z]+(:\d+)?$/.test(x)).slice(0, 50);
+      const r = await pool.query(
+        `UPDATE users SET badges_seen = (SELECT COALESCE(jsonb_agg(DISTINCT v), '[]'::jsonb) FROM jsonb_array_elements_text(badges_seen || $2::jsonb) v)
+         WHERE id = $1 RETURNING badges_seen`, [req.user.id, JSON.stringify(ids)]);
+      res.json({ seen: r.rows[0] ? r.rows[0].badges_seen : [] });
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Nepodařilo se uložit.' }); }
   });
 
   // najeté metry (web je posílá po dávkách); strop podle času od minulého odeslání
@@ -91,7 +148,8 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
       const r = await pool.query('SELECT id, display_name, bike, ride_m FROM users WHERE id = $1 AND is_approved = true', [Number(req.params.id)]);
       const u = r.rows[0];
       if (!u) return res.status(404).json({ error: 'Jezdec nenalezen.' });
-      res.json({ id: u.id, displayName: u.display_name, bike: u.bike || '', km: Math.round((u.ride_m || 0) / 100) / 10 });
+      const stats = await riderStats(pool, u.id);
+      res.json({ id: u.id, displayName: u.display_name, bike: u.bike || '', km: stats.km, stats });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Profil se nepodařilo načíst.' }); }
   });
 
@@ -154,4 +212,4 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
   });
 }
 
-module.exports = { mount, PROFILE_SCHEMA_SQL };
+module.exports = { mount, PROFILE_SCHEMA_SQL, riderStats };

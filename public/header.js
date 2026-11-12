@@ -260,7 +260,7 @@
   }
 
   // v4.3.1: sdílené potvrzovací okno (Atlas i Roadbook NAVI) – titulek, text, 1–2 tlačítka a křížek
-  //  ask({ title, msg, yes:{label, fn}, no:{label, fn}, onClose })
+  //  ask({ title, msg, icon, list:[{icon,name,desc}], yes:{label, fn}, no:{label, fn}, onClose })
   let askEl = null, askOpts = null, askAt = 0;
   function askClose(viaX){
     if(!askEl || askEl.hidden) return;
@@ -274,7 +274,7 @@
       askEl.className = 'c-ask'; askEl.hidden = true;
       askEl.setAttribute('role', 'dialog'); askEl.setAttribute('aria-modal', 'true'); askEl.setAttribute('aria-labelledby', 'c-ask-t');
       askEl.innerHTML = '<div class="c-ask-box"><button type="button" class="c-ask-x" aria-label="Zavřít">×</button>' +
-        '<b id="c-ask-t"></b><p class="c-ask-msg"></p><div class="c-ask-row"><button type="button" class="c-ask-yes"></button><button type="button" class="c-ask-no"></button></div></div>';
+        '<div class="c-ask-icon" hidden></div><b id="c-ask-t"></b><p class="c-ask-msg"></p><ul class="c-ask-list" hidden></ul><div class="c-ask-row"><button type="button" class="c-ask-yes"></button><button type="button" class="c-ask-no"></button></div></div>';
       document.body.appendChild(askEl);
       askEl.querySelector('.c-ask-x').addEventListener('click', () => askClose(true));
       // klik do tmavého pozadí zavře – ale ne „dojezd“ ťuknutí, které okno právě otevřelo
@@ -288,6 +288,13 @@
     askOpts = o || {};
     askEl.querySelector('#c-ask-t').textContent = askOpts.title || '';
     askEl.querySelector('.c-ask-msg').textContent = askOpts.msg || '';
+    // v4.4: velká ikona nahoře (odznaky) a seznam položek { icon, name, desc }
+    const ic = askEl.querySelector('.c-ask-icon'); ic.hidden = !askOpts.icon; ic.textContent = askOpts.icon || '';
+    const ul = askEl.querySelector('.c-ask-list'); const items = Array.isArray(askOpts.list) ? askOpts.list : [];
+    ul.hidden = !items.length; ul.innerHTML = '';
+    items.forEach(it => { const li = document.createElement('li'); li.innerHTML = '<span></span><div><b></b><small></small></div>';
+      li.querySelector('span').textContent = it.icon || ''; li.querySelector('b').textContent = it.name || ''; li.querySelector('small').textContent = it.desc || ''; ul.appendChild(li); });
+    askEl.classList.toggle('c-ask-badge', !!askOpts.icon);
     const y = askEl.querySelector('.c-ask-yes'), n = askEl.querySelector('.c-ask-no');
     y.textContent = askOpts.yes ? askOpts.yes.label : 'OK';
     n.hidden = !askOpts.no; n.textContent = askOpts.no ? askOpts.no.label : '';

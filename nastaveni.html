@@ -9,8 +9,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
 <title>CendurOFF Nastavení účtu</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.3.3">
-<link rel="stylesheet" href="public/settings.css?v=4.3.3">
+<link rel="stylesheet" href="public/style.css?v=4.4">
+<link rel="stylesheet" href="public/settings.css?v=4.4">
 <style>body.auth-pending .s-wrap{visibility:hidden;}</style>
 </head>
 <body class="settings-page auth-pending">
@@ -36,8 +36,15 @@
       <input type="text" id="s-bike" maxlength="60" placeholder="např. KTM 350 EXC-F" autocomplete="off">
       <button class="s-btn primary" type="submit">Uložit</button>
     </form>
-    <details class="s-badges"><summary>Všechny odznaky</summary><ul id="s-badge-list"></ul>
+    <details class="s-badges"><summary>Všechny hodnosti</summary><ul id="s-badge-list"></ul>
       <p class="s-hint">Km se počítají z jízdy s navigací (Atlas NAVI, Roadbook NAVI) nebo se záznamem jízdy – jen ze skutečné polohy GPS, simulace se nepočítá.</p></details>
+  </section>
+
+  <!-- ===== ODZNAKY (v4.4) ===== -->
+  <section class="s-card" aria-labelledby="odznaky" id="s-ach-card">
+    <h2 id="odznaky">Odznaky <small id="s-ach-count"></small></h2>
+    <p class="s-hint s-ach-intro">Odznaky získáváš za jízdy podle našich navigací a za aktivitu na webu. Projetí trasy se počítá od 20 % její délky.</p>
+    <div class="s-ach" id="s-ach"></div>
   </section>
 
   <section class="s-card" aria-labelledby="s-ucet">
@@ -109,12 +116,12 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.3.3"></script>
-<script src="public/errors.js?v=4.3.3"></script>
-<script src="public/rider.js?v=4.3.3"></script>
-<script src="public/header.js?v=4.3.3"></script>
-<script src="public/pwa.js?v=4.3.3"></script>
-<script src="public/sound.js?v=4.3.3"></script>
-<script src="public/settings.js?v=4.3.3"></script>
+<script src="public/config.js?v=4.4"></script>
+<script src="public/errors.js?v=4.4"></script>
+<script src="public/rider.js?v=4.4"></script>
+<script src="public/header.js?v=4.4"></script>
+<script src="public/pwa.js?v=4.4"></script>
+<script src="public/sound.js?v=4.4"></script>
+<script src="public/settings.js?v=4.4"></script>
 </body>
 </html>

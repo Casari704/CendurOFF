@@ -114,6 +114,8 @@ async function initDb() {
   // v2.5: smazané trasy zůstávají v archivu (vidí je jen admin)
   await pool.query('ALTER TABLE routes ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ');
   await pool.query('ALTER TABLE routes ADD COLUMN IF NOT EXISTS deleted_by INTEGER');
+  // v4.4: odkud trasa je – 'record' = ze záznamu jízdy v Atlasu (odznak Stopař), 'gpx' = nahraný soubor
+  await pool.query('ALTER TABLE routes ADD COLUMN IF NOT EXISTS source TEXT');
 
   console.log('Databázové schéma je připravené.');
 }
@@ -416,10 +418,10 @@ app.post('/api/routes', requireAuth, async (req, res) => {
       .filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
     const stats = computeStats(clean);
     const result = await pool.query(
-      `INSERT INTO routes (owner_id, name, description, points, distance_km, elev_gain_m, route_type)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
+      `INSERT INTO routes (owner_id, name, description, points, distance_km, elev_gain_m, route_type, source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        RETURNING id, name, description, points, distance_km, elev_gain_m, created_at, gpx_updated_at, route_type`,
-      [req.user.id, name, description, JSON.stringify(clean), stats.distanceKm, stats.elevGainM, routeType]
+      [req.user.id, name, description, JSON.stringify(clean), stats.distanceKm, stats.elevGainM, routeType, req.body.fromRecording === true ? 'record' : 'gpx']
     );
     const route = result.rows[0];
     route.owner_id = req.user.id;

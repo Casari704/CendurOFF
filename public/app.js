@@ -1100,7 +1100,10 @@ async function openDetail(id){
       const b = window.CendurRider.badgeFor(p.km);
       const d = document.createElement('div');
       d.className = 'owner-rider';
+      // v4.4: hodnost + získané sběratelské odznaky (ikony, název v title)
+      const got = (window.CendurRider.achievements ? window.CendurRider.achievements(p.stats) : []).filter(a => a.got);
       d.innerHTML = '<span class="owner-badge" title="' + escapeHtml(b.name + ' – najeto ' + window.CendurRider.fmtKm(p.km)) + '">' + b.icon + ' ' + escapeHtml(b.name) + '</span>' +
+        (got.length ? '<span class="owner-ach">' + got.map(a => '<span title="' + escapeHtml(a.name + ' – ' + a.desc) + '">' + a.icon + '</span>').join('') + '</span>' : '') +
         (p.bike ? '<span class="owner-bike">🏍 ' + escapeHtml(p.bike) + '</span>' : '');
       el.appendChild(d);
     }).catch(() => {});
@@ -2494,7 +2497,7 @@ if(recBtn){
       const route = await api('/api/routes', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ name, description, routeType, points: rec.points.map(p=>[p[0],p[1],p[2]]) })
+        body: JSON.stringify({ name, description, routeType, fromRecording: true, points: rec.points.map(p=>[p[0],p[1],p[2]]) })
       });
       closeRideDialog();
       resetRideForm();

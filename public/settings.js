@@ -38,17 +38,30 @@
     if(!R) return;
     const b = R.badgeFor(p.km);
     $('s-badge-icon').textContent = b.icon;
-    $('s-badge-name').textContent = b.name + ' · odznak ' + b.level + '/5';
+    $('s-badge-name').textContent = b.name + ' · hodnost ' + b.level + '/' + R.BADGES.length;
     $('s-km').textContent = 'najeto ' + R.fmtKm(p.km);
     $('s-prog-bar').style.width = b.pct + '%';
-    $('s-next').textContent = b.next ? 'do odznaku ' + b.next.icon + ' ' + b.next.name + ' zbývá ' + R.fmtKm(b.toNext) : 'nejvyšší odznak – klobouk dolů!';
+    $('s-next').textContent = b.next ? 'do hodnosti ' + b.next.icon + ' ' + b.next.name + ' zbývá ' + R.fmtKm(b.toNext) : 'nejvyšší hodnost – klobouk dolů!';
     $('s-badge-list').innerHTML = R.BADGES.map((x, i) => '<li class="' + (p.km >= x.km ? 'got' : '') + '"><span>' + x.icon + '</span> <b>' + x.name + '</b> <small>od ' + R.fmtKm(x.km) + '</small></li>').join('');
+  }
+  // v4.4: sběratelské odznaky – získané nahoře, u ostatních postup
+  function showAchievements(p){
+    if(!R || !R.achievements) return;
+    const list = R.achievements(p.stats).sort((a, b) => (b.got - a.got) || (b.pct - a.pct));
+    const got = list.filter(a => a.got).length;
+    $('s-ach-count').textContent = got + ' z ' + list.length;
+    $('s-ach').innerHTML = list.map(a => '<div class="s-ach-i' + (a.got ? ' got' : '') + '">' +
+      '<span class="s-ach-ic">' + a.icon + '</span><div class="s-ach-t"><b>' + a.name + (a.got ? ' ✓' : '') + '</b><small>' + a.desc + '</small>' +
+      (a.got ? '' : '<div class="s-ach-p">' + a.parts.map(x => x.cur + '/' + x.need + ' ' + x.label).join(' · ') + '</div>' +
+        '<div class="s-prog"><i style="width:' + a.pct + '%"></i></div>') +
+      '</div></div>').join('');
   }
   async function loadProfile(){
     try{
       const p = await api('/api/profile');
       $('s-bike').value = p.bike || '';
-      showProfile(p);
+      showProfile(p); showAchievements(p);
+      if(location.hash === '#odznaky') setTimeout(() => { const el = $('s-ach-card'); if(el) el.scrollIntoView({ block:'start' }); }, 50);
     }catch(e){ $('s-km').textContent = 'profil se nepodařilo načíst'; }
   }
   $('s-bike-form').addEventListener('submit', async e => {
