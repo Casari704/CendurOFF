@@ -8,8 +8,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
 <title>CendurOFF Admin sekce</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.5.1">
-<link rel="stylesheet" href="public/faq.css?v=4.5.1">
+<link rel="stylesheet" href="public/style.css?v=4.5.2">
+<link rel="stylesheet" href="public/faq.css?v=4.5.2">
 <style>
   .a-wrap{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
   .a-wrap h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);}
@@ -35,6 +35,10 @@
   .a-note{color:var(--ink-soft);margin:0 0 6px;font-size:0.92rem;}
   .a-pending{background:#FFF4D6;border:2px solid #E0B43C;border-radius:10px;padding:10px 14px;font-weight:700;margin:6px 0 10px;}
   .a-pend td{background:#FFF8E5;}
+  .a-remove td{background:#FDECEA;}
+  .a-remove-in{position:sticky;left:12px;max-width:min(560px,calc(100vw - 72px));white-space:normal;}
+  .a-remove-in p{margin:6px 0;}
+  .a-remove select{font:inherit;padding:5px;border-radius:8px;border:1px solid #bbb;max-width:100%;}
   .a-btn.green{background:#4F7048;border-color:#4F7048;color:#fff;}
   .a-ach{font-size:1.05rem;white-space:nowrap;}
   .a-owner{margin-top:10px;padding-top:10px;border-top:1px solid #ddd;display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
@@ -84,11 +88,11 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.5.1"></script>
-<script src="public/errors.js?v=4.5.1"></script>
-<script src="public/rider.js?v=4.5.1"></script>
-<script src="public/header.js?v=4.5.1"></script>
-<script src="public/pwa.js?v=4.5.1"></script>
+<script src="public/config.js?v=4.5.2"></script>
+<script src="public/errors.js?v=4.5.2"></script>
+<script src="public/rider.js?v=4.5.2"></script>
+<script src="public/header.js?v=4.5.2"></script>
+<script src="public/pwa.js?v=4.5.2"></script>
 <script>
 (function(){
   const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
@@ -202,7 +206,7 @@
     const rel = m < 15 ? 'teď' : m < 60 ? 'před ' + m + ' min' : m < 1440 ? 'před ' + Math.round(m / 60) + ' h' : 'před ' + Math.round(m / 1440) + ' d';
     return fmtDate(d) + ' <small style="color:#777">(' + rel + ')</small>';
   }
-  let users = [];
+  let users = [], me = null;
   function renderUsers(list){
     users = list;
     const R = window.CendurRider;
@@ -219,10 +223,43 @@
       '<td class="a-ach">' + (ach.length ? ach.map(a => '<span title="' + esc(a.name) + '">' + a.icon + '</span>').join('') : '—') + '</td>' +
       '<td>' + ago(u.last_login_at) + '</td><td class="num big">' + u.logins_30d + '</td><td class="num big">' + u.logins_total + '</td><td>' + ago(u.last_seen_at) + '</td>' +
       '<td class="num">' + u.routes + '</td><td class="num">' + u.rides + '</td><td>' + fmtDate(u.created_at) + '</td>' +
-      '<td>' + (u.is_approved ? '' : '<button class="a-btn green" type="button" data-approve="' + u.id + '">✓ Schválit</button><button class="a-btn red" type="button" data-reject="' + u.id + '">Zamítnout</button>') + '</td></tr>';
+      '<td>' + (u.is_approved ? (me && u.id !== me.id ? '<button class="a-btn red" type="button" data-remove="' + u.id + '">Smazat účet</button>' : '') : '<button class="a-btn green" type="button" data-approve="' + u.id + '">✓ Schválit</button><button class="a-btn red" type="button" data-reject="' + u.id + '">Zamítnout</button>') + '</td></tr>' +
+      (removeId === u.id ? removeRow(u) : '');
     }).join('')
       : '<tr><td colspan="13" class="a-empty">Žádní uživatelé.</td></tr>';
   }
+  // v4.5.2: smazání účtu – trasy se nejdřív převedou na jiný účet (třeba „archiv“)
+  let removeId = null;
+  function removeRow(u){
+    const others = users.filter(x => x.is_approved && x.id !== u.id);
+    const pre = others.find(x => /archiv/i.test(x.username + ' ' + x.display_name)) || others.find(x => me && x.id === me.id);
+    const total = (u.routes || 0) + (u.routes_archived || 0);
+    return '<tr class="det a-remove"><td colspan="13"><div class="a-remove-in">' +
+      '<b>Smazat účet ' + esc(u.display_name) + ' (' + esc(u.username) + ')</b>' +
+      (u.routes || u.routes_archived
+        ? '<p>Má <b>' + (u.routes || 0) + '</b> ' + (u.routes === 1 ? 'trasu' : (u.routes > 1 && u.routes < 5) ? 'trasy' : 'tras') + (u.routes_archived ? ' a ' + u.routes_archived + ' v archivu smazaných' : '') + '. Všechny se převedou na účet: ' +
+          '<select id="a-rm-to">' + others.map(x => '<option value="' + x.id + '"' + (pre && x.id === pre.id ? ' selected' : '') + '>' + esc(x.display_name) + ' (' + esc(x.username) + ')</option>').join('') + '</select></p>'
+        : '<p>Nemá žádné trasy.</p>') +
+      '<p class="a-note">Smažou se jeho hodnocení, recenze, projetí tras a odznaky. Fotky a popisy, které doplnil k cizím trasám, zůstanou. Nejde to vrátit.</p>' +
+      '<button class="a-btn red" type="button" data-remove-ok="' + u.id + '">Smazat účet natrvalo</button><button class="a-btn" type="button" data-remove-cancel="1">Zrušit</button>' +
+      '</td></tr>';
+  }
+  $('a-users').addEventListener('click', async ev => {
+    const rm = ev.target.closest('[data-remove]'), ok = ev.target.closest('[data-remove-ok]'), cancel = ev.target.closest('[data-remove-cancel]');
+    if(rm){ removeId = removeId === Number(rm.dataset.remove) ? null : Number(rm.dataset.remove); renderUsers(users); return; }
+    if(cancel){ removeId = null; renderUsers(users); return; }
+    if(ok){
+      const u = users.find(x => x.id === Number(ok.dataset.removeOk)); if(!u) return;
+      const sel = $('a-rm-to');
+      if(!confirm('Opravdu natrvalo smazat účet „' + u.display_name + '“?' + (sel ? ' Trasy převezme ' + sel.options[sel.selectedIndex].text + '.' : ''))) return;
+      try{
+        const x = await api('/api/admin/users/' + u.id + '/remove', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ transferTo: sel ? Number(sel.value) : null }) });
+        removeId = null; toast('Účet smazán' + (x.moved ? ' – převedeno tras: ' + x.moved : '') + '.');
+        renderUsers(await api('/api/admin/users')); loadAll().catch(() => {});
+      }catch(e2){ toast(e2.message); }
+      return;
+    }
+  });
   $('a-users').addEventListener('click', async ev => {
     const ap = ev.target.closest('[data-approve]'), rj = ev.target.closest('[data-reject]');
     if(!ap && !rj) return;
@@ -276,6 +313,7 @@
     let user = null;
     try{ user = await api('/api/auth/me'); }catch(e){}
     if(window.CendurHeader) window.CendurHeader.setUser(user);
+    me = user;
     if(!user){ location.replace('index.html?next=' + encodeURIComponent('admin.html')); return; }
     if(user.role !== 'admin'){ $('a-msg').textContent = 'Tahle stránka je jen pro admina.'; return; }
     try{ await loadAll(); $('a-msg').textContent = 'Uživatelé, statistiky projetí tras, archiv smazaných tras a chyby z telefonů.'; $('a-users-sec').hidden = false; $('a-stats-sec').hidden = false; $('a-arch-sec').hidden = false; }

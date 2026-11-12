@@ -49,6 +49,7 @@ function mount(app, { pool, requireAuth, isAdmin }) {
       const r = await pool.query(`
         SELECT u.id, u.username, u.display_name, u.role, u.is_approved, u.created_at, u.last_login_at, u.last_seen_at,
                (SELECT COUNT(*)::int FROM routes x WHERE x.owner_id = u.id AND x.deleted_at IS NULL) AS routes,
+               (SELECT COUNT(*)::int FROM routes x WHERE x.owner_id = u.id AND x.deleted_at IS NOT NULL) AS routes_archived,
                (SELECT COUNT(*)::int FROM route_rides rr WHERE rr.user_id = u.id) AS rides,
                (SELECT COUNT(*)::int FROM user_logins l WHERE l.user_id = u.id AND l.created_at > now() - interval '30 days') AS logins_30d,
                (SELECT COUNT(*)::int FROM user_logins l WHERE l.user_id = u.id) AS logins_total
@@ -78,6 +79,31 @@ function mount(app, { pool, requireAuth, isAdmin }) {
       if (!r.rows[0]) return res.status(400).json({ error: 'Zamítnout jde jen registraci, která čeká na schválení.' });
       res.json({ ok: true });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Zamítnutí se nepovedlo.' }); }
+  });
+
+  // ---------------- v4.5.2: smazání schváleného účtu ----------------
+  // trasy (i ty v archivu smazaných) se nejdřív převedou na jiný účet – v jednom příkazu, nic se neztratí;
+  // smažou se jen osobní věci uživatele (jeho hodnocení, recenze, projetí, přihlášení)
+  app.post('/api/admin/users/:id/remove', whenReady, requireAuth, adminOnly, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const to = req.body && req.body.transferTo != null ? Number(req.body.transferTo) : null;
+      if (id === req.user.id) return res.status(400).json({ error: 'Vlastní účet tady smazat nejde.' });
+      const u = await pool.query('SELECT id, display_name FROM users WHERE id = $1', [id]);
+      if (!u.rows[0]) return res.status(404).json({ error: 'Uživatel nenalezen.' });
+      const n = await pool.query('SELECT COUNT(*)::int AS n FROM routes WHERE owner_id = $1', [id]);
+      const routes = n.rows[0].n;
+      if (routes > 0) {
+        if (!to || to === id) return res.status(400).json({ error: 'Uživatel má trasy – vyber účet, na který se převedou.' });
+        const t = await pool.query('SELECT id FROM users WHERE id = $1 AND is_approved = true', [to]);
+        if (!t.rows[0]) return res.status(400).json({ error: 'Trasy jde převést jen na schválený účet.' });
+      }
+      const r = await pool.query(
+        `WITH moved AS (UPDATE routes SET owner_id = $2 WHERE owner_id = $1 AND $2::int IS NOT NULL RETURNING id)
+         DELETE FROM users WHERE id = $1 RETURNING (SELECT COUNT(*)::int FROM moved) AS moved`, [id, routes > 0 ? to : null]);
+      if (!r.rows[0]) return res.status(404).json({ error: 'Uživatel nenalezen.' });
+      res.json({ ok: true, moved: r.rows[0].moved });
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Účet se nepodařilo smazat.' }); }
   });
 
   // ---------------- v4.5: změna vlastníka trasy ----------------
