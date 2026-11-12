@@ -67,7 +67,10 @@ function parseGPX(text){
   if(doc.querySelector('parsererror')) throw new Error('Soubor se nepodařilo přečíst jako GPX.');
   let pts = Array.from(doc.getElementsByTagName('trkpt'));
   if(pts.length===0) pts = Array.from(doc.getElementsByTagName('rtept'));
-  if(pts.length===0) throw new Error('V souboru nebyly nalezeny žádné body trasy.');
+  // v4.6: body (wpt) – např. export míst z Mapy.com; spojí se po cestách v pořadí ze souboru
+  const wpt = Array.from(doc.getElementsByTagName('wpt'));
+  const wptPoints = wpt.map(p=>[parseFloat(p.getAttribute('lat')), parseFloat(p.getAttribute('lon')), null]).filter(p=>!isNaN(p[0]) && !isNaN(p[1]));
+  if(pts.length===0 && wptPoints.length < 2) throw new Error('V souboru nebyly nalezeny žádné body trasy.');
   const points = pts.map(p=>{
     const lat = parseFloat(p.getAttribute('lat'));
     const lon = parseFloat(p.getAttribute('lon'));
@@ -75,8 +78,8 @@ function parseGPX(text){
     const ele = eleEl ? parseFloat(eleEl.textContent) : null;
     return [lat, lon, (ele==null || isNaN(ele)) ? null : ele];
   }).filter(p=>!isNaN(p[0]) && !isNaN(p[1]));
-  const nameEl = doc.getElementsByTagName('name')[0];
-  return { points, suggestedName: nameEl ? nameEl.textContent.trim() : '' };
+  const nameEl = doc.querySelector('metadata > name, trk > name, rte > name');
+  return { points, suggestedName: nameEl ? nameEl.textContent.trim() : '', wptPoints };
 }
 function pointsToGPX(points, name){
   const trkpts = points.map(p=>{
@@ -539,6 +542,20 @@ function rerouteAll(){
   changed();
 }
 
+// v4.6: načtení samotných bodů (wpt) – každý bod je zastávka, úseky mezi nimi se naplánují po cestách
+function loadWaypoints(points, meta){
+  if(points.length < 2) throw new Error('Soubor nemá dost bodů.');
+  pushUndo();
+  segs.forEach(s=>s.req++);
+  wps = points.map(p=>({ lat:p[0], lng:p[1], ele:null, small:false }));
+  segs = [];
+  for(let j=0;j<wps.length-1;j++) segs.push(newSeg('route', null));
+  editing = meta || null;
+  segs.forEach(s=>requestRoute(s));
+  changed();
+  fitToRoute();
+}
+
 // načtení hotové trasy (z CendurOFF / GPX / záznamu jízdy) jako upravitelných bodů
 function loadPoints(points, meta){
   points = points.filter(p=>Number.isFinite(p[0]) && Number.isFinite(p[1]))
@@ -903,12 +920,22 @@ document.getElementById('pl-gpx-file').addEventListener('change', async e=>{
   e.target.value = '';
   if(!f) return;
   try{
-    const { points, suggestedName } = parseGPX(await f.text());
+    const { points, suggestedName, wptPoints } = parseGPX(await f.text());
+    // v4.6: soubor s body (wpt) – spojit je po cestách; když má i trasu, zeptat se, co načíst
+    const useWpt = wptPoints.length >= 2 && (!points.length ||
+      confirm('Soubor obsahuje ' + wptPoints.length + ' bodů i nakreslenou trasu.\n\nOK = načíst body a spojit je po cestách (v pořadí ze souboru)\nZrušit = načíst nakreslenou trasu'));
     if(!confirmReplace('souborem ' + f.name)) return;
     closeSheet();
-    loadPoints(points, { id:null, name: suggestedName || f.name.replace(/\.gpx$/i,''), description:'', route_type:'' });
-    drawOthers();
-    toast('GPX načteno – body můžeš tahat, mazat a doplňovat.', 4000);
+    const meta = { id:null, name: suggestedName || f.name.replace(/\.gpx$/i,''), description:'', route_type:'' };
+    if(useWpt){
+      loadWaypoints(wptPoints, meta);
+      drawOthers();
+      toast('Načteno ' + wptPoints.length + ' bodů – úseky mezi nimi se plánují po cestách (chvíli to potrvá).', 5000);
+    } else {
+      loadPoints(points, meta);
+      drawOthers();
+      toast('GPX načteno – body můžeš tahat, mazat a doplňovat.', 4000);
+    }
   }catch(err){ toast(err.message || 'GPX se nepodařilo načíst.'); }
 });
 
