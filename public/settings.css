@@ -75,3 +75,9 @@ body.settings-page header.topbar{position:sticky;top:0;}
 .s-ach-t small{display:block;color:var(--ink-soft);font-size:0.82rem;}
 .s-ach-p{font-size:0.78rem;margin-top:4px;color:var(--ink);}
 #odznaky small{font-weight:500;color:var(--ink-soft);font-size:0.85rem;margin-left:6px;}
+
+/* v4.7: přepínač podkladu plánovače */
+.s-seg{display:flex;gap:0;flex:none;}
+.s-seg .s-btn{border-radius:0;}
+.s-seg .s-btn:first-child{border-radius:8px 0 0 8px;}
+.s-seg .s-btn:last-child{border-radius:0 8px 8px 0;margin-left:-1px;}

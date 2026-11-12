@@ -9,7 +9,7 @@
 // Při každém vydání nové verze webu zvyš VERSION – telefonům se pak ukáže
 // „Je dostupná nová verze – Obnovit“.
 // ---------------------------------------------------------------
-const VERSION = '4.6';
+const VERSION = '4.7';
 const APP_CACHE = 'cenduroff-app-' + VERSION;
 const CDN_CACHE = 'cenduroff-cdn-v1';
 const TILE_CACHE = 'cenduroff-tiles-v1';

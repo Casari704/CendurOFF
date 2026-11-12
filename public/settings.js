@@ -32,6 +32,21 @@
     loadProfile();
   }
 
+  // ---------- plánovač: podklad pro hledání cesty (v4.7) ----------
+  const PL_KEY = 'cenduroff.planner.settings';
+  function plGet(){ try{ return JSON.parse(localStorage.getItem(PL_KEY) || '{}') || {}; }catch(e){ return {}; } }
+  function showEngine(){
+    const eng = plGet().engine === 'osm' ? 'osm' : 'mapy';
+    document.querySelectorAll('[data-engine]').forEach(b => { const on = b.dataset.engine === eng; b.classList.toggle('primary', on); b.setAttribute('aria-pressed', on); });
+    $('s-eng-note').textContent = eng === 'mapy' ? 'Mapy.com – drží se turistických stezek' : 'OpenStreetMap (BRouter) – víc lesních a polních cest';
+  }
+  document.querySelectorAll('[data-engine]').forEach(b => b.addEventListener('click', () => {
+    const st = plGet(); st.engine = b.dataset.engine;
+    try{ localStorage.setItem(PL_KEY, JSON.stringify(st)); }catch(e){}
+    showEngine(); toast('Plánovač bude hledat cestu podle ' + (st.engine === 'mapy' ? 'Mapy.com' : 'OpenStreetMap') + '.');
+  }));
+  showEngine();
+
   // ---------- profil jezdce (v4.3) ----------
   const R = window.CendurRider;
   function showProfile(p){

@@ -169,7 +169,9 @@ let currentUser = null;
 function isAdminUser(){ return !!(currentUser && currentUser.role === 'admin'); }
 // upravovat (otevřít v plánovači a přepsat) smí jen vlastník trasy nebo admin
 function canEditRoute(ownerId){ return !!currentUser && (Number(ownerId) === Number(currentUser.id) || isAdminUser()); }
-const settings = Object.assign({ drawMode:'route', pref:'teren', allowPaths:true, showRoutes:true }, lsGet(SETTINGS_KEY, {}));
+// v4.7: engine = podklad pro hledání cesty – 'mapy' (Mapy.com, turistické stezky; výchozí) nebo 'osm' (BRouter / OpenStreetMap);
+// mění se v Nastavení účtu → Plánovač
+const settings = Object.assign({ drawMode:'route', pref:'teren', allowPaths:true, showRoutes:true, engine:'mapy' }, lsGet(SETTINGS_KEY, {}));
 function saveSettings(){ lsSet(SETTINGS_KEY, settings); }
 
 const undoStack = [], redoStack = [];
@@ -294,7 +296,71 @@ function updateBusy(){
   document.getElementById('pl-busy').hidden = !busy;
 }
 
+// ---------------------------------------------------------------
+// v4.7: hledání cesty přes Mapy.com (REST API routing + výšky z elevation API)
+//   Terén → foot_hiking (preferuje značené turistické stezky), Mix → bike_mountain, Silnice → car_short
+// ---------------------------------------------------------------
+const MAPY_API = 'https://api.mapy.com/v1';
+const MAPY_TYPES = { teren:'foot_hiking', mix:'bike_mountain', silnice:'car_short' };
+let mapyDown = 0;   // čas, do kdy Mapy.com nepoužívat (výpadek / limit) – mezitím se hledá přes OSM
+function mapyKey(){ return (window.CendurMaps && window.CendurMaps.MAPY_KEY) || ''; }
+async function mapyElevation(coords){
+  // nejvýš 256 bodů na dotaz – vezmeme rovnoměrný výběr a mezi nimi výšku dopočítáme
+  const n = coords.length, step = Math.max(1, Math.ceil(n / 250));
+  const idx = []; for(let i=0;i<n;i+=step) idx.push(i); if(idx[idx.length-1] !== n-1) idx.push(n-1);
+  const pos = idx.map(i => coords[i][0].toFixed(6) + ',' + coords[i][1].toFixed(6)).join(';');
+  const res = await fetch(`${MAPY_API}/elevation?positions=${pos}&apikey=${encodeURIComponent(mapyKey())}`);
+  if(!res.ok) throw new Error('elevation ' + res.status);
+  const items = (await res.json()).items || [];
+  if(items.length !== idx.length) throw new Error('elevation count');
+  const ele = new Array(n).fill(null);
+  idx.forEach((k, j) => { const e = items[j].elevation; ele[k] = (e == null || e < -1000) ? null : e; });
+  for(let j=0;j<idx.length-1;j++){
+    const a = idx[j], b = idx[j+1], ea = ele[a], eb = ele[b];
+    if(ea == null || eb == null) continue;
+    for(let k=a+1;k<b;k++) ele[k] = ea + (eb - ea) * (k - a) / (b - a);
+  }
+  return ele;
+}
+async function fetchRouteMapy(a, b){
+  const type = MAPY_TYPES[settings.pref] || 'foot_hiking';
+  const url = `${MAPY_API}/routing/route?start=${a.lng.toFixed(6)},${a.lat.toFixed(6)}&end=${b.lng.toFixed(6)},${b.lat.toFixed(6)}` +
+              `&routeType=${type}&format=geojson&lang=cs&apikey=${encodeURIComponent(mapyKey())}`;
+  const ctrl = new AbortController();
+  const timer = setTimeout(()=>ctrl.abort(), 25000);
+  let res, data = null;
+  try{
+    res = await fetch(url, { signal:ctrl.signal });
+    try{ data = await res.json(); }catch(e){}
+  }catch(e){
+    throw new Error(e && e.name === 'AbortError' ? 'timeout' : (e.message || String(e)));
+  }finally{ clearTimeout(timer); }
+  if(!res.ok){
+    const code = data && Array.isArray(data.detail) && data.detail[0] && data.detail[0].errorCode;
+    if(res.status === 404 && code === 7) throw new Error('position not mapped');
+    if(res.status === 404 && code === 9) throw new Error('island');
+    const err = new Error('Mapy.com ' + res.status); err.mapyDown = res.status !== 404 && res.status !== 422; throw err;
+  }
+  const coords = data && data.geometry && data.geometry.geometry && data.geometry.geometry.coordinates;
+  if(!coords || coords.length < 2) throw new Error('prázdná trasa');
+  let ele = null;
+  try{ ele = await mapyElevation(coords); }catch(e){ /* bez výšek – trasa se i tak nakreslí */ }
+  return coords.map((c, i) => [c[1], c[0], ele && ele[i] != null ? Math.round(ele[i] * 10) / 10 : null]);
+}
+
 async function fetchRoute(a, b, retried){
+  if(settings.engine !== 'osm' && Date.now() > mapyDown && mapyKey()){
+    try{ return await fetchRouteMapy(a, b); }
+    catch(e){
+      if(!e.mapyDown && !/Failed to fetch|NetworkError|Load failed|timeout/i.test(e.message)) throw e;
+      // Mapy.com nedostupné / došel limit → 10 minut hledat přes OpenStreetMap
+      mapyDown = Date.now() + 10 * 60000;
+      toast('Mapy.com teď cestu nenašly (' + e.message + ') – plánuju podle OpenStreetMap.', 5000);
+    }
+  }
+  return fetchRouteOsm(a, b, retried);
+}
+async function fetchRouteOsm(a, b, retried){
   const profile = await getProfileId(!!retried);
   const url = `${BROUTER_URL}?lonlats=${a.lng.toFixed(6)},${a.lat.toFixed(6)}|${b.lng.toFixed(6)},${b.lat.toFixed(6)}` +
               `&profile=${encodeURIComponent(profile)}&alternativeidx=0&format=geojson`;
@@ -309,7 +375,7 @@ async function fetchRoute(a, b, retried){
   }finally{ clearTimeout(timer); }
   if(!res.ok){
     // vlastní profily server po čase maže - zkusíme ho jednou nahrát znovu
-    if(!retried && /profile/i.test(text)) return fetchRoute(a, b, true);
+    if(!retried && /profile/i.test(text)) return fetchRouteOsm(a, b, true);
     throw new Error(text.trim() || ('HTTP ' + res.status));
   }
   const data = JSON.parse(text);
@@ -763,6 +829,15 @@ document.getElementById('mode-route').addEventListener('click', ()=>{ setDrawMod
 document.getElementById('mode-straight').addEventListener('click', ()=>{ setDrawMode('straight'); toast('Nové úseky se kreslí rovně – nezávisle na mapě.'); });
 setDrawMode(settings.drawMode);
 
+// v4.7: v nabídce jen nenápadně ukázat, podle čeho se hledá (mění se v Nastavení)
+(function(){
+  const h = document.getElementById('pl-engine-hint'), pc = document.getElementById('pl-paths');
+  const mapy = settings.engine !== 'osm';
+  if(h) h.innerHTML = mapy
+    ? 'Hledá se po cestách z <b>Mapy.com</b> (Terén = turistické stezky). Kde cesta chybí, přepni dole na <b>📏 Rovně</b>. <a href="nastaveni.html#s-plan">Podklad změníš v Nastavení</a>.'
+    : 'Hledá se po cestách z <b>OpenStreetMap</b>. Kde cesta v mapě chybí, přepni dole na <b>📏 Rovně</b>. <a href="nastaveni.html#s-plan">Podklad změníš v Nastavení</a>.';
+  if(pc && mapy) pc.closest('label').style.setProperty('display', 'none', 'important');   // pěšiny jdou nastavit jen u OSM
+})();
 const prefEl = document.getElementById('pl-pref');
 const pathsEl = document.getElementById('pl-paths');
 prefEl.value = settings.pref;

@@ -9,8 +9,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
 <title>CendurOFF Nastavení účtu</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.6">
-<link rel="stylesheet" href="public/settings.css?v=4.6">
+<link rel="stylesheet" href="public/style.css?v=4.7">
+<link rel="stylesheet" href="public/settings.css?v=4.7">
 <style>body.auth-pending .s-wrap{visibility:hidden;}</style>
 </head>
 <body class="settings-page auth-pending">
@@ -76,6 +76,18 @@
     </div>
   </section>
 
+  <!-- ===== PLÁNOVAČ (v4.7) ===== -->
+  <section class="s-card" aria-labelledby="s-plan">
+    <h2 id="s-plan">Plánovač</h2>
+    <div class="s-row">
+      <div class="s-txt"><b>Hledání cesty podle</b><small id="s-eng-note">Mapy.com – drží se turistických stezek</small></div>
+      <div class="s-seg" role="group" aria-label="Podklad pro hledání cesty">
+        <button class="s-btn" type="button" data-engine="mapy">Mapy.com</button>
+        <button class="s-btn" type="button" data-engine="osm">OpenStreetMap</button>
+      </div>
+    </div>
+  </section>
+
   <!-- ===== ZABEZPEČENÍ ===== -->
   <section class="s-card" aria-labelledby="s-sec">
     <h2 id="s-sec">Zabezpečení</h2>
@@ -116,12 +128,12 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.6"></script>
-<script src="public/errors.js?v=4.6"></script>
-<script src="public/rider.js?v=4.6"></script>
-<script src="public/header.js?v=4.6"></script>
-<script src="public/pwa.js?v=4.6"></script>
-<script src="public/sound.js?v=4.6"></script>
-<script src="public/settings.js?v=4.6"></script>
+<script src="public/config.js?v=4.7"></script>
+<script src="public/errors.js?v=4.7"></script>
+<script src="public/rider.js?v=4.7"></script>
+<script src="public/header.js?v=4.7"></script>
+<script src="public/pwa.js?v=4.7"></script>
+<script src="public/sound.js?v=4.7"></script>
+<script src="public/settings.js?v=4.7"></script>
 </body>
 </html>
