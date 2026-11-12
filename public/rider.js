@@ -151,7 +151,7 @@
         title: one ? (shown[0].rank ? 'Nová hodnost: ' : 'Nový odznak: ') + shown[0].name : 'Získal jsi ' + shown.length + (shown.length < 5 ? ' odznaky!' : ' odznaků!'),
         msg: one ? shown[0].desc : 'Gratulujeme! Za jízdy a aktivitu na CendurOFF ti patří:',
         list: one ? null : shown,
-        yes: { label:'Super!' },
+        yes: { label:'OK' },
         no: { label:'Moje odznaky', fn: () => { location.href = 'nastaveni.html#odznaky'; } }
       });
       fetch(API() + '/api/profile/seen', { method:'POST', credentials:'include', headers:Object.assign({ 'Content-Type':'application/json' }, h), body: JSON.stringify({ ids: fresh }) }).catch(() => {});
