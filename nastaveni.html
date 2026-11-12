@@ -9,8 +9,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
 <title>CendurOFF Nastavení účtu</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.8.3">
-<link rel="stylesheet" href="public/settings.css?v=4.8.3">
+<link rel="stylesheet" href="public/style.css?v=4.8.4">
+<link rel="stylesheet" href="public/settings.css?v=4.8.4">
 <style>body.auth-pending .s-wrap{visibility:hidden;}</style>
 </head>
 <body class="settings-page auth-pending">
@@ -30,6 +30,23 @@
       <div class="s-txt"><b>Admin sekce</b><small>uživatelé, projetí tras, archiv smazaných tras</small></div>
       <a class="s-btn" href="admin.html">Otevřít</a>
     </div>
+    <div class="s-row">
+      <div class="s-txt"><b>Heslo</b><small>změna hesla k účtu</small></div>
+      <button class="s-btn" id="s-pw-open" type="button" aria-expanded="false" aria-controls="s-pw">Změnit heslo</button>
+    </div>
+    <form class="s-form" id="s-pw" hidden>
+      <label for="cp-current">Současné heslo</label>
+      <input type="password" id="cp-current" autocomplete="current-password" required minlength="4">
+      <label for="cp-new">Nové heslo</label>
+      <input type="password" id="cp-new" autocomplete="new-password" required minlength="4">
+      <label for="cp-confirm">Nové heslo znovu</label>
+      <input type="password" id="cp-confirm" autocomplete="new-password" required minlength="4">
+      <div class="s-msg" id="cp-msg" aria-live="polite"></div>
+      <div class="s-form-btns">
+        <button class="s-btn" type="button" id="s-pw-cancel">Zrušit</button>
+        <button class="s-btn primary" type="submit">Uložit nové heslo</button>
+      </div>
+    </form>
   </section>
 
   <!-- ===== PROFIL JEZDCE (v4.3) ===== -->
@@ -83,28 +100,6 @@
     </div>
   </section>
 
-  <!-- ===== ZABEZPEČENÍ ===== -->
-  <section class="s-card" aria-labelledby="s-sec">
-    <h2 id="s-sec">Zabezpečení</h2>
-    <div class="s-row">
-      <div class="s-txt"><b>Heslo</b><small>změna hesla k účtu</small></div>
-      <button class="s-btn" id="s-pw-open" type="button" aria-expanded="false" aria-controls="s-pw">Změnit heslo</button>
-    </div>
-    <form class="s-form" id="s-pw" hidden>
-      <label for="cp-current">Současné heslo</label>
-      <input type="password" id="cp-current" autocomplete="current-password" required minlength="4">
-      <label for="cp-new">Nové heslo</label>
-      <input type="password" id="cp-new" autocomplete="new-password" required minlength="4">
-      <label for="cp-confirm">Nové heslo znovu</label>
-      <input type="password" id="cp-confirm" autocomplete="new-password" required minlength="4">
-      <div class="s-msg" id="cp-msg" aria-live="polite"></div>
-      <div class="s-form-btns">
-        <button class="s-btn" type="button" id="s-pw-cancel">Zrušit</button>
-        <button class="s-btn primary" type="submit">Uložit nové heslo</button>
-      </div>
-    </form>
-  </section>
-
   <!-- ===== APLIKACE ===== -->
   <section class="s-card" aria-labelledby="s-app">
     <h2 id="s-app">Aplikace</h2>
@@ -123,12 +118,12 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.8.3"></script>
-<script src="public/errors.js?v=4.8.3"></script>
-<script src="public/rider.js?v=4.8.3"></script>
-<script src="public/header.js?v=4.8.3"></script>
-<script src="public/pwa.js?v=4.8.3"></script>
-<script src="public/sound.js?v=4.8.3"></script>
-<script src="public/settings.js?v=4.8.3"></script>
+<script src="public/config.js?v=4.8.4"></script>
+<script src="public/errors.js?v=4.8.4"></script>
+<script src="public/rider.js?v=4.8.4"></script>
+<script src="public/header.js?v=4.8.4"></script>
+<script src="public/pwa.js?v=4.8.4"></script>
+<script src="public/sound.js?v=4.8.4"></script>
+<script src="public/settings.js?v=4.8.4"></script>
 </body>
 </html>
