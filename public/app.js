@@ -379,7 +379,20 @@ async function api(url, options){
   }
   // Automaticky připojí adresu backendu z Railway ke všem voláním
   const fullUrl = url.startsWith('http') ? url : API_URL + url;
-  const res = await fetch(fullUrl, withAuth(options));
+  // v4.7.1: když se nepodaří spojit se serverem (výpadek signálu, server se zrovna restartuje),
+  // přihlášení / registraci zkusíme ještě jednou a pak ukážeme srozumitelnou hlášku
+  let res;
+  try{ res = await fetch(fullUrl, withAuth(options)); }
+  catch(e){
+    if(url.startsWith('/api/auth/')){
+      await new Promise(r => setTimeout(r, 2500));
+      try{ res = await fetch(fullUrl, withAuth(options)); }catch(e2){ e = e2; }
+    }
+    if(!res){
+      const err = new Error('Nepodařilo se spojit se serverem CendurOFF. Zkontroluj připojení k internetu a zkus to za minutu znovu.');
+      err.network = true; throw err;
+    }
+  }
   let data = null, isJson = false;
   try{ data = await res.json(); isJson = true; }catch(e){}
   if(!res.ok) throw new Error((data && data.error) || 'Něco se pokazilo.');
