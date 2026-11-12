@@ -1057,6 +1057,8 @@ async function openDetail(id){
         <select id="edit-route-type">
           ${ROUTE_TYPE_ORDER.map(t=>`<option value="${t}"${t===typeOf(route) ? ' selected' : ''}>${ROUTE_TYPES[t].label}</option>`).join('')}
         </select>
+        ${isAdminUser() ? `<label for="edit-route-owner">Vlastník trasy <span class="admin-tag">admin</span></label>
+        <select id="edit-route-owner"><option value="${route.owner_id}">${escapeHtml(route.owner_display)}</option></select>` : ''}
         <div class="form-msg" id="edit-route-msg"></div>
         <div class="actions">
           <button class="ghost-btn" id="cancel-edit-route" type="button">Zrušit</button>
@@ -1175,7 +1177,19 @@ async function openDetail(id){
   if(isOwner){
     const editForm = document.getElementById('edit-route-form');
     const editBtn = document.getElementById('edit-route-btn');
+    // v4.5.3: admin – výběr vlastníka trasy (seznam schválených uživatelů se načte při otevření úprav)
+    const ownerSel = document.getElementById('edit-route-owner');
+    let ownersLoaded = false;
+    function loadOwners(){
+      if(!ownerSel || ownersLoaded) return;
+      ownersLoaded = true;
+      api('/api/admin/users').then(list => {
+        ownerSel.innerHTML = list.filter(u => u.is_approved).sort((a, b) => a.display_name.localeCompare(b.display_name, 'cs'))
+          .map(u => `<option value="${u.id}"${u.id === route.owner_id ? ' selected' : ''}>${escapeHtml(u.display_name)} (${escapeHtml(u.username)})</option>`).join('');
+      }).catch(() => { ownersLoaded = false; });
+    }
     editBtn.addEventListener('click', ()=>{
+      loadOwners();
       editForm.style.display = editForm.style.display==='none' ? 'block' : 'none';
       if(editForm.style.display==='block') editForm.scrollIntoView({ behavior:'smooth', block:'nearest' });
     });
@@ -1194,6 +1208,10 @@ async function openDetail(id){
           headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ name:newName, description:newDesc, routeType: document.getElementById('edit-route-type').value })
         });
+        if(ownerSel && Number(ownerSel.value) !== route.owner_id){
+          const x = await api(`/api/admin/routes/${id}/owner`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ownerId: Number(ownerSel.value) }) });
+          toast('Trasa upravena – nový vlastník: ' + x.owner_display);
+        } else
         toast('Trasa byla upravena.');
         await loadRoutes();
         openDetail(id);
