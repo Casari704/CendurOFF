@@ -118,7 +118,7 @@ header.topbar{position:sticky;top:0;}
 .mg{display:block;position:relative;padding:14px 0;}
 .mg-track{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding:0 14px;padding:0 14px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
 .mg-track::-webkit-scrollbar{display:none;}
-.mg-track img{flex:0 0 calc((100% - 20px) / 2.25);width:auto;min-width:0;max-width:none;height:auto;align-self:center;scroll-snap-align:start;border-radius:10px;}
+.mg-track img{flex:0 0 calc((100% - 10px * (min(var(--mg-n, 2.25), var(--mg-count, 9)) - 1)) / min(var(--mg-n, 2.25), var(--mg-count, 9)));width:auto;min-width:0;max-width:none;height:auto;align-self:center;scroll-snap-align:start;border-radius:10px;}
 .mg-btn{position:absolute;top:50%;transform:translateY(-50%);z-index:2;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:rgba(251,248,238,.94);color:var(--ink);font-size:28px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0 0 3px;box-shadow:0 2px 8px rgba(0,0,0,.15);}
 .mg-prev{left:8px;}
 .mg-next{right:8px;}
@@ -128,4 +128,8 @@ header.topbar{position:sticky;top:0;}
 .m-grid-one .m-product{flex-direction:row;flex-wrap:wrap;}
 .m-grid-one .m-product .m-gallery{flex:1 1 420px;}
 .m-grid-one .m-product .m-body{flex:1 1 380px;}
-@media (max-width:760px){ .mg-track img{flex-basis:78%;} }
+@media (max-width:760px){ .mg-track img{flex-basis:calc((100% - 10px * (min(1.28, var(--mg-count, 9)) - 1)) / min(1.28, var(--mg-count, 9)));} }
+/* v4.8.1: tmavé pozadí pro samolepku */
+.mg-dark{background:var(--bg-app);}
+.m-sticker-g{flex:1 1 360px;}
+.m-sticker-g .mg-track img{max-height:340px;object-fit:contain;}

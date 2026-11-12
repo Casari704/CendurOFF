@@ -14,8 +14,8 @@
 <title>CendurOFF Merch — trička, mikiny a samolepky</title>
 <meta name="description" content="Merch CendurOFF: trička Roleplay, trička CendurOFF, mikina Gold & Silver a samolepky. Zakázková výroba, objednávky e-mailem.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,700;0,800;0,900;1,900&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.8">
-<link rel="stylesheet" href="public/merch.css?v=4.8">
+<link rel="stylesheet" href="public/style.css?v=4.8.1">
+<link rel="stylesheet" href="public/merch.css?v=4.8.1">
 </head>
 <body>
 
@@ -40,10 +40,14 @@
 
   <!-- MIKINA -->
   <section class="m-card m-feature" aria-labelledby="mikina">
-    <div class="m-gallery m-gallery-2">
-      <img src="public/img/merch/mikina-zada.png" alt="Mikina Gold &amp; Silver – záda" loading="lazy">
-      <img src="public/img/merch/mikina-predek.png?v=2.4" alt="Mikina Gold &amp; Silver – předek" loading="lazy">
-    </div>
+    <div class="m-gallery mg" data-merch-folder="mikina" data-merch-label="Mikina Gold &amp; Silver" data-per-view="2">
+        <button class="mg-btn mg-prev" type="button" aria-label="Předchozí obrázek">‹</button>
+        <div class="mg-track">
+          <img src="public/img/merch/mikina/mikina-predek.png" alt="Mikina Gold &amp; Silver – předek" loading="lazy">
+          <img src="public/img/merch/mikina/mikina-zada.png" alt="Mikina Gold &amp; Silver – záda" loading="lazy">
+        </div>
+        <button class="mg-btn mg-next" type="button" aria-label="Další obrázek">›</button>
+      </div>
     <div class="m-body">
       <div class="m-tag">LIMITOVANÁ EDICE</div>
       <h2 id="mikina">Mikina Gold &amp; Silver</h2>
@@ -132,7 +136,13 @@
   <section class="m-section" aria-label="Night Ride Edition">
     <div class="m-grid m-grid-one">
       <article class="m-card m-product m-dark">
-        <div class="m-gallery"><img src="public/img/merch/triko-night-ride.png" alt="Triko Night Ride Edition – černé s reflexním nápisem" loading="lazy"></div>
+        <div class="m-gallery mg" data-merch-folder="nightride" data-merch-label="Triko Night Ride Edition" data-per-view="1.6">
+        <button class="mg-btn mg-prev" type="button" aria-label="Předchozí obrázek">‹</button>
+        <div class="mg-track">
+          <img src="public/img/merch/nightride/triko-night-ride.png" alt="Triko Night Ride Edition – černé s reflexním nápisem" loading="lazy">
+        </div>
+        <button class="mg-btn mg-next" type="button" aria-label="Další obrázek">›</button>
+      </div>
         <div class="m-body">
           <div class="m-tag m-tag-gold">REFLEXNÍ</div>
           <h3>Night Ride Edition</h3>
@@ -149,7 +159,13 @@
 
   <!-- SAMOLEPKA -->
   <section class="m-card m-feature" aria-labelledby="samolepka">
-    <div class="m-sticker"><img src="public/img/cenduroff-logo.png" alt="Samolepka CendurOFF s logem" loading="lazy"></div>
+    <div class="m-gallery mg mg-dark m-sticker-g" data-merch-folder="samolepka" data-merch-label="Samolepka CendurOFF" data-per-view="1">
+        <button class="mg-btn mg-prev" type="button" aria-label="Předchozí obrázek">‹</button>
+        <div class="mg-track">
+          <img src="public/img/merch/samolepka/samolepka-cenduroff.png" alt="Samolepka CendurOFF s logem" loading="lazy">
+        </div>
+        <button class="mg-btn mg-next" type="button" aria-label="Další obrázek">›</button>
+      </div>
     <div class="m-body">
       <h2 id="samolepka">Samolepka CendurOFF</h2>
       <p>Kulatá samolepka s logem – na kufr, nádrž, helmu nebo notebook. Ať je vidět, kdo jezdí na advíku offroadem!</p>
@@ -193,11 +209,11 @@
   <a href="mailto:petrol.machine@gmail.com">petrol.machine@gmail.com</a> ·
   <a href="https://www.facebook.com/PetrolMachineSilesia" target="_blank" rel="noopener">Facebook</a></footer>
 
-<script src="public/config.js?v=4.8"></script>
-<script src="public/errors.js?v=4.8"></script>
-<script src="public/rider.js?v=4.8"></script>
-<script src="public/header.js?v=4.8"></script>
-<script src="public/pwa.js?v=4.8"></script>
-<script src="public/merch-gallery.js?v=4.8"></script>
+<script src="public/config.js?v=4.8.1"></script>
+<script src="public/errors.js?v=4.8.1"></script>
+<script src="public/rider.js?v=4.8.1"></script>
+<script src="public/header.js?v=4.8.1"></script>
+<script src="public/pwa.js?v=4.8.1"></script>
+<script src="public/merch-gallery.js?v=4.8.1"></script>
 </body>
 </html>

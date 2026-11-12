@@ -1,5 +1,5 @@
 // CendurOFF – posuvná galerie merche (v4.8)
-// <div class="m-gallery mg" data-merch-folder="roleplay"> … </div>
+// <div class="m-gallery mg" data-merch-folder="roleplay" data-per-view="2.25"> … </div>
 // Ukáže VŠECHNY obrázky ve složce public/img/merch/<složka>/ na GitHubu – názvy souborů nehrají roli,
 // řadí se podle názvu (kdo chce pořadí, dá na začátek číslo: 01-…, 02-…).
 // Seznam souborů dává GitHub API; když nejde načíst, zůstanou obrázky vepsané přímo v HTML.
@@ -43,6 +43,9 @@
   }
 
   document.querySelectorAll('[data-merch-folder]').forEach(el => {
+    // kolik obrázků je vidět najednou (data-per-view, výchozí 2,25); když je jich méně, roztáhnou se
+    if(el.dataset.perView) el.style.setProperty('--mg-n', el.dataset.perView);
+    el.style.setProperty('--mg-count', el.querySelectorAll('.mg-track img').length || 1);
     const update = setup(el);
     const folder = el.dataset.merchFolder, label = el.dataset.merchLabel || '';
     listFolder(folder).then(files => {
@@ -50,6 +53,7 @@
       el.querySelector('.mg-track').innerHTML = files.map(f =>
         '<img src="' + BASE + folder + '/' + encodeURIComponent(f) + '" alt="' + esc(alt(f, label)) + '" loading="lazy" onerror="this.remove()">').join('');
       el.querySelector('.mg-track').scrollLeft = 0;
+      el.style.setProperty('--mg-count', files.length);
       update();
     }).catch(() => { /* zůstanou obrázky z HTML */ });
   });
