@@ -8,8 +8,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
 <title>CendurOFF Admin sekce</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.4.3">
-<link rel="stylesheet" href="public/faq.css?v=4.4.3">
+<link rel="stylesheet" href="public/style.css?v=4.5">
+<link rel="stylesheet" href="public/faq.css?v=4.5">
 <style>
   .a-wrap{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
   .a-wrap h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);}
@@ -33,6 +33,12 @@
   .a-deleted{font-size:0.72rem;font-weight:700;background:#E4E0D6;color:#333;padding:1px 6px;border-radius:4px;margin-left:6px;}
   .a-riders{margin:4px 0;padding-left:18px;}
   .a-note{color:var(--ink-soft);margin:0 0 6px;font-size:0.92rem;}
+  .a-pending{background:#FFF4D6;border:2px solid #E0B43C;border-radius:10px;padding:10px 14px;font-weight:700;margin:6px 0 10px;}
+  .a-pend td{background:#FFF8E5;}
+  .a-btn.green{background:#4F7048;border-color:#4F7048;color:#fff;}
+  .a-ach{font-size:1.05rem;white-space:nowrap;}
+  .a-owner{margin-top:10px;padding-top:10px;border-top:1px solid #ddd;display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .a-owner select{font:inherit;padding:6px;border-radius:8px;border:1px solid #bbb;max-width:100%;}
   .a-err-msg{font-family:monospace;font-size:0.82rem;word-break:break-word;}
   .a-err-stack{white-space:pre-wrap;font-family:monospace;font-size:0.76rem;background:#F6F3EA;border-radius:6px;padding:8px;margin:6px 0;max-height:240px;overflow:auto;}
   .a-err-meta{font-size:0.8rem;color:var(--ink-soft);}
@@ -43,21 +49,23 @@
 <main class="a-wrap" id="a-main">
   <h1>Admin sekce</h1>
   <p class="a-note" id="a-msg">Načítám…</p>
-
-  <section id="a-stats-sec" hidden>
-    <h2>Projetí tras <small>počítá se, když někdo při navigaci nebo záznamu jízdy projede aspoň 20 % trasy (max. 1× za 24 h)</small></h2>
-    <div class="a-box"><table class="a-t" id="a-stats"><thead><tr>
-      <th data-k="name">Trasa</th><th class="num" data-k="distance_km">km</th><th class="num" data-k="rides_30d">Za 30 dní</th>
-      <th class="num" data-k="rides_total">Celkem</th><th class="num" data-k="riders">Jezdců</th><th data-k="last_ride">Naposledy</th>
-    </tr></thead><tbody></tbody></table></div>
-  </section>
+  <p class="a-pending" id="a-pending" hidden></p>
 
   <section id="a-users-sec" hidden>
     <h2>Uživatelé <small>přihlášení = zadal jméno a heslo (počítá se od verze 2.9.2) · aktivní = naposledy použil web nebo aplikaci (přesnost ~10 min)</small></h2>
     <div class="a-box"><table class="a-t" id="a-users"><thead><tr>
-      <th>Jméno</th><th>Účet</th><th>Naposledy přihlášen</th><th class="num">Přihlášení za 30 dní</th><th class="num">Přihlášení celkem</th><th>Naposledy aktivní</th><th class="num">Tras</th><th class="num">Projetí</th><th>Registrace</th>
+      <th>Jméno</th><th>Účet</th><th>Hodnost</th><th class="num">Km</th><th>Odznaky</th><th>Naposledy přihlášen</th><th class="num">Přihlášení za 30 dní</th><th class="num">Přihlášení celkem</th><th>Naposledy aktivní</th><th class="num">Tras</th><th class="num">Projetí</th><th>Registrace</th><th></th>
     </tr></thead><tbody></tbody></table></div>
   </section>
+
+  <section id="a-stats-sec" hidden>
+    <h2>Trasy a projetí <small>projetí se počítá, když někdo při navigaci nebo záznamu jízdy projede aspoň 20 % trasy (max. 1× za 24 h) · klikni na trasu pro detail, GPX a změnu vlastníka</small></h2>
+    <div class="a-box"><table class="a-t" id="a-stats"><thead><tr>
+      <th data-k="name">Trasa</th><th data-k="owner_display">Vlastník</th><th class="num" data-k="distance_km">km</th><th class="num" data-k="rides_30d">Za 30 dní</th>
+      <th class="num" data-k="rides_total">Celkem</th><th class="num" data-k="riders">Jezdců</th><th data-k="last_ride">Naposledy</th>
+    </tr></thead><tbody></tbody></table></div>
+  </section>
+
 
   <section id="a-arch-sec" hidden>
     <h2>Archiv smazaných tras <small>smazané trasy zůstávají tady, dokud je nesmažeš natrvalo</small></h2>
@@ -76,11 +84,11 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.4.3"></script>
-<script src="public/errors.js?v=4.4.3"></script>
-<script src="public/rider.js?v=4.4.3"></script>
-<script src="public/header.js?v=4.4.3"></script>
-<script src="public/pwa.js?v=4.4.3"></script>
+<script src="public/config.js?v=4.5"></script>
+<script src="public/errors.js?v=4.5"></script>
+<script src="public/rider.js?v=4.5"></script>
+<script src="public/header.js?v=4.5"></script>
+<script src="public/pwa.js?v=4.5"></script>
 <script>
 (function(){
   const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
@@ -105,15 +113,16 @@
     const tb = $('a-stats').querySelector('tbody');
     const rows = stats.slice().sort((a, b) => {
       let x = a[sortK], y = b[sortK];
-      if(sortK === 'name'){ x = String(x || ''); y = String(y || ''); return sortDesc ? y.localeCompare(x, 'cs') : x.localeCompare(y, 'cs'); }
+      if(sortK === 'name' || sortK === 'owner_display'){ x = String(x || ''); y = String(y || ''); return sortDesc ? y.localeCompare(x, 'cs') : x.localeCompare(y, 'cs'); }
       if(sortK === 'last_ride'){ x = x ? new Date(x).getTime() : 0; y = y ? new Date(y).getTime() : 0; }
       return sortDesc ? (y - x) : (x - y);
     });
     tb.innerHTML = rows.length ? rows.map(r => '<tr class="row" data-id="' + r.route_id + '"><td class="name">' + esc(r.name) + (r.deleted ? '<span class="a-deleted">v archivu</span>' : '') + '</td>' +
+      '<td>' + esc(r.owner_display || '—') + '</td>' +
       '<td class="num">' + fmtKm(r.distance_km) + '</td><td class="num big">' + r.rides_30d + '</td><td class="num big">' + r.rides_total + '</td>' +
       '<td class="num">' + r.riders + '</td><td>' + (r.last_ride ? fmtDate(r.last_ride) : '—') + '</td></tr>' +
-      (openId === r.route_id ? '<tr class="det"><td colspan="6" id="a-det">Načítám…</td></tr>' : '')).join('')
-      : '<tr><td colspan="6" class="a-empty">Zatím žádné trasy.</td></tr>';
+      (openId === r.route_id ? '<tr class="det"><td colspan="7" id="a-det">Načítám…</td></tr>' : '')).join('')
+      : '<tr><td colspan="7" class="a-empty">Zatím žádné trasy.</td></tr>';
     tb.querySelectorAll('tr.row').forEach(tr => tr.addEventListener('click', () => {
       const id = Number(tr.dataset.id); openId = openId === id ? null : id; renderStats(); if(openId) loadRiders(openId);
     }));
@@ -127,6 +136,20 @@
         ? '<b>Kdo trasu projel:</b><ul class="a-riders">' + st.riders_list.map(u => '<li><b>' + esc(u.display_name) + '</b> – ' + u.rides + '× (za 30 dní ' + u.rides_30d + '×, naposledy ' + fmtDate(u.last_ride) + ')</li>').join('') + '</ul>'
         : 'Trasu zatím nikdo neprojel.');
       $('a-det-gpx').addEventListener('click', e => { e.stopPropagation(); downloadGpx('/api/admin/routes/' + id + '/points'); });
+      // v4.5: změna vlastníka trasy
+      const r0 = stats.find(x => x.route_id === id);
+      const own = document.createElement('div'); own.className = 'a-owner';
+      own.innerHTML = '<label>Vlastník trasy: <select id="a-own-sel">' + users.filter(u => u.is_approved).map(u => '<option value="' + u.id + '"' + (r0 && u.id === r0.owner_id ? ' selected' : '') + '>' + esc(u.display_name) + ' (' + esc(u.username) + ')</option>').join('') + '</select></label> <button class="a-btn" type="button" id="a-own-save">Změnit vlastníka</button>';
+      el.appendChild(own);
+      own.addEventListener('click', e => e.stopPropagation());
+      $('a-own-save').addEventListener('click', async () => {
+        const sel = $('a-own-sel'); const name = sel.options[sel.selectedIndex].text;
+        if(r0 && Number(sel.value) === r0.owner_id) return toast('To už je vlastník.');
+        if(!confirm('Převést trasu „' + (r0 ? r0.name : id) + '“ na uživatele ' + name + '?')) return;
+        try{ const x = await api('/api/admin/routes/' + id + '/owner', { method:'PATCH', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ ownerId: Number(sel.value) }) });
+          if(r0){ r0.owner_id = x.owner_id; r0.owner_display = x.owner_display; } renderStats(); loadRiders(id); toast('Vlastník změněn: ' + x.owner_display); }
+        catch(x){ toast(x.message); }
+      });
     }catch(e){ const el = $('a-det'); if(el) el.textContent = e.message; }
   }
   $('a-stats').querySelectorAll('th').forEach(th => th.addEventListener('click', () => {
@@ -179,13 +202,39 @@
     const rel = m < 15 ? 'teď' : m < 60 ? 'před ' + m + ' min' : m < 1440 ? 'před ' + Math.round(m / 60) + ' h' : 'před ' + Math.round(m / 1440) + ' d';
     return fmtDate(d) + ' <small style="color:#777">(' + rel + ')</small>';
   }
-  function renderUsers(users){
+  let users = [];
+  function renderUsers(list){
+    users = list;
+    const R = window.CendurRider;
     const tb = $('a-users').querySelector('tbody');
-    tb.innerHTML = users.length ? users.map(u => '<tr><td class="name">' + esc(u.display_name) + (u.role === 'admin' ? ' <small>(admin)</small>' : '') + (u.is_approved ? '' : ' <span class="a-deleted">čeká na schválení</span>') + '</td>' +
-      '<td>' + esc(u.username) + '</td><td>' + ago(u.last_login_at) + '</td><td class="num big">' + u.logins_30d + '</td><td class="num big">' + u.logins_total + '</td><td>' + ago(u.last_seen_at) + '</td>' +
-      '<td class="num">' + u.routes + '</td><td class="num">' + u.rides + '</td><td>' + fmtDate(u.created_at) + '</td></tr>').join('')
-      : '<tr><td colspan="9" class="a-empty">Žádní uživatelé.</td></tr>';
+    const pending = users.filter(u => !u.is_approved).length;
+    $('a-pending').textContent = pending ? '⏳ ' + pending + (pending === 1 ? ' registrace čeká' : pending < 5 ? ' registrace čekají' : ' registrací čeká') + ' na schválení' : '';
+    $('a-pending').hidden = !pending;
+    tb.innerHTML = users.length ? users.map(u => {
+      const st = u.stats || {}; const b = R ? R.badgeFor(st.km) : null;
+      const ach = R && u.stats ? R.achievements(st).filter(a => a.got) : [];
+      return '<tr' + (u.is_approved ? '' : ' class="a-pend"') + '><td class="name">' + esc(u.display_name) + (u.role === 'admin' ? ' <small>(admin)</small>' : '') + (u.is_approved ? '' : ' <span class="a-deleted">čeká na schválení</span>') + '</td>' +
+      '<td>' + esc(u.username) + '</td>' +
+      '<td>' + (b ? b.icon + ' ' + esc(b.name) : '—') + '</td><td class="num">' + (u.stats ? R.fmtKm(st.km).replace(' km', '') : '—') + '</td>' +
+      '<td class="a-ach">' + (ach.length ? ach.map(a => '<span title="' + esc(a.name) + '">' + a.icon + '</span>').join('') : '—') + '</td>' +
+      '<td>' + ago(u.last_login_at) + '</td><td class="num big">' + u.logins_30d + '</td><td class="num big">' + u.logins_total + '</td><td>' + ago(u.last_seen_at) + '</td>' +
+      '<td class="num">' + u.routes + '</td><td class="num">' + u.rides + '</td><td>' + fmtDate(u.created_at) + '</td>' +
+      '<td>' + (u.is_approved ? '' : '<button class="a-btn green" type="button" data-approve="' + u.id + '">✓ Schválit</button><button class="a-btn red" type="button" data-reject="' + u.id + '">Zamítnout</button>') + '</td></tr>';
+    }).join('')
+      : '<tr><td colspan="13" class="a-empty">Žádní uživatelé.</td></tr>';
   }
+  $('a-users').addEventListener('click', async ev => {
+    const ap = ev.target.closest('[data-approve]'), rj = ev.target.closest('[data-reject]');
+    if(!ap && !rj) return;
+    const u = users.find(x => x.id === Number((ap || rj).dataset[ap ? 'approve' : 'reject']));
+    if(!u) return;
+    try{
+      if(ap){ await api('/api/admin/users/' + u.id + '/approve', { method:'POST' }); toast(u.display_name + ' je schválen(a) – může se přihlásit.'); }
+      else { if(!confirm('Zamítnout registraci „' + u.display_name + '“ (' + u.username + ')? Účet se smaže.')) return;
+        await api('/api/admin/users/' + u.id, { method:'DELETE' }); toast('Registrace zamítnuta.'); }
+      renderUsers(await api('/api/admin/users'));
+    }catch(x){ toast(x.message); }
+  });
 
   // ---------- chyby z telefonů (v4.3) ----------
   let errs = [], errOpen = null;

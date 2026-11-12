@@ -53,9 +53,43 @@ function mount(app, { pool, requireAuth, isAdmin }) {
                (SELECT COUNT(*)::int FROM user_logins l WHERE l.user_id = u.id AND l.created_at > now() - interval '30 days') AS logins_30d,
                (SELECT COUNT(*)::int FROM user_logins l WHERE l.user_id = u.id) AS logins_total
         FROM users u
-        ORDER BY COALESCE(u.last_seen_at, u.last_login_at, u.created_at) DESC`);
+        ORDER BY u.is_approved ASC, COALESCE(u.last_seen_at, u.last_login_at, u.created_at) DESC`);
+      // v4.4: čísla pro hodnost a odznaky (web z nich spočítá, co kdo má)
+      let riderStats = null; try { riderStats = require('./profile-api').riderStats; } catch (e) {}
+      if (riderStats) {
+        for (const u of r.rows) { try { u.stats = await riderStats(pool, u.id); } catch (e) { u.stats = null; } }
+      }
       res.json(r.rows);
     } catch (e) { console.error(e); res.status(500).json({ error: 'Uživatele se nepodařilo načíst.' }); }
+  });
+
+  // ---------------- v4.5: schválení / zamítnutí registrace (místo ruční úpravy v databázi) ----------------
+  app.post('/api/admin/users/:id/approve', whenReady, requireAuth, adminOnly, async (req, res) => {
+    try {
+      const r = await pool.query('UPDATE users SET is_approved = true WHERE id = $1 RETURNING id, display_name', [Number(req.params.id)]);
+      if (!r.rows[0]) return res.status(404).json({ error: 'Uživatel nenalezen.' });
+      res.json({ ok: true, user: r.rows[0] });
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Schválení se nepovedlo.' }); }
+  });
+  // zamítnout jde jen registraci, která ještě nebyla schválená (schválený účet se tu smazat nedá)
+  app.delete('/api/admin/users/:id', whenReady, requireAuth, adminOnly, async (req, res) => {
+    try {
+      const r = await pool.query('DELETE FROM users WHERE id = $1 AND is_approved = false RETURNING id', [Number(req.params.id)]);
+      if (!r.rows[0]) return res.status(400).json({ error: 'Zamítnout jde jen registraci, která čeká na schválení.' });
+      res.json({ ok: true });
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Zamítnutí se nepovedlo.' }); }
+  });
+
+  // ---------------- v4.5: změna vlastníka trasy ----------------
+  app.patch('/api/admin/routes/:id/owner', whenReady, requireAuth, adminOnly, async (req, res) => {
+    try {
+      const ownerId = Number(req.body && req.body.ownerId);
+      const u = await pool.query('SELECT id, display_name FROM users WHERE id = $1 AND is_approved = true', [ownerId]);
+      if (!u.rows[0]) return res.status(400).json({ error: 'Nový vlastník musí být schválený uživatel.' });
+      const r = await pool.query('UPDATE routes SET owner_id = $2 WHERE id = $1 RETURNING id', [Number(req.params.id), ownerId]);
+      if (!r.rows[0]) return res.status(404).json({ error: 'Trasa nenalezena.' });
+      res.json({ ok: true, owner_id: ownerId, owner_display: u.rows[0].display_name });
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Vlastníka se nepodařilo změnit.' }); }
   });
 
   // ---------------- projetí tras ----------------
@@ -92,6 +126,7 @@ function mount(app, { pool, requireAuth, isAdmin }) {
     try {
       const r = await pool.query(
         `SELECT rt.id AS route_id, rt.name, rt.distance_km, rt.deleted_at IS NOT NULL AS deleted,
+                rt.owner_id, (SELECT display_name FROM users WHERE id = rt.owner_id) AS owner_display, rt.created_at,
                 COUNT(rr.id)::int AS rides_total,
                 COUNT(rr.id) FILTER (WHERE rr.created_at > now() - interval '30 days')::int AS rides_30d,
                 COUNT(DISTINCT rr.user_id)::int AS riders,

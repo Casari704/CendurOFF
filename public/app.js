@@ -1034,7 +1034,8 @@ async function openDetail(id){
     return `<div class="photo-slot">
         <img class="photo-thumb" data-index="${i}" src="${p.data_url}" alt="Fotka trasy ${escapeHtml(route.name)}" title="Zvětšit fotku">
         ${p.is_main ? '<span class="main-badge">HLAVNÍ</span>' : ''}
-        ${isOwner ? `<button class="delete-photo-btn" data-photo="${p.id}" title="Smazat fotku">×</button>` : ''}
+        ${isOwner || (currentUser && p.user_id === currentUser.id) ? `<button class="delete-photo-btn" data-photo="${p.id}" title="Smazat fotku">×</button>` : ''}
+        ${p.user_id && p.user_id !== route.owner_id && p.user_display ? `<span class="photo-by">📷 ${escapeHtml(p.user_display)}</span>` : ''}
         ${isOwner && !p.is_main ? `<button class="set-main-btn" data-photo="${p.id}">Nastavit jako hlavní</button>` : ''}
       </div>`;
   }).join('');
@@ -1043,7 +1044,7 @@ async function openDetail(id){
     <h2>${escapeHtml(route.name)}</h2>
     <div class="type-chip">${typeDot(typeOf(route))}${typeInfo(route).label} trasa</div>
     <div class="detail-owner">Přidal(a) ${escapeHtml(route.owner_display)} · ${fmtDate(route.created_at)}${route.gpx_updated_at ? `<br>GPX aktualizováno dne: ${fmtDateShort(route.gpx_updated_at)}` : ''}</div>
-    ${route.description ? `<div class="detail-desc" id="detail-desc-text">${escapeHtml(route.description)}</div>` : ''}
+    ${route.description ? `<div class="detail-desc" id="detail-desc-text">${escapeHtml(route.description)}${route.description_by && route.description_by !== route.owner_id && route.description_by_display ? `<div class="desc-by">Popis doplnil(a) ${escapeHtml(route.description_by_display)}</div>` : ''}</div>` : ''}
     ${renderRatingBlock(route)}
     ${renderReviewsBlock(reviews)}
     ${isOwner ? `
@@ -1091,6 +1092,16 @@ async function openDetail(id){
         <input type="file" id="replace-gpx-input" accept=".gpx">
         <button class="danger-btn" id="delete-route-btn">Smazat trasu</button>
       </div>` : ''}
+    ${currentUser && !isOwner && (photos.length < 3 || !route.description || route.description_by === currentUser.id) ? `
+      <div class="owner-controls contrib-controls">
+        <h3>Doplnit trasu</h3>
+        <p class="hint">Chybí trase fotky nebo popis? Můžeš je doplnit. Autor trasy (${escapeHtml(route.owner_display)}) je pořád nadřazený – může je kdykoli vyměnit nebo smazat.</p>
+        ${photos.length < 3 ? `<label class="contrib-label" for="photo-input">Přidat fotku (zbývá ${3 - photos.length} z 3)</label>
+        <input type="file" id="photo-input" accept="image/*">` : ''}
+        ${!route.description || route.description_by === currentUser.id ? `<label class="contrib-label" for="contrib-desc">${route.description ? 'Upravit tvůj popis' : 'Napsat popis trasy'}</label>
+        <textarea id="contrib-desc" maxlength="5000" placeholder="Jaká je trasa, povrch, obtížnost, na co si dát pozor…">${escapeHtml(route.description || '')}</textarea>
+        <button class="primary-btn" id="contrib-desc-save" type="button">Uložit popis</button>` : ''}
+      </div>` : ''}
   `;
   // v4.3: odznak a motorka autora trasy (veřejný profil jezdce)
   if(route.owner_id && window.CendurRider){
@@ -1117,6 +1128,49 @@ async function openDetail(id){
   inner.querySelectorAll('.photo-thumb').forEach(img=>{
     img.addEventListener('click', ()=> openLightbox(photos.map(p=>p.data_url), Number(img.dataset.index), route.name));
   });
+
+  // v4.5: mazání fotek a nahrávání – vlastník/admin, a ostatní členové při doplňování trasy
+  {
+    inner.querySelectorAll('.delete-photo-btn').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        if(!confirm('Smazat tuto fotku?')) return;
+        try{
+          await api(`/api/routes/${id}/photos/${btn.dataset.photo}`, { method:'DELETE' });
+          toast('Fotka smazána.');
+          openDetail(id);
+        }catch(e){ toast(e.message || 'Fotku se nepodařilo smazat.'); }
+      });
+    });
+    const photoInput = document.getElementById('photo-input');
+    if(photoInput){
+      photoInput.addEventListener('change', async ()=>{
+        const file = photoInput.files[0];
+        if(!file) return;
+        // velký vstupní soubor odmítneme ještě před kompresí (ochrana proti extrémně velkým souborům)
+        if(file.size > 20*1024*1024){ toast('Obrázek je příliš velký (max 20 MB).'); return; }
+        toast('Zmenšuji fotku…', 1500);
+        let toUpload = file;
+        try{ toUpload = await compressImage(file); }catch(e){ /* komprese selhala - zkusíme originál */ }
+        if(toUpload.size > 3*1024*1024){ toast('Obrázek je příliš velký i po zmenšení (max 3 MB).'); return; }
+        try{
+          const fd = new FormData();
+          fd.append('photo', toUpload);
+          await api(`/api/routes/${id}/photos`, { method:'POST', body: fd });
+          toast('Fotka přidána.');
+          openDetail(id);
+        }catch(e){ toast(e.message || 'Nahrání fotky se nepovedlo.'); }
+      });
+    }
+    const cd = document.getElementById('contrib-desc-save');
+    if(cd) cd.addEventListener('click', async ()=>{
+      try{
+        await api(`/api/routes/${id}/description`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ description: document.getElementById('contrib-desc').value }) });
+        toast('Popis uložen. Díky!');
+        await loadRoutes();
+        openDetail(id);
+      }catch(e){ toast(e.message || 'Popis se nepodařilo uložit.'); }
+    });
+  }
 
   if(isOwner){
     const editForm = document.getElementById('edit-route-form');
@@ -1155,16 +1209,6 @@ async function openDetail(id){
         }catch(e){ toast(e.message || 'Nepodařilo se uložit změnu.'); }
       });
     });
-    inner.querySelectorAll('.delete-photo-btn').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        if(!confirm('Smazat tuto fotku?')) return;
-        try{
-          await api(`/api/routes/${id}/photos/${btn.dataset.photo}`, { method:'DELETE' });
-          toast('Fotka smazána.');
-          openDetail(id);
-        }catch(e){ toast(e.message || 'Fotku se nepodařilo smazat.'); }
-      });
-    });
     const deleteRouteBtn = document.getElementById('delete-route-btn');
     if(deleteRouteBtn){
       deleteRouteBtn.addEventListener('click', async ()=>{
@@ -1175,26 +1219,6 @@ async function openDetail(id){
           closeDetail();
           await loadRoutes();
         }catch(e){ toast(e.message || 'Trasu se nepodařilo smazat.'); }
-      });
-    }
-    const photoInput = document.getElementById('photo-input');
-    if(photoInput){
-      photoInput.addEventListener('change', async ()=>{
-        const file = photoInput.files[0];
-        if(!file) return;
-        // velký vstupní soubor odmítneme ještě před kompresí (ochrana proti extrémně velkým souborům)
-        if(file.size > 20*1024*1024){ toast('Obrázek je příliš velký (max 20 MB).'); return; }
-        toast('Zmenšuji fotku…', 1500);
-        let toUpload = file;
-        try{ toUpload = await compressImage(file); }catch(e){ /* komprese selhala - zkusíme originál */ }
-        if(toUpload.size > 3*1024*1024){ toast('Obrázek je příliš velký i po zmenšení (max 3 MB).'); return; }
-        try{
-          const fd = new FormData();
-          fd.append('photo', toUpload);
-          await api(`/api/routes/${id}/photos`, { method:'POST', body: fd });
-          toast('Fotka přidána.');
-          openDetail(id);
-        }catch(e){ toast(e.message || 'Nahrání fotky se nepovedlo.'); }
       });
     }
     const replaceGpxInput = document.getElementById('replace-gpx-input');

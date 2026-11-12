@@ -116,6 +116,9 @@ async function initDb() {
   await pool.query('ALTER TABLE routes ADD COLUMN IF NOT EXISTS deleted_by INTEGER');
   // v4.4: odkud trasa je – 'record' = ze záznamu jízdy v Atlasu (odznak Stopař), 'gpx' = nahraný soubor
   await pool.query('ALTER TABLE routes ADD COLUMN IF NOT EXISTS source TEXT');
+  // v4.5: doplňování tras ostatními členy – kdo nahrál fotku / doplnil popis (vlastník trasy je pořád nadřazený)
+  await pool.query('ALTER TABLE photos ADD COLUMN IF NOT EXISTS user_id INTEGER');
+  await pool.query('ALTER TABLE routes ADD COLUMN IF NOT EXISTS description_by INTEGER');
 
   console.log('Databázové schéma je připravené.');
 }
@@ -384,7 +387,8 @@ app.get('/api/routes/:id', optionalAuth, async (req, res) => {
   try {
     const routeResult = await pool.query(
       `SELECT r.id, r.name, r.description, r.points, r.distance_km, r.elev_gain_m, r.created_at, r.gpx_updated_at, r.route_type,
-              u.id AS owner_id, u.display_name AS owner_display
+              u.id AS owner_id, u.display_name AS owner_display,
+              r.description_by, (SELECT display_name FROM users WHERE id = r.description_by) AS description_by_display
        FROM routes r JOIN users u ON u.id = r.owner_id
        WHERE r.id = $1 AND r.deleted_at IS NULL`,
       [req.params.id]
@@ -392,7 +396,9 @@ app.get('/api/routes/:id', optionalAuth, async (req, res) => {
     const route = routeResult.rows[0];
     if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
     const photosResult = await pool.query(
-      'SELECT id, data_url, is_main FROM photos WHERE route_id = $1 ORDER BY created_at ASC',
+      `SELECT p.id, p.data_url, p.is_main, p.user_id, pu.display_name AS user_display
+       FROM photos p LEFT JOIN users pu ON pu.id = p.user_id
+       WHERE p.route_id = $1 ORDER BY p.created_at ASC`,
       [req.params.id]
     );
     Object.assign(route, await ratingSummary(route.id, req.user ? req.user.id : null));
@@ -467,7 +473,9 @@ app.patch('/api/routes/:id', requireAuth, async (req, res) => {
     }
 
     const result = await pool.query(
-      `UPDATE routes SET name=$1, description=$2, route_type=COALESCE($4, route_type) WHERE id=$3
+      `UPDATE routes SET name=$1, description=$2, route_type=COALESCE($4, route_type),
+         description_by = CASE WHEN description IS DISTINCT FROM $2 THEN NULL ELSE description_by END
+       WHERE id=$3
        RETURNING id, name, description, points, distance_km, elev_gain_m, created_at, gpx_updated_at, route_type`,
       [name, description, req.params.id, routeType]
     );
@@ -475,6 +483,30 @@ app.patch('/api/routes/:id', requireAuth, async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Trasu se nepodařilo upravit.' });
+  }
+});
+
+// ---------------------------------------------------------------
+// v4.5: doplnění popisu cizí trasy – jen když popis chybí (nebo ho doplnil právě on);
+// vlastník trasy ho může kdykoli přepsat (pak se z něj stane popis vlastníka)
+// ---------------------------------------------------------------
+app.put('/api/routes/:id/description', requireAuth, async (req, res) => {
+  try {
+    const rr = await pool.query('SELECT owner_id, description, description_by FROM routes WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
+    const route = rr.rows[0];
+    if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
+    const text = String(req.body.description || '').trim().slice(0, 5000);
+    const empty = !String(route.description || '').trim();
+    if (canEdit(req, route.owner_id)) {
+      await pool.query('UPDATE routes SET description = $2, description_by = NULL WHERE id = $1', [req.params.id, text]);
+      return res.json({ ok: true, description: text, description_by: null });
+    }
+    if (!empty && route.description_by !== req.user.id) return res.status(403).json({ error: 'Trasa už popis má – měnit ho může jen její vlastník.' });
+    await pool.query('UPDATE routes SET description = $2, description_by = $3 WHERE id = $1', [req.params.id, text, text ? req.user.id : null]);
+    res.json({ ok: true, description: text, description_by: text ? req.user.id : null });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Popis se nepodařilo uložit.' });
   }
 });
 
@@ -572,7 +604,7 @@ app.post('/api/routes/:id/photos', requireAuth, upload.single('photo'), async (r
     const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
     const route = routeResult.rows[0];
     if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
-    if (!canEdit(req, route.owner_id)) return res.status(403).json({ error: 'Fotky může přidávat jen vlastník trasy (nebo admin).' });
+    // v4.5: fotky může doplnit kterýkoli přihlášený člen (do 3 fotek); vlastník je může smazat a vybrat hlavní
     if (!req.file) return res.status(400).json({ error: 'Nahrajte obrázek.' });
     if (req.file.size > MAX_PHOTO_BYTES) return res.status(400).json({ error: 'Obrázek je příliš velký (max 3 MB).' });
 
@@ -583,8 +615,8 @@ app.post('/api/routes/:id/photos', requireAuth, upload.single('photo'), async (r
     const dataUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
     const makeMain = countResult.rows[0].n === 0;
     const inserted = await pool.query(
-      'INSERT INTO photos (route_id, data_url, is_main) VALUES ($1,$2,$3) RETURNING id, data_url, is_main',
-      [req.params.id, dataUrl, makeMain]
+      'INSERT INTO photos (route_id, data_url, is_main, user_id) VALUES ($1,$2,$3,$4) RETURNING id, data_url, is_main, user_id',
+      [req.params.id, dataUrl, makeMain, req.user.id]
     );
     res.status(201).json(inserted.rows[0]);
   } catch (e) {
@@ -612,9 +644,10 @@ app.delete('/api/routes/:id/photos/:photoId', requireAuth, async (req, res) => {
     const routeResult = await pool.query('SELECT owner_id FROM routes WHERE id = $1 AND deleted_at IS NULL', [req.params.id]);
     const route = routeResult.rows[0];
     if (!route) return res.status(404).json({ error: 'Trasa nenalezena.' });
-    if (!canEdit(req, route.owner_id)) return res.status(403).json({ error: 'Fotky může mazat jen vlastník trasy (nebo admin).' });
-    const photoResult = await pool.query('SELECT is_main FROM photos WHERE id = $1 AND route_id = $2', [req.params.photoId, req.params.id]);
+    const photoResult = await pool.query('SELECT is_main, user_id FROM photos WHERE id = $1 AND route_id = $2', [req.params.photoId, req.params.id]);
     if (!photoResult.rows[0]) return res.status(404).json({ error: 'Fotka nenalezena.' });
+    // v4.5: smazat smí vlastník trasy, admin, nebo ten, kdo fotku nahrál
+    if (!canEdit(req, route.owner_id) && photoResult.rows[0].user_id !== req.user.id) return res.status(403).json({ error: 'Fotku může smazat jen vlastník trasy nebo ten, kdo ji nahrál.' });
     const wasMain = photoResult.rows[0].is_main;
     await pool.query('DELETE FROM photos WHERE id = $1', [req.params.photoId]);
     if (wasMain) {

@@ -16,6 +16,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS bike TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS ride_m DOUBLE PRECISION NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS ride_m_at TIMESTAMPTZ;
 ALTER TABLE routes ADD COLUMN IF NOT EXISTS source TEXT;
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS user_id INTEGER;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS badges_seen JSONB NOT NULL DEFAULT '[]'::jsonb;
 CREATE TABLE IF NOT EXISTS client_errors (
   id SERIAL PRIMARY KEY,
@@ -39,7 +40,8 @@ const ERR_KEEP_DAYS = 60;
 
 // ---------------------------------------------------------------
 // v4.4: odznaky – server spočítá čísla, web (public/rider.js) z nich určí odznaky a postup.
-// „Projel“ = záznam v route_rides (aspoň 20 % trasy, nejvýš 1× za 24 h – stejně jako počet projetí).
+// „Projel“ = záznam v route_rides (aspoň 20 % trasy, nejvýš 1× za 24 h – stejně jako počet projetí);
+// v4.5: u „projel X tras“ a Dakaristy se počítá i opakované projetí stejné trasy (po 24 h).
 // „Někdo jiný“ = jiný schválený člen než majitel odznaku.
 // ---------------------------------------------------------------
 async function riderStats(pool, uid){
@@ -53,10 +55,11 @@ async function riderStats(pool, uid){
       (SELECT ride_m FROM users WHERE id = $1) AS ride_m,
       (SELECT COUNT(*) FROM my) AS own_routes,
       (SELECT COUNT(*) FROM routes WHERE owner_id = $1 AND deleted_at IS NULL AND source = 'record') AS rec_routes,
-      (SELECT COUNT(DISTINCT p.route_id) FROM photos p JOIN my ON my.id = p.route_id) AS photo_routes,
-      ${hasRR ? `(SELECT COUNT(DISTINCT rr.route_id) FROM route_rides rr JOIN routes r ON r.id = rr.route_id AND r.deleted_at IS NULL WHERE rr.user_id = $1)` : z} AS ridden,
+      (SELECT COUNT(DISTINCT p.route_id) FROM photos p JOIN routes r ON r.id = p.route_id AND r.deleted_at IS NULL
+         WHERE COALESCE(p.user_id, r.owner_id) = $1) AS photo_routes,
+      ${hasRR ? `(SELECT COUNT(*) FROM route_rides rr JOIN routes r ON r.id = rr.route_id AND r.deleted_at IS NULL WHERE rr.user_id = $1)` : z} AS ridden,
       ${hasRR ? `(SELECT COUNT(DISTINCT rr.route_id) FROM route_rides rr JOIN my ON my.id = rr.route_id JOIN ok ON ok.id = rr.user_id)` : z} AS own_ridden_by_others,
-      ${hasRR ? `(SELECT COUNT(DISTINCT rr.route_id) FROM route_rides rr JOIN routes r ON r.id = rr.route_id AND r.deleted_at IS NULL WHERE rr.user_id = $1 AND rr.source = 'roadbook')` : z} AS rb_rides,
+      ${hasRR ? `(SELECT COUNT(*) FROM route_rides rr JOIN routes r ON r.id = rr.route_id AND r.deleted_at IS NULL WHERE rr.user_id = $1 AND rr.source = 'roadbook')` : z} AS rb_rides,
       ${hasRR ? `(SELECT COUNT(*) FROM route_rides rr WHERE rr.user_id = $1 AND EXTRACT(MONTH FROM rr.created_at AT TIME ZONE 'Europe/Prague') IN (11,12,1,2))` : z} AS winter_rides,
       ${hasRR ? `(SELECT COUNT(*) FROM reviews v JOIN routes r ON r.id = v.route_id AND r.deleted_at IS NULL
                    WHERE v.user_id = $1 AND EXISTS (SELECT 1 FROM route_rides rr WHERE rr.user_id = $1 AND rr.route_id = v.route_id))` : z} AS reviews_ridden,
