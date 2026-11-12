@@ -9,7 +9,7 @@
 // Při každém vydání nové verze webu zvyš VERSION – telefonům se pak ukáže
 // „Je dostupná nová verze – Obnovit“.
 // ---------------------------------------------------------------
-const VERSION = '4.7.1';
+const VERSION = '4.8';
 const APP_CACHE = 'cenduroff-app-' + VERSION;
 const CDN_CACHE = 'cenduroff-cdn-v1';
 const TILE_CACHE = 'cenduroff-tiles-v1';
@@ -19,7 +19,7 @@ const NET_TIMEOUT_MS = 4000;
 const CORE = [
   './', 'index.html', 'planovac.html', 'merch.html', 'faq.html', 'nastaveni.html', 'admin.html',
   'roadbook-planner.html', 'roadbook-navi.html', 'manifest.webmanifest',
-  'public/style.css', 'public/planner.css', 'public/merch.css', 'public/faq.css', 'public/settings.css', 'public/rb.css',
+  'public/style.css', 'public/planner.css', 'public/merch.css', 'public/merch-gallery.js', 'public/faq.css', 'public/settings.css', 'public/rb.css',
   'public/config.js', 'public/header.js', 'public/pwa.js', 'public/app.js', 'public/planner.js',
   'public/planner-profile.js', 'public/regiondata.js', 'public/fuel.js', 'public/chko.js',
   'public/rb-core.js', 'public/rb-planner.js', 'public/rb-navi.js', 'public/ride-stats.js', 'public/sound.js', 'public/settings.js', 'public/zoom.js', 'public/basemaps.js', 'public/gps.js', 'public/status.js', 'public/rider.js', 'public/errors.js',
