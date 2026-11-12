@@ -9,8 +9,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
 <title>CendurOFF Nastavení účtu</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.8.2">
-<link rel="stylesheet" href="public/settings.css?v=4.8.2">
+<link rel="stylesheet" href="public/style.css?v=4.8.3">
+<link rel="stylesheet" href="public/settings.css?v=4.8.3">
 <style>body.auth-pending .s-wrap{visibility:hidden;}</style>
 </head>
 <body class="settings-page auth-pending">
@@ -20,6 +20,18 @@
   <h1>Nastavení účtu</h1>
 
   <!-- ===== ÚČET ===== -->
+  <section class="s-card" aria-labelledby="s-ucet">
+    <h2 id="s-ucet">Účet</h2>
+    <div class="s-row">
+      <div class="s-txt"><b id="s-name">—</b><small id="s-role"></small></div>
+      <button class="s-btn danger" id="s-logout" type="button">Odhlásit se</button>
+    </div>
+    <div class="s-row" id="s-admin-row" hidden>
+      <div class="s-txt"><b>Admin sekce</b><small>uživatelé, projetí tras, archiv smazaných tras</small></div>
+      <a class="s-btn" href="admin.html">Otevřít</a>
+    </div>
+  </section>
+
   <!-- ===== PROFIL JEZDCE (v4.3) ===== -->
   <section class="s-card" aria-labelledby="s-prof">
     <h2 id="s-prof">Profil jezdce</h2>
@@ -47,18 +59,6 @@
     <div class="s-ach" id="s-ach"></div>
   </section>
 
-  <section class="s-card" aria-labelledby="s-ucet">
-    <h2 id="s-ucet">Účet</h2>
-    <div class="s-row">
-      <div class="s-txt"><b id="s-name">—</b><small id="s-role"></small></div>
-      <button class="s-btn danger" id="s-logout" type="button">Odhlásit se</button>
-    </div>
-    <div class="s-row" id="s-admin-row" hidden>
-      <div class="s-txt"><b>Admin sekce</b><small>uživatelé, projetí tras, archiv smazaných tras</small></div>
-      <a class="s-btn" href="admin.html">Otevřít</a>
-    </div>
-  </section>
-
   <!-- ===== NAVIGACE ===== -->
   <section class="s-card" aria-labelledby="s-nav">
     <h2 id="s-nav">Navigace</h2>
@@ -74,12 +74,7 @@
         <button class="s-btn" type="button" data-test="gentle">Mimo trasu</button>
       </div>
     </div>
-  </section>
-
-  <!-- ===== PLÁNOVAČ (v4.7) ===== -->
-  <section class="s-card" aria-labelledby="s-plan">
-    <h2 id="s-plan">Plánovač</h2>
-    <div class="s-row">
+    <div class="s-row" id="s-plan">
       <div class="s-txt"><b>Hledání cesty podle</b><small id="s-eng-note">Mapy.com – drží se turistických stezek</small></div>
       <div class="s-seg" role="group" aria-label="Podklad pro hledání cesty">
         <button class="s-btn" type="button" data-engine="mapy">Mapy.com</button>
@@ -128,12 +123,12 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.8.2"></script>
-<script src="public/errors.js?v=4.8.2"></script>
-<script src="public/rider.js?v=4.8.2"></script>
-<script src="public/header.js?v=4.8.2"></script>
-<script src="public/pwa.js?v=4.8.2"></script>
-<script src="public/sound.js?v=4.8.2"></script>
-<script src="public/settings.js?v=4.8.2"></script>
+<script src="public/config.js?v=4.8.3"></script>
+<script src="public/errors.js?v=4.8.3"></script>
+<script src="public/rider.js?v=4.8.3"></script>
+<script src="public/header.js?v=4.8.3"></script>
+<script src="public/pwa.js?v=4.8.3"></script>
+<script src="public/sound.js?v=4.8.3"></script>
+<script src="public/settings.js?v=4.8.3"></script>
 </body>
 </html>
