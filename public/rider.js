@@ -55,7 +55,7 @@
       need:[['ownRoutes', 5, 'nahraných tras'], ['ridden', 5, 'projetých tras'], ['ownRiddenByOthers', 1, 'trasa projetá ostatními']] },
     { id:'kartograf', icon:'🗺️', name:'Kartograf',       desc:'Nahrál aspoň 10 tras a 8 z nich projel někdo jiný.',
       need:[['ownRoutes', 10, 'nahraných tras'], ['ownRiddenByOthers', 8, 'tras projetých ostatními']] },
-    { id:'rbautor',   icon:'📜', name:'Autor roadbooku', desc:'Jeho roadbook je Ready a někdo jiný podle něj trasu projel.',
+    { id:'rbautor',   icon:'📜', name:'Dakar Navigátor', desc:'Jeho roadbook je Ready a někdo jiný podle něj trasu projel.',
       need:[['rbAuthor', 1, 'roadbook projetý ostatními']] }
   ];
   // [{ ...odznak, got, parts:[{cur, need, label}], pct }]
