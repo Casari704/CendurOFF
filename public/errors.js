@@ -11,6 +11,7 @@
     try{
       message = String(message || '').slice(0, 500);
       if(!message || count >= 10 || sent.has(message)) return;
+      if(/(google|bing|yandex|duckduck|baidu|apple|ahrefs|semrush|petal|mj12|dot)bot|\bbot\b|crawler|spider|slurp|Lighthouse|HeadlessChrome/i.test(navigator.userAgent || '')) return;   // vyhledávací roboti (Googlebot apod.)
       if(/^Script error\.?$/.test(message)) return;                       // cizí skript bez detailu
       if(/Failed to fetch|NetworkError|Load failed|network error/i.test(message)) return;   // výpadek sítě není chyba webu
       if(stack && /(chrome|moz|safari)-extension:\/\//.test(stack)) return;  // rozšíření prohlížeče

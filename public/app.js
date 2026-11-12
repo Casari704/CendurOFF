@@ -1290,7 +1290,8 @@ function closeDetail(){
 // Upload modal
 // ---------------------------------------------------------------
 const overlay = document.getElementById('upload-overlay');
-document.getElementById('open-upload').addEventListener('click', ()=>{
+// v4.3.3: tlačítko vytváří header.js – když se nenačte (např. robot Googlu), Atlas nesmí spadnout
+document.getElementById('open-upload')?.addEventListener('click', ()=>{
   if(!requireLogin('nahrání trasy')) return;
   document.getElementById('gpx-file').value='';
   document.getElementById('route-name').value='';
@@ -2571,7 +2572,7 @@ async function enterApp(){
     const u = new URL(location.href);
     if(u.searchParams.get('nahrat')){
       u.searchParams.delete('nahrat'); history.replaceState(null, '', u);
-      document.getElementById('open-upload').click();
+      document.getElementById('open-upload')?.click();
     }
   }catch(e){}
   if(rec.state==='idle' && currentUser) restoreRecording();
