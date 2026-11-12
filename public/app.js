@@ -421,28 +421,48 @@ const loginSubmit = document.getElementById('login-submit');
 const formMsg = document.getElementById('form-msg');
 const loginForm = document.getElementById('login-form');
 
-tabLogin.addEventListener('click', ()=>{
-  mode='login'; tabLogin.classList.add('active'); tabRegister.classList.remove('active');
-  loginSubmit.textContent='Přihlásit se'; formMsg.textContent='';
-});
-tabRegister.addEventListener('click', ()=>{
-  mode='register'; tabRegister.classList.add('active'); tabLogin.classList.remove('active');
-  loginSubmit.textContent='Vytvořit účet'; formMsg.textContent='';
-});
+// v4.9: registrace = e-mail (přihlašovací jméno) + přezdívka (zobrazované jméno) + heslo;
+// přihlášení e-mailem – starší účty se dál přihlašují svým uživatelským jménem
+const liUserLabel = document.getElementById('li-user-label');
+const liUser = document.getElementById('li-user');
+const liNickWrap = document.getElementById('li-nick-wrap');
+const liNick = document.getElementById('li-nick');
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function setLoginMode(m){
+  mode = m;
+  const reg = m === 'register';
+  tabRegister.classList.toggle('active', reg); tabLogin.classList.toggle('active', !reg);
+  loginSubmit.textContent = reg ? 'Vytvořit účet' : 'Přihlásit se';
+  liUserLabel.textContent = reg ? 'E-mail' : 'E-mail (nebo dřívější uživatelské jméno)';
+  liUser.type = reg ? 'email' : 'text';
+  liUser.autocomplete = reg ? 'email' : 'username';
+  liNickWrap.hidden = !reg; liNick.required = reg;
+  document.getElementById('li-pass').autocomplete = reg ? 'new-password' : 'current-password';
+  formMsg.textContent = '';
+}
+tabLogin.addEventListener('click', ()=> setLoginMode('login'));
+tabRegister.addEventListener('click', ()=> setLoginMode('register'));
+setLoginMode('login');
 
 loginForm.addEventListener('submit', async (e)=>{
   e.preventDefault();
   const usernameRaw = document.getElementById('li-user').value.trim();
   const username = usernameRaw.toLowerCase();
   const pass = document.getElementById('li-pass').value;
-  if(!username || !pass){ formMsg.textContent='Vyplňte jméno i heslo.'; return; }
+  const nick = liNick.value.trim().replace(/\s+/g, ' ');
+  if(!username || !pass){ formMsg.textContent = mode==='register' ? 'Vyplň e-mail, přezdívku a heslo.' : 'Vyplň e-mail a heslo.'; return; }
+  if(mode==='register'){
+    if(!EMAIL_RE.test(username)){ formMsg.textContent='Zadej platný e-mail – bude to tvoje přihlašovací jméno.'; return; }
+    if(nick.length < 2){ formMsg.textContent='Zadej přezdívku (aspoň 2 znaky) – pod ní tě uvidí ostatní.'; return; }
+    if(pass.length < 4){ formMsg.textContent='Heslo musí mít aspoň 4 znaky.'; return; }
+  }
   formMsg.textContent='';
   formMsg.style.color='';
   loginSubmit.disabled = true;
   try{
     const endpoint = mode==='register' ? '/api/auth/register' : '/api/auth/login';
     const body = mode==='register'
-      ? { username, password: pass, displayName: usernameRaw }
+      ? { username, password: pass, displayName: nick, email: true }
       : { username, password: pass };
     const user = await api(endpoint, {
       method:'POST',

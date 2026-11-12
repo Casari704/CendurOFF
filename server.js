@@ -270,15 +270,26 @@ async function reviewsForRoute(routeId) {
 // ---------------------------------------------------------------
 app.post('/api/auth/register', async (req, res) => {
   try {
+    // v4.9: přihlašovací jméno = e-mail, zobrazované jméno = přezdívka (sloupce zůstávají stejné)
     const username = String(req.body.username || '').trim().toLowerCase();
     const password = String(req.body.password || '');
-    const displayName = String(req.body.displayName || req.body.username || '').trim();
-    if (!username || !password || password.length < 4) {
-      return res.status(400).json({ error: 'Vyplňte jméno a heslo (min. 4 znaky).' });
+    const displayName = String(req.body.displayName || '').trim().replace(/\s+/g, ' ').slice(0, 40);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(username) || username.length > 200) {
+      return res.status(400).json({ error: 'Zadej platný e-mail – bude to tvoje přihlašovací jméno.' });
+    }
+    if (displayName.length < 2) {
+      return res.status(400).json({ error: 'Zadej přezdívku (aspoň 2 znaky) – pod ní tě uvidí ostatní.' });
+    }
+    if (password.length < 4) {
+      return res.status(400).json({ error: 'Heslo musí mít aspoň 4 znaky.' });
     }
     const existing = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
     if (existing.rows.length) {
-      return res.status(409).json({ error: 'Toto uživatelské jméno už existuje.' });
+      return res.status(409).json({ error: 'Tento e-mail už je zaregistrovaný. Zkus se přihlásit.' });
+    }
+    const nickTaken = await pool.query('SELECT id FROM users WHERE lower(display_name) = lower($1)', [displayName]);
+    if (nickTaken.rows.length) {
+      return res.status(409).json({ error: 'Tuhle přezdívku už někdo má – vyber si jinou.' });
     }
     // úplně první registrovaný účet v celé databázi se považuje za majitele projektu
     // a schvaluje se automaticky, aby nedošlo k patové situaci "nikdo nemůže schválit nikoho"

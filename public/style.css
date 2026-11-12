@@ -50,7 +50,7 @@ input,textarea{font-family:inherit;}
 }
 .tab.active{color:var(--rust-dark);border-bottom-color:var(--rust);}
 label{display:block;font-size:0.82rem;color:var(--ink-soft);margin:16px 0 6px;font-weight:600;}
-input[type=text],input[type=password]{
+input[type=text],input[type=email],input[type=password]{
   width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:6px;
   background:#fff;font-size:0.95rem;color:var(--ink);
 }
@@ -982,3 +982,10 @@ body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !import
 .login-contact{margin-top:12px;font-size:0.76rem;color:var(--ink-soft);opacity:.8;}
 .login-contact a{color:inherit;white-space:nowrap;text-decoration:underline;text-decoration-color:rgba(0,0,0,.25);text-underline-offset:2px;}
 .login-contact a:hover{color:var(--ink);}
+
+/* v4.9: registrace e-mailem + přezdívka */
+.li-nick-wrap{display:flex;flex-direction:column;gap:inherit;}
+.li-nick-wrap[hidden]{display:none;}
+.li-hint{display:block;font-size:0.78rem;color:var(--ink-soft);margin-top:-2px;}
+/* v4.9: logo na přihlášení se na šířku nesmí zmáčknout do elipsy */
+.hero-logo{object-fit:contain;aspect-ratio:1/1;}
