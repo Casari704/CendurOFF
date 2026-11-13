@@ -47,7 +47,7 @@ function renderSelect(){
   if(!$('nv-list')) return;
   const q = ($('nv-search').value || '').trim().toLowerCase();
   const list = routes.filter(r => !q || r.name.toLowerCase().includes(q));
-  const titles = { ready:'Roadbook Ready', check:'To check – trasa se změnila nebo čeká na kontrolu', draft:'Rozpracované', auto:'Auto – roadbook se spočítá z GPX' };
+  const titles = { ready:'Roadbook Ready', check:'Ke kontrole – trasa se změnila nebo čeká na kontrolu', draft:'Rozpracované', auto:'Auto – roadbook se spočítá z GPX' };
   const groups = RB.STATE_ORDER.map(st => [titles[st], list.filter(r => RB.stateOf(sums[r.id]) === st), RB.STATES[st].css, RB.STATES[st].badge]);
   $('nv-list').innerHTML = groups.filter(g => g[1].length).map(g => '<h2>' + g[0] + '</h2>' +
     '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">' + g[1].map(r =>
@@ -177,7 +177,7 @@ function pickRoute(id, fromList){
   bd.textContent = RB.STATES[st].badge;
   $('nv-pick-note').textContent = {
     ready: 'Roadbook je zkontrolovaný. Směr jízdy je daný roadbookem.',
-    check: 'To check: trasa se změnila nebo místa čekají na kontrolu – roadbook nemusí všude sedět.',
+    check: 'Ke kontrole: trasa se změnila nebo místa čekají na kontrolu – roadbook nemusí všude sedět.',
     draft: 'Roadbook je rozpracovaný – nemusí být úplný.',
     auto:  'Auto: roadbook se spočítá ze zatáček GPX (bez křižovatek). Směr se odhadne podle toho, ke kterému konci máš blíž.'
   }[st];
@@ -274,7 +274,7 @@ function checkNearby(){
   window.CendurHeader.ask({
     title: 'Roadbook',
     msg: 'Jsi u trasy „' + best.name + '“' +
-      (st === 'check' ? ' – roadbook je To check (trasa se změnila nebo čeká na kontrolu)' : st === 'draft' ? ' – roadbook je zatím rozpracovaný' : '') +
+      (st === 'check' ? ' – roadbook je ke kontrole (trasa se změnila nebo čeká na kontrolu)' : st === 'draft' ? ' – roadbook je zatím rozpracovaný' : '') +
       '. Chceš navigovat podle roadbooku?',
     yes: { label: 'Navigovat', fn: () => startRide(best.id, false) },
     no: { label: 'Ne' }
@@ -334,7 +334,7 @@ async function startRide(id, reverseNoRb){
         items = RB.reproject(R, items);
         toast('Pozor: trasa se od uložení roadbooku změnila, roadbook není zkontrolovaný.', 6000);
       } else if((res.roadbook.review_count || 0) > 0){
-        toast('Roadbook je To check – některá místa čekají na kontrolu.', 4500);
+        toast('Roadbook je ke kontrole – některá místa čekají na kontrolu.', 4500);
       } else if(res.roadbook.status !== 'ready'){
         toast('Roadbook téhle trasy je zatím rozpracovaný.', 4500);
       }
@@ -709,7 +709,19 @@ window.addEventListener('resize', () => { if($('nv-ride').classList.contains('op
   startSelectGps();
   // přímý odkaz z planneru: jízdu nespouštíme sami (GPS chce klepnutí), jen trasu vybereme
   const id = Number(new URLSearchParams(location.search).get('trasa'));
-  if(id && routes.some(r => r.id === id)) pickRoute(id, true);
+  if(id && routes.some(r => r.id === id)){
+    pickRoute(id, true);
+    // v4.15: z Atlasu („Roadbook“ u trasy) – GPS už je povolená, jízdu spustíme rovnou
+    if(new URLSearchParams(location.search).get('jed') === '1' && currentUser){
+      asked.add(id);
+      try{ history.replaceState(null, '', location.pathname + '?trasa=' + id); }catch(e){}
+      $('nv-simopt').checked = false;
+      startRide(id, false);
+      // zvuk se v prohlížeči odemkne až prvním klepnutím
+      const un = () => { if(window.CendurSound) CendurSound.unlock(); document.removeEventListener('pointerdown', un, true); };
+      document.addEventListener('pointerdown', un, true);
+    }
+  }
 })();
 
 })();

@@ -78,11 +78,11 @@
   //   auto  = trasa nemá uložený roadbook, počítá se automaticky z GPX
   //   draft = uložený, rozpracovaný
   //   ready = uložený a zkontrolovaný
-  //   check = GPX se změnilo nebo místa čekají na kontrolu („To check“)
+  //   check = GPX se změnilo nebo místa čekají na kontrolu („Ke kontrole“)
   RB.STATES = {
-    ready: { badge:'READY',        label:'Ready',        color:'#F5A300', css:'ready' },
-    check: { badge:'TO CHECK',     label:'To check',     color:'#D32F2F', css:'check' },
-    draft: { badge:'ROZPRACOVANÝ', label:'Rozpracovaný', color:'#7E57C2', css:'draft' },
+    ready: { badge:'READY',        label:'Ready',        color:'#2E7D32', css:'ready' },
+    check: { badge:'KE KONTROLE',  label:'Ke kontrole',  color:'#F5B800', css:'check' },
+    draft: { badge:'ROZPRACOVANÝ', label:'Rozpracovaný', color:'#EF6C00', css:'draft' },
     auto:  { badge:'AUTO',         label:'Auto',         color:'#8A8A8A', css:'auto' }
   };
   RB.STATE_ORDER = ['ready', 'check', 'draft', 'auto'];

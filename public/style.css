@@ -969,6 +969,29 @@ body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !import
 .owner-ach{display:inline-flex;align-items:center;gap:2px;padding:1px 8px;border-radius:999px;background:#EFEADC;font-size:1rem;}
 /* v4.4.2: v okně „Nový odznak“ jsou obě tlačítka stejně velká */
 .c-ask-badge .c-ask-row:not(.one){grid-template-columns:1fr 1fr;}
+/* v4.15: velké volby (Atlas NAVI | Roadbook | Ne) – na výšku pod sebou, na šířku vedle sebe */
+.c-ask-row[hidden],.c-ask-choices[hidden]{display:none;}
+.c-ask-choices{display:flex;flex-direction:column;gap:10px;margin-top:4px;}
+.c-ask-ch{display:flex;align-items:center;gap:12px;min-height:72px;width:100%;padding:10px 14px;border:2px solid #111;border-radius:12px;background:#fff;color:#111;font-family:'Exo 2',sans-serif;text-align:left;cursor:pointer;touch-action:manipulation;}
+.c-ask-ch:active{transform:scale(.98);}
+.c-ask-ch-i{font-size:2rem;line-height:1;flex:none;width:2.4rem;text-align:center;}
+.c-ask-ch-t{display:flex;flex-direction:column;min-width:0;}
+.c-ask-ch-t b{font-size:1.25rem;padding:0;line-height:1.15;}
+.c-ask-ch-t small{font-size:0.9rem;color:#555;line-height:1.25;}
+.c-ask-ch.atlas{background:var(--moss,#4F7048);border-color:var(--moss,#4F7048);color:#fff;}
+.c-ask-ch.rb{background:#111;border-color:#111;color:#fff;}
+.c-ask-ch.atlas small,.c-ask-ch.rb small{color:rgba(255,255,255,.85);}
+.c-ask-ch.no{min-height:56px;justify-content:center;}
+.c-ask-ch.no .c-ask-ch-i{display:none;}
+.c-ask-ch.no .c-ask-ch-t{align-items:center;}
+.c-ask-multi .c-ask-box{max-width:460px;}
+@media (orientation:landscape) and (max-height:560px){
+  .c-ask-multi .c-ask-box{max-width:min(860px,100%);}
+  .c-ask-choices{flex-direction:row;}
+  .c-ask-ch{flex:1 1 0;flex-direction:column;justify-content:center;text-align:center;min-height:min(46vh,170px);gap:6px;}
+  .c-ask-ch-t{align-items:center;}
+  .c-ask-ch.no{flex:0.7 1 0;min-height:min(46vh,170px);}
+}
 
 /* v4.5: doplňování tras ostatními členy */
 .photo-by{position:absolute;left:4px;bottom:4px;max-width:calc(100% - 8px);z-index:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:rgba(0,0,0,.6);color:#fff;font-size:0.68rem;padding:1px 6px;border-radius:6px;pointer-events:none;}
@@ -999,6 +1022,6 @@ body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !import
 .rb-chip i{width:10px;height:10px;border-radius:50%;background:#8A8A8A;flex:none;}
 .rb-chip.rb-ready i{background:#2E7D32;}
 .rb-chip.rb-check i{background:#F5B800;}
-.rb-chip.rb-draft i{background:#F5B800;box-shadow:inset 0 0 0 2px #EFEADC;outline:2px dashed #F5B800;outline-offset:-2px;}
+.rb-chip.rb-draft i{background:#EF6C00;}
 .rb-chip.rb-auto{color:var(--ink-soft);font-weight:600;}
 a.rb-chip:hover{background:#E4DCC6;}

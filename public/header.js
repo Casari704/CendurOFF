@@ -274,7 +274,7 @@
       askEl.className = 'c-ask'; askEl.hidden = true;
       askEl.setAttribute('role', 'dialog'); askEl.setAttribute('aria-modal', 'true'); askEl.setAttribute('aria-labelledby', 'c-ask-t');
       askEl.innerHTML = '<div class="c-ask-box"><button type="button" class="c-ask-x" aria-label="Zavřít">×</button>' +
-        '<div class="c-ask-icon" hidden></div><b id="c-ask-t"></b><p class="c-ask-msg"></p><ul class="c-ask-list" hidden></ul><div class="c-ask-row"><button type="button" class="c-ask-yes"></button><button type="button" class="c-ask-no"></button></div></div>';
+        '<div class="c-ask-icon" hidden></div><b id="c-ask-t"></b><p class="c-ask-msg"></p><ul class="c-ask-list" hidden></ul><div class="c-ask-choices" hidden></div><div class="c-ask-row"><button type="button" class="c-ask-yes"></button><button type="button" class="c-ask-no"></button></div></div>';
       document.body.appendChild(askEl);
       askEl.querySelector('.c-ask-x').addEventListener('click', () => askClose(true));
       // klik do tmavého pozadí zavře – ale ne „dojezd“ ťuknutí, které okno právě otevřelo
@@ -295,12 +295,22 @@
     items.forEach(it => { const li = document.createElement('li'); li.innerHTML = '<span></span><div><b></b><small></small></div>';
       li.querySelector('span').textContent = it.icon || ''; li.querySelector('b').textContent = it.name || ''; li.querySelector('small').textContent = it.desc || ''; ul.appendChild(li); });
     askEl.classList.toggle('c-ask-badge', !!askOpts.icon);
+    // v4.15: víc velkých voleb pod sebou / vedle sebe (na šířku) – choices:[{icon, label, sub, cls, fn}]
+    const ch = askEl.querySelector('.c-ask-choices'); const chs = Array.isArray(askOpts.choices) ? askOpts.choices : [];
+    ch.hidden = !chs.length; ch.innerHTML = '';
+    chs.forEach(c => { const b = document.createElement('button'); b.type = 'button'; b.className = 'c-ask-ch' + (c.cls ? ' ' + c.cls : '');
+      b.innerHTML = '<span class="c-ask-ch-i"></span><span class="c-ask-ch-t"><b></b><small></small></span>';
+      b.querySelector('.c-ask-ch-i').textContent = c.icon || ''; b.querySelector('b').textContent = c.label || ''; b.querySelector('small').textContent = c.sub || '';
+      b.addEventListener('click', () => { if(Date.now() - askAt < 350) return; askClose(false); if(c.fn) c.fn(); });
+      ch.appendChild(b); });
+    askEl.classList.toggle('c-ask-multi', !!chs.length);
+    askEl.querySelector('.c-ask-row').hidden = !!chs.length;
     const y = askEl.querySelector('.c-ask-yes'), n = askEl.querySelector('.c-ask-no');
     y.textContent = askOpts.yes ? askOpts.yes.label : 'OK';
     n.hidden = !askOpts.no; n.textContent = askOpts.no ? askOpts.no.label : '';
     askEl.querySelector('.c-ask-row').classList.toggle('one', !askOpts.no);
     askEl.hidden = false; askAt = Date.now();
-    try{ y.focus({ preventScroll:true }); }catch(e){}
+    try{ (chs.length ? ch.firstChild : y).focus({ preventScroll:true }); }catch(e){}
   }
   const askOpen = () => !!(askEl && !askEl.hidden);
 

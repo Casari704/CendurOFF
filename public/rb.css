@@ -26,9 +26,9 @@
 .rb-page .btn-rb[hidden]{display:none;}
 
 .rb-badge{display:inline-block;font-family:'Exo 2',sans-serif;font-weight:800;font-size:0.72rem;letter-spacing:1px;padding:3px 8px;border-radius:4px;white-space:nowrap;}
-.rb-badge.ready{background:#F5A300;color:#111;}
-.rb-badge.check{background:#D32F2F;color:#fff;}
-.rb-badge.draft{background:#7E57C2;color:#fff;}
+.rb-badge.ready{background:#2E7D32;color:#fff;}
+.rb-badge.check{background:#F5B800;color:#111;}
+.rb-badge.draft{background:#EF6C00;color:#fff;}
 .rb-badge.auto,.rb-badge.none{background:#8A8A8A;color:#fff;}
 .rb-badge.unsaved{background:#fff;color:#111;border:2px dashed #111;padding:1px 7px;}
 .rb-danger{display:inline-block;background:var(--rb-red);color:#fff;font-weight:800;padding:0 6px;border-radius:4px;letter-spacing:1px;}
@@ -68,7 +68,7 @@
 
 #rb-mapwrap{flex:1;position:relative;min-width:0;}
 #rb-map{position:absolute;inset:0;}
-#rb-map-tools{position:absolute;top:12px;left:12px;z-index:800;display:flex;flex-direction:column;gap:8px;align-items:flex-start;}
+#rb-map-tools{position:absolute;top:12px;left:64px;max-width:calc(100% - 76px);z-index:800;display:flex;flex-direction:column;gap:8px;align-items:flex-start;}
 #rb-map-tools .hint{background:rgba(255,255,255,.94);padding:6px 10px;border-radius:6px;font-size:0.8rem;font-weight:600;max-width:280px;}
 #rb-base{position:absolute;top:12px;right:12px;width:auto;padding:0 6px;z-index:800;height:36px;border:2px solid #111;border-radius:8px;font-family:'Exo 2',sans-serif;font-weight:600;background:#fff;}
 .rb-mk{width:26px;height:26px;border-radius:50%;border:3px solid #111;background:#fff;display:flex;align-items:center;justify-content:center;font:800 12px 'Exo 2',sans-serif;color:#111;box-sizing:border-box;}

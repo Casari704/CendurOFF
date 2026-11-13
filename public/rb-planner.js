@@ -373,7 +373,7 @@ function renderStatus(){
   if(!route){ el.className = 'rb-badge none'; el.textContent = '—'; $('rb-info').textContent = ''; return; }
   if(!saved){ el.className = 'rb-badge unsaved'; el.textContent = 'NEULOŽENO'; }
   else {
-    // To check: některá místa čekají na kontrolu (po změně GPX nebo ručně označená)
+    // Ke kontrole: některá místa čekají na kontrolu (po změně GPX nebo ručně označená)
     const st = items.some(it => it.review && !it.deleted) ? 'check' : (status === 'ready' ? 'ready' : 'draft');
     el.className = 'rb-badge ' + RB.STATES[st].css; el.textContent = 'ROADBOOK ' + RB.STATES[st].badge;
   }
@@ -603,7 +603,7 @@ function setPickMode(on){
   $('rb-pick').textContent = on ? (route ? '✕ Zpět k roadbooku' : 'Vyber trasu na mapě') : '🗺 Vybrat jinou trasu';
   $('rb-pick').disabled = on && !route;
   $('rb-map-hint').textContent = on
-    ? 'Klikni na trasu na mapě. Žlutá = Ready, červená = To check, fialová = rozpracovaný, šedá = Auto (bez uloženého roadbooku), čárkovaná = neuložené změny.'
+    ? 'Klikni na trasu na mapě. Zelená = Ready, žlutá = Ke kontrole, oranžová = rozpracovaný, šedá = Auto (bez uloženého roadbooku), čárkovaná = neuložené změny.'
     : 'Klikni na trasu – vloží se nová instrukce. Body instrukcí jde přetáhnout po trase.';
   $('rb-add').hidden = on || !canEdit;
   markerLayer.eachLayer(m => m.setOpacity && m.setOpacity(on ? 0.35 : 1));

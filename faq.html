@@ -10,8 +10,8 @@
 <title>CendurOFF FAQ – jak to funguje</title>
 <meta name="description" content="Nápověda k CendurOFF: Atlas NAVI, navigace, záznam jízdy, Atlas Planner, Roadbook planner a Roadbook NAVI.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.14">
-<link rel="stylesheet" href="public/faq.css?v=4.14">
+<link rel="stylesheet" href="public/style.css?v=4.15">
+<link rel="stylesheet" href="public/faq.css?v=4.15">
 </head>
 <body class="faq-page">
 <header class="topbar" data-page="faq" data-auth="auto"></header>
@@ -62,9 +62,9 @@
     <details>
       <summary>Jak kvalitní je roadbook? (Auto vs. upravený)</summary>
       <p><b>Auto</b> (šedá) – trasa nemá uložený roadbook. Při jízdě se spočítá automaticky jen ze zatáček v GPX: pozná ostřejší zatáčky a vracáky, ale <b>nezná křižovatky</b> (odbočky ostatních cest), symboly, nebezpečí ani poznámky. Hodí se na rychlé vyzkoušení trasy.</p>
-      <p><b>Rozpracovaný</b> (fialová) – roadbook je v Roadbook planneru uložený (obvykle se staženými křižovatkami z OSM), ale autor ho ještě nemá zkontrolovaný.</p>
+      <p><b>Rozpracovaný</b> (oranžová) – roadbook je v Roadbook planneru uložený (obvykle se staženými křižovatkami z OSM), ale autor ho ještě nemá zkontrolovaný.</p>
       <p><b>Ready</b> (žlutá) – roadbook upravený na míru: křižovatky, symboly, nebezpečí a poznámky zkontroloval člověk, který trasu zná. Tohle je plnohodnotný rally roadbook.</p>
-      <p><b>To check</b> (červená) – trasa (GPX) se od uložení roadbooku změnila, nebo některá místa čekají na kontrolu. Jet se dá, ale roadbook nemusí všude sedět.</p>
+      <p><b>Ke kontrole</b> (žlutá) – trasa (GPX) se od uložení roadbooku změnila, nebo některá místa čekají na kontrolu. Jet se dá, ale roadbook nemusí všude sedět.</p>
       <p>Víc o roadbooku: <a href="#roadbook">Roadbook – co to je</a>, <a href="#rb-planner">Roadbook planner</a>, <a href="#rb-navi">Roadbook NAVI</a>.</p>
     </details>
   </section>
@@ -190,6 +190,7 @@
       <summary>Volná jízda – co znamená „na trase“ a šipka nahoře?</summary>
       <p>Při navigaci se Atlas sám <b>chytí nejbližší trasy</b> (když jsi do 40 m od ní) a zvýrazní ji modře – nahoře svítí <b>Volná jízda · na trase …</b>. Když od trasy odjedeš dál než asi 90 m, zase ji pustí.</p>
       <p>Klepnutím na trasu ji vybereš natrvalo (nahoře <b>Trasa: …</b>), klepnutím do prázdné mapy se vrátíš do volné jízdy.</p>
+      <p><b>Trasa s roadbookem:</b> když přijedeš k trase, která má roadbook (ready, ke kontrole nebo rozpracovaný), Atlas se zeptá, jak chceš jet: <b>Atlas NAVI</b> (trasu vybere a jedeš dál v mapě), <b>Roadbook</b> (přepne do Roadbook NAVI a rovnou spustí jízdu) nebo <b>Ne</b>. Na stejnou trasu se znovu zeptá, až od ní odjedeš aspoň 200 m. Při nahrávání jízdy se neptá.</p>
       <p><b>Zvuky v Atlasu:</b> když trasu klepnutím vybereš a má roadbook, hraje Atlas stejné zvuky jako Roadbook NAVI – gong (u nebezpečí bzučák) a hlas před instrukcí, a při vyjetí z trasy „Jsi mimo trasu“. Připojit se můžeš <b>kdekoli na trase</b> – instrukce za tebou se přeskočí. U tras tam a zpět se podle směru jízdy pozná, na kterém úseku jsi. U trasy, ke které se jen přiblížíš (bez vybrání), se ukazuje šipka nahoře, ale nehraje nic.</p>
       <p>Má-li aktivní trasa uložený roadbook a jedeš po jeho směru, nahoře se ukáže <b>šipka další instrukce s odpočtem metrů</b>. Když jedeš proti směru roadbooku, ukáže se jen upozornění.</p>
     </details>
@@ -269,8 +270,8 @@
       <p>Všechny symboly najdeš v Roadbook planneru pod <b>Nástroje ▾ → Legenda symbolů</b>.</p>
     </details>
     <details>
-      <summary>Co znamenají stavy roadbooku (Auto, Rozpracovaný, Ready, To check)?</summary>
-      <p><b>Auto</b> (šedá) = trasa nemá uložený roadbook – při jízdě se spočítá automaticky ze zatáček GPX. <b>Rozpracovaný</b> (fialová) = roadbook je v Roadbook planneru uložený, ale ještě není hotový. <b>Ready</b> (žlutá) = autor roadbook zkontroloval a označil jako hotový. <b>To check</b> (červená) = trasa (GPX) se od uložení změnila, nebo některá místa čekají na kontrolu („ke kontrole“). Po kontrole a uložení se stav vrátí na Ready / Rozpracovaný.</p>
+      <summary>Co znamenají stavy roadbooku (Auto, Rozpracovaný, Ready, Ke kontrole)?</summary>
+      <p><b>Auto</b> (šedá) = trasa nemá uložený roadbook – při jízdě se spočítá automaticky ze zatáček GPX. <b>Rozpracovaný</b> (oranžová) = roadbook je v Roadbook planneru uložený, ale ještě není hotový. <b>Ready</b> (zelená) = autor roadbook zkontroloval a označil jako hotový. <b>Ke kontrole</b> (žlutá) = trasa (GPX) se od uložení změnila, nebo některá místa čekají na kontrolu („ke kontrole“). Po kontrole a uložení se stav vrátí na Ready / Rozpracovaný.</p>
     </details>
   </section>
 
@@ -281,7 +282,7 @@
     <details>
       <summary>Jak připravím roadbook k trase?</summary>
       <ol>
-        <li>Na dlaždicích otevři <b>Roadbook planner</b> a <b>klikni na trasu na mapě</b> (nebo ji vyber nahoře v seznamu). Barva: žlutá = Ready, červená = To check, fialová = rozpracovaný, šedá = Auto (bez uloženého roadbooku), čárkovaná = neuložené změny.</li>
+        <li>Na dlaždicích otevři <b>Roadbook planner</b> a <b>klikni na trasu na mapě</b> (nebo ji vyber nahoře v seznamu). Barva: zelená = Ready, žlutá = Ke kontrole, oranžová = rozpracovaný, šedá = Auto (bez uloženého roadbooku), čárkovaná = neuložené změny.</li>
         <li>U trasy bez roadbooku se planner zeptá, jak ho vygenerovat:
           <ul>
             <li><b>Stáhnout z OSM a vygenerovat</b> – může chvíli trvat (od pár vteřin po minutu), ale roadbook bude <b>výrazně přesnější</b>: doplní křižovatky s odbočkami, typ cesty, brody, závory, přejezdy a benzínky. Průběh vidíš (dotazy, MB, čas) a stahování jde kdykoli zrušit. Data se uloží v prohlížeči, příště je generování okamžité.</li>
@@ -324,7 +325,7 @@
     </details>
     <details>
       <summary>Co se stane, když se trasa změní v Atlas Planneru?</summary>
-      <p>Roadbook se přepne na <b>To check</b>. Při dalším otevření v Roadbook planneru se přepočítá podle nové trasy – tvoje úpravy zůstanou a místa, která už na trase neleží, se označí „ke kontrole“. Pak roadbook ulož a znovu označ READY.</p>
+      <p>Roadbook se přepne na <b>Ke kontrole</b>. Při dalším otevření v Roadbook planneru se přepočítá podle nové trasy – tvoje úpravy zůstanou a místa, která už na trase neleží, se označí „ke kontrole“. Pak roadbook ulož a znovu označ READY.</p>
     </details>
   </section>
 
@@ -387,11 +388,11 @@
 </main>
 
 <div class="toast" id="toast"></div>
-<script src="public/config.js?v=4.14"></script>
-<script src="public/errors.js?v=4.14"></script>
-<script src="public/rider.js?v=4.14"></script>
-<script src="public/header.js?v=4.14"></script>
-<script src="public/pwa.js?v=4.14"></script>
+<script src="public/config.js?v=4.15"></script>
+<script src="public/errors.js?v=4.15"></script>
+<script src="public/rider.js?v=4.15"></script>
+<script src="public/header.js?v=4.15"></script>
+<script src="public/pwa.js?v=4.15"></script>
 <script>
 // otevře sekci, na kterou vede odkaz (#rb-planner apod.)
 (function(){

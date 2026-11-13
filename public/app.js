@@ -1901,6 +1901,31 @@ function freeUpdate(latlng){
   if(old !== now){ if(old != null) applyRouteStyle(old); if(now != null) applyRouteStyle(now); }
   if(now != null) freeLoadRb(now);   // načte se jen jednou (a jen když trasa roadbook má)
   freeRender();
+  freeOffer(latlng);
+}
+// v4.15: přijedu k trase s roadbookem → nabídka Atlas NAVI | Roadbook | Ne (jednou; znovu až po vzdálení na 200 m)
+const FREE_ASK_M = 40, FREE_ASK_RESET_M = 200;
+const freeAsked = new Set();
+function freeOffer(latlng){
+  const RB = window.CendurRB;
+  if(!RB || !freeSums || !navOn || !currentUser) return;
+  [...freeAsked].forEach(id => { const r = routesCache[id]; if(!r || freeDistM(r, latlng[0], latlng[1], FREE_ASK_RESET_M + 100) > FREE_ASK_RESET_M) freeAsked.delete(id); });
+  if(freePickedId != null || freeCaughtId == null || freeAsked.has(freeCaughtId)) return;
+  if(rec.state !== 'idle' || (window.CendurHeader && CendurHeader.askOpen())) return;   // při nahrávání jízdy neodcházet ze stránky
+  const id = freeCaughtId, r = routesCache[id], st = RB.stateOf(freeSums[id]);
+  if(!r || !freeSums[id] || st === 'auto') return;
+  if(freeDistM(r, latlng[0], latlng[1], 100) > FREE_ASK_M) return;
+  freeAsked.add(id);
+  const note = st === 'check' ? 'Roadbook je ke kontrole.' : st === 'draft' ? 'Roadbook je zatím rozpracovaný.' : 'Trasa má roadbook.';
+  CendurHeader.ask({
+    title: 'Jsi u trasy „' + r.name + '“',
+    msg: note + ' Jak chceš jet?',
+    choices: [
+      { icon:'🧭', label:'Atlas NAVI', sub:'mapa, instrukce v rohu', cls:'atlas', fn: () => freePick(id) },
+      { icon:'📒', label:'Roadbook', sub:'velké instrukce, počítadlo', cls:'rb', fn: () => { location.href = 'roadbook-navi.html?trasa=' + id + '&jed=1'; } },
+      { label:'Ne', cls:'no' }
+    ]
+  });
 }
 async function freeLoadRb(id){
   const RB = window.CendurRB;
