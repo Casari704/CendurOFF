@@ -111,6 +111,7 @@ async function renderOfflineBox(id){
 const HOME_BOUNDS = [[49.55, 16.35], [50.30, 18.95]];
 const ASK_M = 40, ASK_RESET_M = 200;   // nabídka „navigovat?“ do 40 m od trasy; znovu až po vzdálení na 200 m
 let selMap = null, selLayer = null, picked = null, pickRev = false;
+let selArrows = null, miniArrows = null, bigArrows = null;   // v4.10: šipky směru jízdy
 let me = null, meMarker = null, selWatch = null, firstFix = true;
 const asked = new Set();
 // v3.2: trasy s roadbookem READY mají barvu podle typu jako v Atlasu, všechny ostatní šedé
@@ -147,6 +148,7 @@ function drawSelectMap(){
     hit.bindTooltip(esc(r.name), { sticky: true });
     hit.on('click', () => { if(picked === r.id) unpick(); else pickRoute(r.id, false); });
   });
+  updateSelArrows();
   setTimeout(() => selMap.invalidateSize(), 60);
 }
 function updateTitle(){
@@ -187,6 +189,7 @@ function pickRoute(id, fromList){
   }
   $('nv-pick-dir').hidden = !!sm;
   $('nv-pick-dir').textContent = '⇅ Směr: ' + (pickRev ? 'obráceně' : 'od začátku');
+  updateSelArrows();
   $('nv-pick').classList.add('open');
   renderOfflineBox(id);
   drawSelectMap();
@@ -205,6 +208,7 @@ $('nv-pick-x').addEventListener('click', unpick);
 $('nv-pick-dir').addEventListener('click', () => {
   pickRev = !pickRev;
   $('nv-pick-dir').textContent = '⇅ Směr: ' + (pickRev ? 'obráceně' : 'od začátku');
+  updateSelArrows();
   updateTitle();
 });
 $('nv-pick-go').addEventListener('click', () => { if(picked) startRide(picked, pickRev); });
@@ -506,6 +510,15 @@ $('nv-sim-speed').addEventListener('click', () => { if(!sim) return; sim.kmh = S
 // ---------------------------------------------------------------
 // Mapy (minimapa v rohu + velká mapa)
 // ---------------------------------------------------------------
+// v4.10: šipky směru jízdy na vybrané trase (roadbook je jednosměrný; „⇅ Směr: obráceně“ je otočí)
+function updateSelArrows(){
+  if(selArrows){ selArrows.remove(); selArrows = null; }
+  const pr = picked && routes.find(x => x.id === picked);
+  if(!selMap || !pr || !window.CendurArrows || !Array.isArray(pr.points) || pr.points.length < 2) return;
+  const ll = pr.points.map(p => [p[0], p[1]]);
+  if(pickRev) ll.reverse();
+  selArrows = window.CendurArrows.attach(selMap, ll, { spacing:90, size:20, fill:'#ffffff', stroke:'#123E8C' });
+}
 function meIcon(){ return L.divIcon({ className:'', html:'<div class="nv-me"><img src="public/img/gps-arrow.png" alt=""></div>', iconSize:[34, 34], iconAnchor:[17, 17] }); }
 function setupMaps(){
   const ll = R.lat.map((la, i) => [la, R.lon[i]]);
@@ -515,6 +528,8 @@ function setupMaps(){
   }
   mini.eachLayer(l => { if(l instanceof L.Polyline || l instanceof L.Marker) mini.removeLayer(l); });
   L.polyline(ll, { color:'#4F7048', weight:6 }).addTo(mini);
+  if(miniArrows) miniArrows.remove();
+  miniArrows = window.CendurArrows ? window.CendurArrows.attach(mini, ll, { spacing:60, size:16 }) : null;
   miniMe = L.marker(ll[0], { icon: meIcon(), keyboard:false, interactive:false }).addTo(mini);
   setTimeout(() => { mini.invalidateSize(); mini.setView(ll[0], 16); }, 60);
   if(!big){
@@ -523,6 +538,8 @@ function setupMaps(){
   }
   big.eachLayer(l => { if(l instanceof L.Polyline || l instanceof L.Marker) big.removeLayer(l); });
   L.polyline(ll, { color:'#4F7048', weight:6 }).addTo(big);
+  if(bigArrows) bigArrows.remove();
+  bigArrows = window.CendurArrows ? window.CendurArrows.attach(big, ll, { spacing:90, size:20 }) : null;
   vis.forEach(it => L.marker([it.lat, it.lon], { icon: L.divIcon({ className:'', html:'<div class="rb-mk' + (it.kind ? ' kind' : '') + '">' + (it.kind === 'start' ? 'S' : it.kind === 'finish' ? 'C' : it.n) + '</div>', iconSize:[26, 26], iconAnchor:[13, 13] }) })
     .bindTooltip(esc(RB.label(it))).addTo(big));
   bigMe = L.marker(ll[0], { icon: meIcon(), keyboard:false, interactive:false, zIndexOffset:2000 }).addTo(big);
