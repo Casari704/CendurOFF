@@ -989,3 +989,5 @@ body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !import
 .li-hint{display:block;font-size:0.78rem;color:var(--ink-soft);margin-top:-2px;}
 /* v4.9: logo na přihlášení se na šířku nesmí zmáčknout do elipsy */
 .hero-logo{object-fit:contain;aspect-ratio:1/1;}
+/* v4.11: hláška (toast) nesmí blokovat klepnutí do mapy pod ní */
+.toast{pointer-events:none;}

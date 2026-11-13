@@ -430,6 +430,7 @@ function requestRoute(seg){
 // Mapa
 // ---------------------------------------------------------------
 const map = L.map('map', { zoomControl:false }).setView([49.8711, 17.8756], 12);
+window.CendurPlannerMap = map;   // pro testy / ladění
 // v3.8: podkladové mapy – turistická Mapy.com a satelit (public/basemaps.js), společné s Atlasem
 const baseCtl = window.CendurMaps.attach(map, { toast: t => toast(t, 1800) });
 
@@ -470,6 +471,7 @@ map.on('popupopen', ()=>{ popupOpen = true; });
 map.on('popupclose', ()=>{ popupOpen = false; lastPopupClose = Date.now(); });
 
 map.on('click', e=>{
+  if(crossMode){ crossAt(e.latlng); return; }
   if(popupOpen || Date.now() - lastPopupClose < 350) return;
   addPoint(e.latlng);
 });
@@ -576,6 +578,95 @@ function setSegMode(i, mode){
   changed();
 }
 
+// ---------------------------------------------------------------
+// v4.11: přepojení křížení – klepnutím na místo, kde se trasa kříží, se obě linie v tom místě
+// rozpojí a spojí obráceně (2-opt): smyčka mezi nimi se projede opačným směrem.
+// Geometrie zůstane stejná – úseky se jen otočí, nic se nepřepočítává.
+// ---------------------------------------------------------------
+let crossMode = false;
+const crossBar = document.createElement('div');
+crossBar.className = 'pl-crossbar'; crossBar.hidden = true;
+crossBar.innerHTML = '<span>✂ Klepni na místo, kde se trasa kříží</span><button type="button">Zrušit</button>';
+map.getContainer().appendChild(crossBar);
+L.DomEvent.disableClickPropagation(crossBar);
+crossBar.querySelector('button').addEventListener('click', ()=> setCrossMode(false));
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape' && crossMode) setCrossMode(false); });
+function setCrossMode(on){
+  crossMode = !!on;
+  crossBar.hidden = !crossMode;
+  document.body.classList.toggle('pl-cross-mode', crossMode);
+}
+function splitSegAt(k, n){
+  const g = segGeometry(k), s = segs[k];
+  const p = [n.lat, n.lng, n.ele];
+  const s1 = newSeg(s.mode, s.mode==='straight' ? null : g.slice(0, n.k+1).concat([p]));
+  const s2 = newSeg(s.mode, s.mode==='straight' ? null : [p].concat(g.slice(n.k+1)));
+  s1.error = s2.error = s.error;
+  s.req++;
+  wps.splice(k+1, 0, { lat:n.lat, lng:n.lng, ele:n.ele, small:true });
+  segs.splice(k, 1, s1, s2);
+  if(s.mode==='route' && (s.loading || s.error || !s.pts)){ s1.pts = s2.pts = null; requestRoute(s1); requestRoute(s2); }
+  return k+1;
+}
+function crossAt(ll){
+  if(segs.length < 1){ toast('Nejdřív potřebuješ trasu.'); return; }
+  // tolerance ~22 px na obrazovce
+  const p0 = map.latLngToContainerPoint(ll);
+  const tol = Math.max(8, map.distance(ll, map.containerPointToLatLng(p0.add([22, 0]))));
+  // všechny průchody trasy kolem místa klepnutí (s polohou podél trasy)
+  const hits = [];
+  let along = 0;
+  segs.forEach((s, k)=>{
+    const g = segGeometry(k);
+    const lens = []; let L0 = 0;
+    for(let q=0;q<g.length-1;q++){ lens.push(L0); L0 += map.distance([g[q][0],g[q][1]], [g[q+1][0],g[q+1][1]]); }
+    for(let q=0;q<g.length-1;q++){
+      const n = nearestOnLine([g[q], g[q+1]], ll);
+      if(!n) continue;
+      const d = map.distance(ll, [n.lat, n.lng]);
+      if(d <= tol){
+        const segLen = map.distance([g[q][0],g[q][1]], [g[q+1][0],g[q+1][1]]);
+        hits.push({ k, q, d, along: along + lens[q] + n.t * segLen, n: Object.assign({}, n, { k:q }) });
+      }
+    }
+    along += L0;
+  });
+  hits.sort((a, b)=> a.d - b.d);
+  const h1 = hits[0];
+  const minGap = Math.max(60, tol * 4);
+  const h2 = h1 && hits.find(h => Math.abs(h.along - h1.along) > minGap);
+  if(!h1 || !h2){ toast('Tady se trasa nekříží – klepni přesně na místo, kde se čáry protínají.', 3500); return; }
+  pushUndo();
+  // nejdřív rozdělit ten průchod, který je dál podél trasy (indexy dřívějšího se nezmění)
+  const [early, late] = h1.along < h2.along ? [h1, h2] : [h2, h1];
+  let b = splitSegAt(late.k, late.n);
+  let a = splitSegAt(early.k, early.n);
+  if(late.k > early.k || (late.k === early.k)) b += 1;   // vložení dřívějšího bodu posunulo pozdější o 1
+  // a = T1 (dřívější), b = T2 (pozdější); obrátit vše mezi nimi
+  const T1 = wps[a], T2 = wps[b];
+  const mid = segs.slice(a, b).reverse().map(s=>{
+    const r = newSeg(s.mode, s.pts ? s.pts.slice().reverse() : null);
+    r.error = s.error; if(s.loading) s.req++;
+    return r;
+  });
+  const fix = (seg, first, last)=>{
+    if(!seg.pts || seg.mode === 'straight') return;
+    const pts = seg.pts.slice();
+    if(first) pts[0] = [first.lat, first.lng, first.ele];
+    if(last) pts[pts.length-1] = [last.lat, last.lng, last.ele];
+    seg.pts = pts;
+  };
+  if(mid.length === 1) fix(mid[0], T1, T2);
+  else { fix(mid[0], T1, null); fix(mid[mid.length-1], null, T2); }
+  const midW = wps.slice(a+1, b).reverse();
+  wps = wps.slice(0, a+1).concat(midW, wps.slice(b));
+  segs = segs.slice(0, a).concat(mid, segs.slice(b));
+  segs.forEach(s=>{ if(s.mode==='route' && !s.pts && !s.loading) requestRoute(s); });
+  setCrossMode(false);
+  changed();
+  toast('Křížení přepojeno – smyčka se teď projede obráceně. (Vrátíš tlačítkem Zpět.)', 4500);
+}
+
 function reverseRoute(){
   if(wps.length < 2) return;
   pushUndo();
@@ -678,6 +769,7 @@ function renderSegs(){
     const hit = L.polyline(latlngs, { pane:'pl-route', weight:22, opacity:0, bubblingMouseEvents:false }).addTo(segLayer);
     hit.on('click', e=>{
       L.DomEvent.stopPropagation(e);
+      if(crossMode){ crossAt(e.latlng); return; }
       const idx = segLines.findIndex(x=>x.hit===hit);
       if(idx >= 0) insertOnSeg(idx, e.latlng);
     });
@@ -698,7 +790,7 @@ function renderWps(){
       if(i < segs.length && segLines[i]) segLines[i].line.setLatLngs([ll, [wps[i+1].lat, wps[i+1].lng]]);
     });
     m.on('dragend', e=> moveWaypoint(i, e.target.getLatLng()));
-    m.on('click', ()=> openWpPopup(i, m));
+    m.on('click', ()=>{ if(crossMode){ crossAt(m.getLatLng()); return; } openWpPopup(i, m); });
   });
 }
 
@@ -857,6 +949,11 @@ pathsEl.addEventListener('change', onPrefChange);
 document.getElementById('pl-undo').addEventListener('click', undo);
 document.getElementById('pl-redo').addEventListener('click', redo);
 document.getElementById('pl-reverse').addEventListener('click', ()=>{ closeSheet(); reverseRoute(); });
+document.getElementById('pl-cross').addEventListener('click', ()=>{
+  closeSheet();
+  if(segs.length < 1){ toast('Nejdřív potřebuješ trasu.'); return; }
+  setCrossMode(true);
+});
 document.getElementById('pl-clear').addEventListener('click', ()=>{ closeSheet(); clearAll(); });
 document.addEventListener('keydown', e=>{
   if(e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;

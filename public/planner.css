@@ -175,3 +175,9 @@ body.auth-pending #app-screen{visibility:hidden;}
 /* v3.6: +3 / −3 */
 #pl-mapctl .map-btn-square.pl-z3{font-size:1.05rem;font-weight:800;}
 @media (max-height:520px){ #pl-mapctl .pl-z3{display:none;} }
+
+/* v4.11: přepojení křížení */
+.pl-crossbar{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:1000;display:flex;align-items:center;gap:10px;background:#1E2A1E;color:#fff;border-radius:12px;padding:8px 8px 8px 14px;font-weight:700;font-size:0.95rem;box-shadow:0 4px 14px rgba(0,0,0,.3);max-width:calc(100% - 24px);}
+.pl-crossbar[hidden]{display:none;}
+.pl-crossbar button{min-height:40px;padding:0 14px;border-radius:9px;border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;font:inherit;cursor:pointer;}
+body.pl-cross-mode #map{cursor:crosshair;}
