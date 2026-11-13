@@ -887,12 +887,15 @@ function renderStats(){
 }
 
 let draftTimer = null;
+// v4.13: dirty = v plánovači jsou neuložené změny. Otevřená uložená trasa bez úprav se při příštím
+// otevření plánovače neobnovuje – plánovač pak začíná s novou trasou.
+let dirty = false;
 function saveDraftSoon(){
   clearTimeout(draftTimer);
   draftTimer = setTimeout(()=>{
     if(!wps.length && !editing){ try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} return; }
     lsSet(DRAFT_KEY, {
-      v:1, wps, editing,
+      v:1, wps, editing, dirty,
       segs: segs.map(s=>({ mode:s.mode, pts: s.mode==='straight' ? null : s.pts, error:!!s.error }))
     });
   }, 600);
@@ -900,6 +903,7 @@ function saveDraftSoon(){
 
 // fromRouting=true: jen dorazil výsledek hledání cesty (bez změny bodů)
 function changed(fromRouting){
+  if(!fromRouting) dirty = true;
   renderSegs();
   if(!fromRouting) renderWps();
   clearTimeout(statsTimer);
@@ -1082,6 +1086,7 @@ async function openRouteById(id, askFirst){
   try{
     loadPoints(r.points, { id:r.id, name:r.name, description:r.description || '', route_type:r.route_type, owner_id:r.owner_id, owner_display:r.owner_display });
   }catch(e){ toast(e.message); return false; }
+  dirty = false; saveDraftSoon();
   drawOthers();
   const own = currentUser && currentUser.id === r.owner_id;
   toast(own ? 'Trasa otevřena – můžeš ji upravit a uložit změny.' : 'Trasa otevřena jako admin (patří uživateli ' + (r.owner_display || '?') + ').', 5000);
@@ -1175,10 +1180,16 @@ async function doSave(overwrite){
     editing = { id:saved.id, name:saved.name, description:saved.description || '', route_type:saved.route_type,
                 owner_id: overwrite ? editing.owner_id : currentUser.id, owner_display: overwrite ? editing.owner_display : currentUser.displayName };
     saveOverlay.classList.remove('open');
-    renderStats();
-    saveDraftSoon();
     loadRouteList();
-    toast(overwrite ? 'Změny trasy uloženy.' : 'Trasa uložena do CendurOFF.', 4000);
+    // v4.13: po uložení plánovač začne novou trasu (uloženou jde vrátit tlačítkem ↶ Zpět)
+    pushUndo();
+    segs.forEach(sg=>sg.req++);
+    wps = []; segs = []; editing = null;
+    changed();
+    dirty = false;
+    try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
+    drawOthers();
+    toast((overwrite ? 'Změny trasy uloženy.' : 'Trasa uložena do CendurOFF.') + ' Můžeš kreslit novou trasu nebo otevřít GPX.', 4500);
   }catch(e){
     msg.textContent = e.message || 'Trasu se nepodařilo uložit.';
   }finally{
@@ -1203,6 +1214,7 @@ document.getElementById('pl-save-download').addEventListener('click', downloadCu
 function restoreDraft(){
   const d = lsGet(DRAFT_KEY, null);
   if(!d || !Array.isArray(d.wps) || !Array.isArray(d.segs) || d.segs.length !== Math.max(0, d.wps.length-1)) return false;
+  if(d.dirty === false){ try{ localStorage.removeItem(DRAFT_KEY); }catch(e){} return false; }
   wps = d.wps;
   segs = d.segs.map(s=>newSeg(s.mode, s.pts));
   segs.forEach((s,i)=>{ s.error = !!d.segs[i].error; if(s.mode==='route' && !s.pts) requestRoute(s); });
