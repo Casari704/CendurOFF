@@ -8,8 +8,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
 <title>CendurOFF Admin sekce</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.9.1">
-<link rel="stylesheet" href="public/faq.css?v=4.9.1">
+<link rel="stylesheet" href="public/style.css?v=4.9.2">
+<link rel="stylesheet" href="public/faq.css?v=4.9.2">
 <style>
   .a-wrap{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
   .a-wrap h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);}
@@ -33,7 +33,16 @@
   .a-deleted{font-size:0.72rem;font-weight:700;background:#E4E0D6;color:#333;padding:1px 6px;border-radius:4px;margin-left:6px;}
   .a-riders{margin:4px 0;padding-left:18px;}
   .a-note{color:var(--ink-soft);margin:0 0 6px;font-size:0.92rem;}
-  .a-pending{background:#FFF4D6;border:2px solid #E0B43C;border-radius:10px;padding:10px 14px;font-weight:700;margin:6px 0 10px;}
+  .a-fold{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:8px;border-radius:8px;padding:4px 6px 4px 0;}
+  .a-fold:focus-visible{outline:2px solid var(--moss);outline-offset:2px;}
+  .a-chev{display:inline-block;transition:transform .15s;font-size:0.9em;color:var(--moss);}
+  .a-fold[aria-expanded="true"] .a-chev{transform:rotate(90deg);}
+  .a-count{background:var(--moss);color:#fff;border-radius:999px;padding:1px 9px;font-size:0.8rem;font-weight:700;line-height:1.5;}
+  .a-count:empty{display:none;}
+  section.a-closed > :not(h2){display:none !important;}
+  section.a-closed h2 small{display:none;}
+  #a-users-sec,#a-stats-sec{border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:6px;}
+  .a-pending{cursor:pointer;background:#FFF4D6;border:2px solid #E0B43C;border-radius:10px;padding:10px 14px;font-weight:700;margin:6px 0 10px;}
   .a-pend td{background:#FFF8E5;}
   .a-remove td{background:#FDECEA;}
   .a-remove-in{position:sticky;left:12px;max-width:min(560px,calc(100vw - 72px));white-space:normal;}
@@ -88,11 +97,11 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.9.1"></script>
-<script src="public/errors.js?v=4.9.1"></script>
-<script src="public/rider.js?v=4.9.1"></script>
-<script src="public/header.js?v=4.9.1"></script>
-<script src="public/pwa.js?v=4.9.1"></script>
+<script src="public/config.js?v=4.9.2"></script>
+<script src="public/errors.js?v=4.9.2"></script>
+<script src="public/rider.js?v=4.9.2"></script>
+<script src="public/header.js?v=4.9.2"></script>
+<script src="public/pwa.js?v=4.9.2"></script>
 <script>
 (function(){
   const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
@@ -302,6 +311,33 @@
     if(!errs.length || !confirm('Smazat všechny chyby z telefonů?')) return;
     try{ await api('/api/admin/errors', { method:'DELETE' }); errOpen = null; await loadErrs(); toast('Všechny chyby smazány.'); }catch(x){ toast(x.message); }
   });
+
+  // ---------- v4.9.2: rozbalovací sekce (stav se pamatuje v prohlížeči) ----------
+  const FOLD_KEY = 'cenduroff.admin.open';
+  let foldState = {}; try{ foldState = JSON.parse(localStorage.getItem(FOLD_KEY) || '{}') || {}; }catch(e){}
+  function setFold(sec, open, save){
+    sec.classList.toggle('a-closed', !open);
+    const b = sec.querySelector('.a-fold'); if(b) b.setAttribute('aria-expanded', open);
+    if(save){ foldState[sec.id] = open; try{ localStorage.setItem(FOLD_KEY, JSON.stringify(foldState)); }catch(e){} }
+  }
+  function countRows(sec){
+    const rows = [...sec.querySelectorAll('tbody tr')].filter(tr => !tr.classList.contains('det') && !tr.querySelector('.a-empty'));
+    const c = sec.querySelector('.a-count'); if(c) c.textContent = rows.length;
+  }
+  ['a-users-sec', 'a-stats-sec'].map(id => $(id)).forEach(sec => {
+    const h = sec.querySelector('h2'); if(!h) return;
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'a-fold';
+    btn.innerHTML = '<span class="a-chev" aria-hidden="true">▸</span>';
+    while(h.firstChild){ if(h.firstChild.nodeName === 'SMALL') break; btn.appendChild(h.firstChild); }
+    btn.insertAdjacentHTML('beforeend', '<span class="a-count"></span>');
+    h.insertBefore(btn, h.firstChild);
+    btn.addEventListener('click', () => setFold(sec, sec.classList.contains('a-closed'), true));
+    setFold(sec, !!foldState[sec.id], false);
+    const tb = sec.querySelector('tbody'); if(tb) new MutationObserver(() => countRows(sec)).observe(tb, { childList:true });
+    countRows(sec);
+  });
+  $('a-pending').addEventListener('click', () => { const sec = $('a-users-sec'); setFold(sec, true, true); sec.scrollIntoView({ behavior:'smooth', block:'start' }); });
 
   async function loadAll(){
     const [s, ar, us] = await Promise.all([ api('/api/admin/stats'), api('/api/admin/archive'), api('/api/admin/users') ]);
