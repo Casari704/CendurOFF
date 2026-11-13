@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------
 // Data pro celou oblast „ČR + 100 km od hranic“ (v1.49)
-// - benzínky a CHKO se stáhnou z OpenStreetMap (Overpass) JEDNOU pro celou oblast,
+// - benzínky a CHKO se stáhnou JEDNOU pro celou oblast (od v4.12 z našeho serveru, záložně z Overpass),
 //   uloží se v prohlížeči (IndexedDB) a týden se používají bez dalšího stahování
 // - mapa pak jen ukazuje, co je zrovna v záběru -> rychlé i bez signálu
 // ---------------------------------------------------------------
@@ -81,23 +81,53 @@
     return out;
   }
 
-  // Načte data: z prohlížeče, pokud jsou čerstvá; jinak stáhne (a když stažení
-  // selže, použije aspoň starší uloženou verzi). Souběžná volání sdílí jedno stahování.
-  const pending = {};
+  // v4.12: odkud brát data – nejdřív z našeho serveru (ten je drží pro všechny a obnovuje jednou
+  // za týden), teprve když nejde, stáhnout přímo z Overpass jako dřív
+  const API = () => window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
+  async function fromServer(kind){
+    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = ctl ? setTimeout(()=>ctl.abort(), 90000) : null;
+    try{
+      const res = await fetch(API() + '/api/region/' + kind, { signal: ctl ? ctl.signal : undefined });
+      if(!res.ok) throw new Error('server ' + res.status);
+      const j = await res.json();
+      if(!j || !Array.isArray(j.data) || !j.data.length) throw new Error('prázdná data');
+      return j;
+    }finally{ if(timer) clearTimeout(timer); }
+  }
+  // ať prohlížeč uložená data sám nemaže, když mu dochází místo
+  try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){}
+
+  // Načte data: z prohlížeče (i starší – hned je ukáže a čerstvá si stáhne na pozadí);
+  // když v prohlížeči nic není, vezme je ze serveru, a teprve když nejde ani to, z Overpass.
+  // Souběžná volání sdílí jedno stahování.
+  const pending = {}, refreshing = {};
+  function refresh(kind, download){
+    if(refreshing[kind]) return;
+    refreshing[kind] = (async ()=>{
+      let data = null, t = Date.now();
+      try{ const j = await fromServer(kind); data = j.data; t = j.t || t; }
+      catch(e){ try{ data = await download(); }catch(e2){} }
+      if(data && data.length) await idbSet(kind, { t, data });
+    })().finally(()=>{ delete refreshing[kind]; });
+  }
   function load(kind, download, onDownloadStart){
     if(pending[kind]) return pending[kind];
     pending[kind] = (async ()=>{
       const saved = await idbGet(kind);
-      if(saved && saved.data && Date.now() - saved.t < MAX_AGE_DAYS*86400000) return saved.data;
-      try{
-        if(onDownloadStart) onDownloadStart();
-        const data = await download();
-        await idbSet(kind, { t:Date.now(), data });
-        return data;
-      }catch(err){
-        if(saved && saved.data) return saved.data;
-        throw err;
+      if(saved && saved.data && saved.data.length){
+        if(Date.now() - saved.t >= MAX_AGE_DAYS*86400000) refresh(kind, download);   // obnova na pozadí, ukáže se příště
+        return saved.data;
       }
+      try{
+        const j = await fromServer(kind);
+        await idbSet(kind, { t: j.t || Date.now(), data: j.data });
+        return j.data;
+      }catch(e){ /* server nedostupný – zkusíme přímo Overpass */ }
+      if(onDownloadStart) onDownloadStart();
+      const data = await download();
+      await idbSet(kind, { t:Date.now(), data });
+      return data;
     })();
     pending[kind].catch(()=>{ delete pending[kind]; });   // po chybě půjde zkusit znovu
     return pending[kind];

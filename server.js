@@ -703,6 +703,12 @@ try {
 } catch (e) {
   console.error('Profil/chyby: modul se nepodařilo připojit:', e);
 }
+// CHKO a benzínky pro celou oblast (v4.12) – server je drží pro všechny a obnovuje jednou za týden
+try {
+  require('./region-api').mount(app, { pool });
+} catch (e) {
+  console.error('Region: modul se nepodařilo připojit:', e);
+}
 
 // ---------------------------------------------------------------
 // Handlery pro API chybějící cesty & statické soubory
