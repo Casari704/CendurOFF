@@ -517,7 +517,7 @@ function updateSelArrows(){
   if(!selMap || !pr || !window.CendurArrows || !Array.isArray(pr.points) || pr.points.length < 2) return;
   const ll = pr.points.map(p => [p[0], p[1]]);
   if(pickRev) ll.reverse();
-  selArrows = window.CendurArrows.attach(selMap, ll, { spacing:90, size:20, fill:'#ffffff', stroke:'#123E8C' });
+  selArrows = window.CendurArrows.attach(selMap, ll, { spacing:180, size:20, fill:'#ffffff', stroke:'#123E8C' });
 }
 function meIcon(){ return L.divIcon({ className:'', html:'<div class="nv-me"><img src="public/img/gps-arrow.png" alt=""></div>', iconSize:[34, 34], iconAnchor:[17, 17] }); }
 function setupMaps(){
@@ -529,7 +529,7 @@ function setupMaps(){
   mini.eachLayer(l => { if(l instanceof L.Polyline || l instanceof L.Marker) mini.removeLayer(l); });
   L.polyline(ll, { color:'#4F7048', weight:6 }).addTo(mini);
   if(miniArrows) miniArrows.remove();
-  miniArrows = window.CendurArrows ? window.CendurArrows.attach(mini, ll, { spacing:60, size:16 }) : null;
+  miniArrows = window.CendurArrows ? window.CendurArrows.attach(mini, ll, { spacing:120, size:16 }) : null;
   miniMe = L.marker(ll[0], { icon: meIcon(), keyboard:false, interactive:false }).addTo(mini);
   setTimeout(() => { mini.invalidateSize(); mini.setView(ll[0], 16); }, 60);
   if(!big){
@@ -539,7 +539,7 @@ function setupMaps(){
   big.eachLayer(l => { if(l instanceof L.Polyline || l instanceof L.Marker) big.removeLayer(l); });
   L.polyline(ll, { color:'#4F7048', weight:6 }).addTo(big);
   if(bigArrows) bigArrows.remove();
-  bigArrows = window.CendurArrows ? window.CendurArrows.attach(big, ll, { spacing:90, size:20 }) : null;
+  bigArrows = window.CendurArrows ? window.CendurArrows.attach(big, ll, { spacing:180, size:20 }) : null;
   vis.forEach(it => L.marker([it.lat, it.lon], { icon: L.divIcon({ className:'', html:'<div class="rb-mk' + (it.kind ? ' kind' : '') + '">' + (it.kind === 'start' ? 'S' : it.kind === 'finish' ? 'C' : it.n) + '</div>', iconSize:[26, 26], iconAnchor:[13, 13] }) })
     .bindTooltip(esc(RB.label(it))).addTo(big));
   bigMe = L.marker(ll[0], { icon: meIcon(), keyboard:false, interactive:false, zIndexOffset:2000 }).addTo(big);
