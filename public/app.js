@@ -1090,6 +1090,10 @@ async function openDetail(id){
   inner.innerHTML = `
     <h2>${escapeHtml(route.name)}</h2>
     <div class="detail-chips"><div class="type-chip">${typeDot(typeOf(route))}${typeInfo(route).label} trasa</div><a class="rb-chip" id="detail-rb" hidden></a></div>
+    <div class="detail-go one" id="detail-go">
+      <button type="button" class="go-atlas" id="detail-go-atlas">▶ <span class="t">Navigovat<small>Atlas NAVI</small></span></button>
+      <a class="go-rb" id="detail-go-rb" hidden>📒 <span class="t">Roadbook<small>Roadbook NAVI</small></span></a>
+    </div>
     <div class="detail-owner">Přidal(a) ${escapeHtml(route.owner_display)} · ${fmtDate(route.created_at)}${route.gpx_updated_at ? `<br>GPX aktualizováno dne: ${fmtDateShort(route.gpx_updated_at)}` : ''}</div>
     ${route.description ? `<div class="detail-desc" id="detail-desc-text">${escapeHtml(route.description)}${route.description_by && route.description_by !== route.owner_id && route.description_by_display ? `<div class="desc-by">Popis doplnil(a) ${escapeHtml(route.description_by_display)}</div>` : ''}</div>` : ''}
     ${renderRatingBlock(route)}
@@ -1163,7 +1167,22 @@ async function openDetail(id){
     if(st !== 'auto'){ el.href = 'roadbook-navi.html?trasa=' + encodeURIComponent(route.id); el.title = 'Otevřít v Roadbook NAVI'; }
     else el.removeAttribute('href');
     el.hidden = false;
+    // v4.15: velké tlačítko Roadbook jen u trasy s roadbookem
+    const gr = inner.querySelector('#detail-go-rb');
+    if(gr && st !== 'auto'){
+      gr.href = 'roadbook-navi.html?trasa=' + encodeURIComponent(route.id) + (currentUser ? '&jed=1' : '');
+      gr.hidden = false; inner.querySelector('#detail-go').classList.remove('one');
+    }
   }).catch(() => {});
+  // v4.15: ▶ Navigovat – Atlas NAVI rovnou po téhle trase
+  inner.querySelector('#detail-go-atlas').addEventListener('click', () => {
+    if(!currentUser){ requireLogin('navigaci'); return; }
+    if(window.CendurSound) CendurSound.unlock();
+    const rid = route.id;
+    closeDetail();
+    if(!navOn) setNavMode(true);
+    if(navOn){ freeAsked.add(rid); freePick(rid); }
+  });
   // v4.3: odznak a motorka autora trasy (veřejný profil jezdce)
   if(route.owner_id && window.CendurRider){
     fetch(API_URL + '/api/riders/' + encodeURIComponent(route.owner_id)).then(r => r.ok ? r.json() : null).then(p => {
@@ -1923,7 +1942,7 @@ function freeOffer(latlng){
     choices: [
       { icon:'🧭', label:'Atlas NAVI', sub:'mapa, instrukce v rohu', cls:'atlas', fn: () => freePick(id) },
       { icon:'📒', label:'Roadbook', sub:'velké instrukce, počítadlo', cls:'rb', fn: () => { location.href = 'roadbook-navi.html?trasa=' + id + '&jed=1'; } },
-      { label:'Ne', cls:'no' }
+      { label:'Ne', cls:'no', countdown:10 }
     ]
   });
 }

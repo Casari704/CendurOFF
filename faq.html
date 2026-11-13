@@ -10,8 +10,8 @@
 <title>CendurOFF FAQ – jak to funguje</title>
 <meta name="description" content="Nápověda k CendurOFF: Atlas NAVI, navigace, záznam jízdy, Atlas Planner, Roadbook planner a Roadbook NAVI.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.15">
-<link rel="stylesheet" href="public/faq.css?v=4.15">
+<link rel="stylesheet" href="public/style.css?v=4.15.1">
+<link rel="stylesheet" href="public/faq.css?v=4.15.1">
 </head>
 <body class="faq-page">
 <header class="topbar" data-page="faq" data-auth="auto"></header>
@@ -190,7 +190,8 @@
       <summary>Volná jízda – co znamená „na trase“ a šipka nahoře?</summary>
       <p>Při navigaci se Atlas sám <b>chytí nejbližší trasy</b> (když jsi do 40 m od ní) a zvýrazní ji modře – nahoře svítí <b>Volná jízda · na trase …</b>. Když od trasy odjedeš dál než asi 90 m, zase ji pustí.</p>
       <p>Klepnutím na trasu ji vybereš natrvalo (nahoře <b>Trasa: …</b>), klepnutím do prázdné mapy se vrátíš do volné jízdy.</p>
-      <p><b>Trasa s roadbookem:</b> když přijedeš k trase, která má roadbook (ready, ke kontrole nebo rozpracovaný), Atlas se zeptá, jak chceš jet: <b>Atlas NAVI</b> (trasu vybere a jedeš dál v mapě), <b>Roadbook</b> (přepne do Roadbook NAVI a rovnou spustí jízdu) nebo <b>Ne</b>. Na stejnou trasu se znovu zeptá, až od ní odjedeš aspoň 200 m. Při nahrávání jízdy se neptá.</p>
+      <p><b>Navigace z detailu trasy:</b> v detailu trasy jsou pod názvem velká tlačítka <b>▶ Navigovat</b> (spustí Atlas NAVI rovnou po téhle trase) a u trasy s roadbookem i <b>📒 Roadbook</b> (spustí jízdu v Roadbook NAVI).</p>
+      <p><b>Trasa s roadbookem:</b> když přijedeš k trase, která má roadbook (ready, ke kontrole nebo rozpracovaný), Atlas se zeptá, jak chceš jet: <b>Atlas NAVI</b> (trasu vybere a jedeš dál v mapě), <b>Roadbook</b> (přepne do Roadbook NAVI a rovnou spustí jízdu) nebo <b>Ne</b>. Na tlačítku Ne běží odpočet 10 s – když nic neklepneš, okno se samo zavře. Na stejnou trasu se znovu zeptá, až od ní odjedeš aspoň 200 m. Při nahrávání jízdy se neptá.</p>
       <p><b>Zvuky v Atlasu:</b> když trasu klepnutím vybereš a má roadbook, hraje Atlas stejné zvuky jako Roadbook NAVI – gong (u nebezpečí bzučák) a hlas před instrukcí, a při vyjetí z trasy „Jsi mimo trasu“. Připojit se můžeš <b>kdekoli na trase</b> – instrukce za tebou se přeskočí. U tras tam a zpět se podle směru jízdy pozná, na kterém úseku jsi. U trasy, ke které se jen přiblížíš (bez vybrání), se ukazuje šipka nahoře, ale nehraje nic.</p>
       <p>Má-li aktivní trasa uložený roadbook a jedeš po jeho směru, nahoře se ukáže <b>šipka další instrukce s odpočtem metrů</b>. Když jedeš proti směru roadbooku, ukáže se jen upozornění.</p>
     </details>
@@ -388,11 +389,11 @@
 </main>
 
 <div class="toast" id="toast"></div>
-<script src="public/config.js?v=4.15"></script>
-<script src="public/errors.js?v=4.15"></script>
-<script src="public/rider.js?v=4.15"></script>
-<script src="public/header.js?v=4.15"></script>
-<script src="public/pwa.js?v=4.15"></script>
+<script src="public/config.js?v=4.15.1"></script>
+<script src="public/errors.js?v=4.15.1"></script>
+<script src="public/rider.js?v=4.15.1"></script>
+<script src="public/header.js?v=4.15.1"></script>
+<script src="public/pwa.js?v=4.15.1"></script>
 <script>
 // otevře sekci, na kterou vede odkaz (#rb-planner apod.)
 (function(){

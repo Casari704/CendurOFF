@@ -1017,6 +1017,15 @@ body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !import
 
 /* v4.14: stav roadbooku v detailu trasy */
 .detail-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+/* v4.15: velká tlačítka navigace v detailu trasy */
+.detail-go{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 6px;}
+.detail-go.one{grid-template-columns:1fr;}
+.detail-go .go-atlas,.detail-go .go-rb{display:flex;align-items:center;justify-content:center;gap:8px;min-height:60px;padding:6px 10px;border-radius:12px;border:2px solid #111;font-family:'Exo 2',sans-serif;font-weight:800;font-size:1.15rem;cursor:pointer;text-decoration:none;touch-action:manipulation;}
+.detail-go .go-rb[hidden]{display:none;}
+.detail-go .go-atlas{background:var(--moss,#4F7048);border-color:var(--moss,#4F7048);color:#fff;}
+.detail-go .go-rb{background:#111;color:#fff;}
+.detail-go .t{display:flex;flex-direction:column;align-items:flex-start;line-height:1.1;}
+.detail-go small{display:block;font-weight:600;font-size:.78rem;opacity:.85;}
 .rb-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#EFEADC;color:var(--ink);font-size:0.8rem;font-weight:700;text-decoration:none;}
 .rb-chip[hidden]{display:none;}
 .rb-chip i{width:10px;height:10px;border-radius:50%;background:#8A8A8A;flex:none;}

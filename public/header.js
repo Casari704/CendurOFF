@@ -261,8 +261,9 @@
 
   // v4.3.1: sdílené potvrzovací okno (Atlas i Roadbook NAVI) – titulek, text, 1–2 tlačítka a křížek
   //  ask({ title, msg, icon, list:[{icon,name,desc}], yes:{label, fn}, no:{label, fn}, onClose })
-  let askEl = null, askOpts = null, askAt = 0;
+  let askEl = null, askOpts = null, askAt = 0, askTimer = 0;
   function askClose(viaX){
+    if(askTimer){ clearInterval(askTimer); askTimer = 0; }
     if(!askEl || askEl.hidden) return;
     askEl.hidden = true;
     const o = askOpts; askOpts = null;
@@ -285,6 +286,7 @@
       }));
     }
     // nové okno nahradí případné otevřené (bez onClose toho starého)
+    if(askTimer){ clearInterval(askTimer); askTimer = 0; }
     askOpts = o || {};
     askEl.querySelector('#c-ask-t').textContent = askOpts.title || '';
     askEl.querySelector('.c-ask-msg').textContent = askOpts.msg || '';
@@ -302,7 +304,15 @@
       b.innerHTML = '<span class="c-ask-ch-i"></span><span class="c-ask-ch-t"><b></b><small></small></span>';
       b.querySelector('.c-ask-ch-i').textContent = c.icon || ''; b.querySelector('b').textContent = c.label || ''; b.querySelector('small').textContent = c.sub || '';
       b.addEventListener('click', () => { if(Date.now() - askAt < 350) return; askClose(false); if(c.fn) c.fn(); });
-      ch.appendChild(b); });
+      ch.appendChild(b);
+      // v4.15: odpočet v tlačítku („Ne · 10“) – po doběhnutí se okno samo zavře, jako by se klepnulo
+      if(c.countdown > 0){
+        let left = Math.round(c.countdown); const t = b.querySelector('b');
+        const show = () => { t.textContent = (c.label || '') + ' · ' + left; };
+        show();
+        if(askTimer) clearInterval(askTimer);
+        askTimer = setInterval(() => { left--; if(left > 0){ show(); return; } askClose(false); if(c.fn) c.fn(); }, 1000);
+      } });
     askEl.classList.toggle('c-ask-multi', !!chs.length);
     askEl.querySelector('.c-ask-row').hidden = !!chs.length;
     const y = askEl.querySelector('.c-ask-yes'), n = askEl.querySelector('.c-ask-no');
