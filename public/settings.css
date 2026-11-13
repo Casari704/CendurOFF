@@ -45,6 +45,9 @@ body.settings-page header.topbar{position:sticky;top:0;}
   .s-row{flex-wrap:wrap;}
   .s-btns{width:100%;justify-content:flex-start;}
   .s-btns .s-btn{flex:1;}
+  /* v4.9.1: přepínač Mapy.com / OpenStreetMap pod textem přes celou šířku */
+  .s-seg{width:100%;}
+  .s-seg .s-btn{flex:1;}
 }
 
 /* v4.3: profil jezdce */
