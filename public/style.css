@@ -991,3 +991,14 @@ body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !import
 .hero-logo{object-fit:contain;aspect-ratio:1/1;}
 /* v4.11: hláška (toast) nesmí blokovat klepnutí do mapy pod ní */
 .toast{pointer-events:none;}
+
+/* v4.14: stav roadbooku v detailu trasy */
+.detail-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.rb-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:#EFEADC;color:var(--ink);font-size:0.8rem;font-weight:700;text-decoration:none;}
+.rb-chip[hidden]{display:none;}
+.rb-chip i{width:10px;height:10px;border-radius:50%;background:#8A8A8A;flex:none;}
+.rb-chip.rb-ready i{background:#2E7D32;}
+.rb-chip.rb-check i{background:#F5B800;}
+.rb-chip.rb-draft i{background:#F5B800;box-shadow:inset 0 0 0 2px #EFEADC;outline:2px dashed #F5B800;outline-offset:-2px;}
+.rb-chip.rb-auto{color:var(--ink-soft);font-weight:600;}
+a.rb-chip:hover{background:#E4DCC6;}

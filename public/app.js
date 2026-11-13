@@ -295,6 +295,20 @@ function nextPageAfterLogin(){
 // stažení GPX a hodnocení vyžadují přihlášení (requireLogin otevře přihlášení nad mapou)
 // ---------------------------------------------------------------
 let appEntered = false;
+// v4.14: stavy roadbooků všech tras (ready / check / draft; chybí = bez roadbooku)
+let rbStatesP = null, rbStatesAt = 0;
+function roadbookStates(){
+  if(rbStatesP && Date.now() - rbStatesAt < 5 * 60000) return rbStatesP;
+  rbStatesAt = Date.now();
+  rbStatesP = fetch(API_URL + '/api/roadbooks').then(r => r.ok ? r.json() : []).then(list => {
+    const m = {};
+    (Array.isArray(list) ? list : []).forEach(x => {
+      m[x.route_id] = x.state || (x.stale ? 'check' : x.status === 'ready' ? 'ready' : 'draft');
+    });
+    return m;
+  }).catch(() => { rbStatesP = null; return {}; });
+  return rbStatesP;
+}
 function requireLogin(what){
   if(currentUser) return true;
   // v4.3.1: nejdřív malé okno s křížkem (stejné jako v Roadbook NAVI), přihlášení až na „Přihlásit se“
@@ -1075,7 +1089,7 @@ async function openDetail(id){
 
   inner.innerHTML = `
     <h2>${escapeHtml(route.name)}</h2>
-    <div class="type-chip">${typeDot(typeOf(route))}${typeInfo(route).label} trasa</div>
+    <div class="detail-chips"><div class="type-chip">${typeDot(typeOf(route))}${typeInfo(route).label} trasa</div><a class="rb-chip" id="detail-rb" hidden></a></div>
     <div class="detail-owner">Přidal(a) ${escapeHtml(route.owner_display)} · ${fmtDate(route.created_at)}${route.gpx_updated_at ? `<br>GPX aktualizováno dne: ${fmtDateShort(route.gpx_updated_at)}` : ''}</div>
     ${route.description ? `<div class="detail-desc" id="detail-desc-text">${escapeHtml(route.description)}${route.description_by && route.description_by !== route.owner_id && route.description_by_display ? `<div class="desc-by">Popis doplnil(a) ${escapeHtml(route.description_by_display)}</div>` : ''}</div>` : ''}
     ${renderRatingBlock(route)}
@@ -1138,6 +1152,18 @@ async function openDetail(id){
         <button class="primary-btn" id="contrib-desc-save" type="button">Uložit popis</button>` : ''}
       </div>` : ''}
   `;
+  // v4.14: stav roadbooku (seznam stavů se načte jednou a drží 5 minut); klepnutím do Roadbook NAVI
+  roadbookStates().then(map => {
+    const el = inner.querySelector('#detail-rb');
+    if(!el || !el.isConnected) return;
+    const st = map[route.id] || 'auto';
+    const T = { ready:'Roadbook ready', check:'Roadbook ke kontrole', draft:'Roadbook rozpracovaný', auto:'Bez roadbooku' };
+    el.className = 'rb-chip rb-' + st;
+    el.innerHTML = '<i></i>' + T[st] + (st === 'auto' ? '' : ' ›');
+    if(st !== 'auto'){ el.href = 'roadbook-navi.html?trasa=' + encodeURIComponent(route.id); el.title = 'Otevřít v Roadbook NAVI'; }
+    else el.removeAttribute('href');
+    el.hidden = false;
+  }).catch(() => {});
   // v4.3: odznak a motorka autora trasy (veřejný profil jezdce)
   if(route.owner_id && window.CendurRider){
     fetch(API_URL + '/api/riders/' + encodeURIComponent(route.owner_id)).then(r => r.ok ? r.json() : null).then(p => {
