@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------
-// CendurOFF – podkladové mapy (v3.8), společné pro Atlas, Atlas Planner a Roadbook planner
+// CendurOFF – podkladové mapy (v3.8), společné pro Atlas, GPX planner a Roadbook planner
 //   osm  = OpenStreetMap standard (výchozí)
 //   mapy = turistická mapa Mapy.com (REST API, klíč níže)
 //   sat  = satelit: v ČR letecké snímky ČÚZK, pod nimi Esri (vidět za hranicemi)

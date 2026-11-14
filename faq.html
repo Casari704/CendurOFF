@@ -8,10 +8,10 @@
 <link rel="apple-touch-icon" href="public/img/icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
 <title>CendurOFF FAQ – jak to funguje</title>
-<meta name="description" content="Nápověda k CendurOFF: Atlas NAVI, navigace, záznam jízdy, Atlas Planner, Roadbook editor a Roadbook NAVI.">
+<meta name="description" content="Nápověda k CendurOFF: Atlas NAVI, navigace, záznam jízdy, GPX planner, Roadbook editor a Roadbook NAVI.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.21">
-<link rel="stylesheet" href="public/faq.css?v=4.21">
+<link rel="stylesheet" href="public/style.css?v=4.22">
+<link rel="stylesheet" href="public/faq.css?v=4.22">
 </head>
 <body class="faq-page">
 <header class="topbar" data-page="faq" data-auth="auto"></header>
@@ -28,7 +28,7 @@
     <a href="#atlas">Atlas NAVI</a>
     <a href="#navigace">Navigace v Atlas NAVI</a>
     <a href="#zaznam">Stopař (záznam jízdy)</a>
-    <a href="#planovac">Atlas Planner</a>
+    <a href="#planovac">GPX planner</a>
     <a href="#roadbook">Roadbook</a>
     <a href="#rb-planner">Roadbook editor</a>
     <a href="#rb-navi">Roadbook NAVI</a>
@@ -54,7 +54,7 @@
       <summary>Od GPX k roadbooku – celý postup</summary>
       <ol>
         <li><b>Atlas</b> je základ. Je to mapa všech tras, do které nahráváme <b>GPX</b>. V Atlasu trasy procházíš, stahuješ, naviguješ podle nich a nahráváš projeté jízdy.</li>
-        <li><b>Atlas Planner</b> slouží k úpravám. Novou trasu v něm naplánuješ, nebo upravíš existující (posuneš body, zkrátíš, prodloužíš) a uložíš zpátky do Atlasu.</li>
+        <li><b>GPX planner</b> slouží k úpravám. Novou trasu v něm naplánuješ, nebo upravíš existující (posuneš body, zkrátíš, prodloužíš) a uložíš zpátky do Atlasu.</li>
         <li><b>Roadbook editor</b> (na PC): ke každé nahrané trase přidáš roadbook. Ten se vygeneruje automaticky, pak ho ručně doladíš (křižovatky, symboly, nebezpečí, poznámky) a označíš <b>Ready</b>.</li>
         <li><b>Roadbook NAVI</b>: jízda podle roadbooku v telefonu jako na rally. Spouští se z Atlasu (tlačítko <b>📒 Roadbook</b> v detailu trasy, nebo nabídka u trasy). Funguje i bez signálu, když si roadbook předem uložíš do telefonu.</li>
       </ol>
@@ -137,7 +137,7 @@
     </details>
     <details>
       <summary>Kde najdu ostatní stránky?</summary>
-      <p>Na <b>úvodních dlaždicích</b>: po spuštění aplikace, tlačítkem <b>← Zpět</b> vpravo nahoře (nebo klepnutím na logo) a v Atlasu na mobilu i tlačítkem <b>☰</b>. Nahoře velká dlaždice <b>ATLAS</b> (mapa, navigace, roadbook, stopař), pod ní <b>příprava trasy</b> ve dvou krocích: <b>1 Atlas Planner</b> (naplánuješ, upravíš nebo nahraješ trasu) → <b>2 Roadbook editor</b> (vytvoříš k trase roadbook, jen na PC). Menší: <b>Nastavení účtu</b> (zvuky, heslo, odhlášení), <b>FAQ</b> a <b>Merch</b>. Dlaždice stránky, na které právě jsi, má zlatý rámeček – klepnutím na ni se na stránku vrátíš. <b>Roadbook NAVI</b> nemá vlastní dlaždici – spouští se z Atlasu. <b>+ Nahrát trasu</b> je v Atlasu a v Atlas Planneru vedle tlačítka ← Zpět (v Atlasu na mobilu v seznamu tras ≣).</p>
+      <p>Na <b>úvodních dlaždicích</b>: po spuštění aplikace, tlačítkem <b>← Zpět</b> vpravo nahoře (nebo klepnutím na logo) a v Atlasu na mobilu i tlačítkem <b>☰</b>. Nahoře velká dlaždice <b>ATLAS</b> (mapa, navigace, roadbook, stopař), pod ní <b>příprava trasy</b> ve dvou krocích: <b>1 GPX planner</b> (naplánuješ, upravíš nebo nahraješ trasu) → <b>2 Roadbook editor</b> (vytvoříš k trase roadbook, jen na PC). Menší: <b>Nastavení účtu</b> (zvuky, heslo, odhlášení), <b>FAQ</b> a <b>Merch</b>. Dlaždice stránky, na které právě jsi, má zlatý rámeček – klepnutím na ni se na stránku vrátíš. <b>Roadbook NAVI</b> nemá vlastní dlaždici – spouští se z Atlasu. <b>+ Nahrát trasu</b> je v Atlasu a v GPX planneru vedle tlačítka ← Zpět (v Atlasu na mobilu v seznamu tras ≣).</p>
     </details>
   </section>
 
@@ -155,12 +155,12 @@
         <li>fotky (vlastník může nahrát až 3 a vybrat hlavní),</li>
         <li><b>hodnocení</b> hvězdičkami (stejnou hvězdičkou své hodnocení zrušíš) a <b>recenze</b> (jedna na uživatele, max. 200 slov),</li>
         <li><b>⬇ Stáhnout GPX</b> a <b>🔗 Sdílet odkaz</b> (na mobilu přes systémové Sdílet, na počítači se odkaz zkopíruje),</li>
-        <li>u vlastních tras <b>Upravit trasu</b> (název, popis, typ) a <b>✏️ Upravit v Atlas Planneru</b>.</li>
+        <li>u vlastních tras <b>Upravit trasu</b> (název, popis, typ) a <b>✏️ Upravit v GPX planneru</b>.</li>
       </ul>
     </details>
     <details>
       <summary>Jak nahraju novou trasu?</summary>
-      <p>Tlačítko <b>+ Nahrát trasu</b> v hlavičce Atlasu → vyber GPX soubor, napiš název, popis a typ trasy → <b>Nahrát</b>. Trasu můžeš taky nakreslit v Atlas Planneru nebo nahrát jízdou (tlačítko Stopař).</p>
+      <p>Tlačítko <b>+ Nahrát trasu</b> v hlavičce Atlasu → vyber GPX soubor, napiš název, popis a typ trasy → <b>Nahrát</b>. Trasu můžeš taky nakreslit v GPX planneru nebo nahrát jízdou (tlačítko Stopař).</p>
     </details>
     <details>
       <summary>Jak stáhnu víc tras najednou?</summary>
@@ -168,7 +168,7 @@
     </details>
     <details>
       <summary>Jak přepnu mapu, benzínky nebo CHKO?</summary>
-      <p>Na výběr jsou tři mapy: <b>OpenStreetMap</b> (výchozí), <b>turistická mapa Mapy.com</b> a <b>Satelit</b> (v ČR letecké snímky ČÚZK). <b>Klepnutí</b> na tlačítko mapy přepíná mezi mapou a satelitem (ikona ukazuje, na co se přepne). <b>Podržením</b> tlačítka otevřeš nabídku: tam si vybereš, jestli „mapa“ znamená OpenStreetMap nebo Mapy.com, a zapneš <b>benzínky</b> a <b>CHKO</b>. Volba platí i v Atlas Planneru a Roadbook editoru.</p>
+      <p>Na výběr jsou tři mapy: <b>OpenStreetMap</b> (výchozí), <b>turistická mapa Mapy.com</b> a <b>Satelit</b> (v ČR letecké snímky ČÚZK). <b>Klepnutí</b> na tlačítko mapy přepíná mezi mapou a satelitem (ikona ukazuje, na co se přepne). <b>Podržením</b> tlačítka otevřeš nabídku: tam si vybereš, jestli „mapa“ znamená OpenStreetMap nebo Mapy.com, a zapneš <b>benzínky</b> a <b>CHKO</b>. Volba platí i v GPX planneru a Roadbook editoru.</p>
       <p><b>Při navigaci</b> můžeš mapou posouvat prstem a dvěma prsty ji přibližovat – třeba se podívat, co tě čeká. Po 4 s bez dotyku se mapa sama vrátí na tvoji polohu, přiblížení zůstane.</p>
       <p><b>Přesnost polohy (most, tunel, údolí):</b> když telefon ztratí satelity, podstrčí polohu z mobilní sítě – klidně o kilometr vedle. Navigace (Atlas i Roadbook NAVI) takovou polohu zahodí a nesmyslné skoky taky. Pod mostem se šipka posouvá dál podle rychlosti – když sleduješ trasu, přímo po ní; šipka je při tom poloprůhledná a svítí hláška <b>📡 Bez signálu</b> (nebo <b>📡 Slabý GPS</b>, <b>📡 Hledám GPS</b>). V Atlasu jsou všechny hlášky nahoře nad „Volná jízda“, v Roadbook NAVI vyjíždí zespodu stavový pruh přes celou šířku instrukcí (MIMO TRASU, stav GPS, ruční posun – vždy jen ta nejdůležitější) a po skončení zase zajede; aktuální instrukce zůstává vidět. Na sledované trase se šipka drží na čáře. Aplikace pro Android od verze 2.16 bere polohu přímo z GPS čipu, takže signál chytá rychleji. Dopočtená poloha se do záznamu jízdy nepočítá.</p>
     </details>
@@ -203,7 +203,7 @@
     </details>
     <details>
       <summary>Proč se mapa za jízdy naklání?</summary>
-      <p>Nad 30 km/h se mapa plynule nakloní (nejvýš o 30°), ať je vidět dál dopředu. Náklon se rozjíždí mezi 25 a 35 km/h, takže kolem hranice necuká; při pomalé jízdě je mapa zase rovně. Tlačítka <b>+3 / −3</b> přibližují a oddalují o tři úrovně najednou – mají je Atlas NAVI (i na počítači), Atlas Planner i Roadbook NAVI. Rychlé klepnutí se sčítá (+3 +3 = o šest úrovní) a při navigaci zůstane šipka na svém místě.</p>
+      <p>Nad 30 km/h se mapa plynule nakloní (nejvýš o 30°), ať je vidět dál dopředu. Náklon se rozjíždí mezi 25 a 35 km/h, takže kolem hranice necuká; při pomalé jízdě je mapa zase rovně. Tlačítka <b>+3 / −3</b> přibližují a oddalují o tři úrovně najednou – mají je Atlas NAVI (i na počítači), GPX planner i Roadbook NAVI. Rychlé klepnutí se sčítá (+3 +3 = o šest úrovní) a při navigaci zůstane šipka na svém místě.</p>
     </details>
     <details>
       <summary>Podle čeho se mapa natáčí?</summary>
@@ -220,14 +220,14 @@
     <h2>Stopař – záznam jízdy</h2>
     <details>
       <summary>Jak nahraju projetou trasu?</summary>
-      <p>V Atlasu klikni na tlačítko <b>Stopař</b> (na počítači nad tlačítkem NAVIGOVAT). Panel ukazuje čas, kilometry a rychlost, záznam jde <b>pozastavit</b>. Po <b>Stop</b> můžeš trasu <b>uložit do CendurOFF</b>, <b>stáhnout jako GPX</b>, <b>upravit v Atlas Planneru</b>, pokračovat v záznamu, nebo ho zahodit.</p>
+      <p>V Atlasu klikni na tlačítko <b>Stopař</b> (na počítači nad tlačítkem NAVIGOVAT). Panel ukazuje čas, kilometry a rychlost, záznam jde <b>pozastavit</b>. Po <b>Stop</b> můžeš trasu <b>uložit do CendurOFF</b>, <b>stáhnout jako GPX</b>, <b>upravit v GPX planneru</b>, pokračovat v záznamu, nebo ho zahodit.</p>
       <p>Záznam funguje i během navigace – můžeš jet podle jiné trasy a zároveň nahrávat.</p>
     </details>
   </section>
 
   <!-- ===================== PLÁNOVAČ ===================== -->
   <section id="planovac">
-    <h2>Atlas Planner – plánování tras</h2>
+    <h2>GPX planner – plánování tras</h2>
     <details>
       <summary>Jak naplánuju trasu?</summary>
       <ul>
@@ -243,7 +243,7 @@
     </details>
     <details>
       <summary>Můžu v plánovači spojit body z Mapy.com (nebo jiného seznamu bodů)?</summary>
-      <p>Ano. Na Mapy.com si body ulož do složky v <b>Moje místa</b> a složku vyexportuj jako <b>GPX</b>. V Atlas Planneru dej <b>📂 Otevřít GPX</b> a vyber soubor. Plánovač body spojí <b>po cestách v pořadí, v jakém jsou v souboru</b>. Když chceš body projet v jiném pořadí, přerovnej je ve složce na Mapy.com ještě před exportem.</p>
+      <p>Ano. Na Mapy.com si body ulož do složky v <b>Moje místa</b> a složku vyexportuj jako <b>GPX</b>. V GPX planneru dej <b>📂 Otevřít GPX</b> a vyber soubor. Plánovač body spojí <b>po cestách v pořadí, v jakém jsou v souboru</b>. Když chceš body projet v jiném pořadí, přerovnej je ve složce na Mapy.com ještě před exportem.</p>
       <p>Když soubor obsahuje kromě bodů i nakreslenou trasu, plánovač se zeptá, co z toho chceš načíst.</p>
     </details>
     <details>
@@ -252,7 +252,7 @@
     </details>
     <details>
       <summary>Jak trasu uložím?</summary>
-      <p><b>💾 Uložit trasu</b> → název, popis, typ → <b>Uložit změny</b> (přepíše trasu) nebo <b>Uložit jako novou trasu</b>. Případně jen <b>⬇ Stáhnout GPX</b>. Rozpracovaný plán si Atlas Planner pamatuje i po zavření stránky.</p>
+      <p><b>💾 Uložit trasu</b> → název, popis, typ → <b>Uložit změny</b> (přepíše trasu) nebo <b>Uložit jako novou trasu</b>. Případně jen <b>⬇ Stáhnout GPX</b>. Rozpracovaný plán si GPX planner pamatuje i po zavření stránky.</p>
     </details>
   </section>
 
@@ -325,7 +325,7 @@
       <p>Autor trasy (a admin). Ostatní roadbook vidí jen pro čtení a můžou podle něj jet v NAVI.</p>
     </details>
     <details>
-      <summary>Co se stane, když se trasa změní v Atlas Planneru?</summary>
+      <summary>Co se stane, když se trasa změní v GPX planneru?</summary>
       <p>Roadbook se přepne na <b>Ke kontrole</b>. Při dalším otevření v Roadbook editoru se přepočítá podle nové trasy – tvoje úpravy zůstanou a místa, která už na trase neleží, se označí „ke kontrole“. Pak roadbook ulož a znovu označ READY.</p>
     </details>
   </section>
@@ -390,11 +390,11 @@
 </main>
 
 <div class="toast" id="toast"></div>
-<script src="public/config.js?v=4.21"></script>
-<script src="public/errors.js?v=4.21"></script>
-<script src="public/rider.js?v=4.21"></script>
-<script src="public/header.js?v=4.21"></script>
-<script src="public/pwa.js?v=4.21"></script>
+<script src="public/config.js?v=4.22"></script>
+<script src="public/errors.js?v=4.22"></script>
+<script src="public/rider.js?v=4.22"></script>
+<script src="public/header.js?v=4.22"></script>
+<script src="public/pwa.js?v=4.22"></script>
 <script>
 // otevře sekci, na kterou vede odkaz (#rb-planner apod.)
 (function(){

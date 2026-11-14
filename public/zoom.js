@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------
 // CendurOFF – společné víceúrovňové přibližování (+3 / + / − / −3), v3.6
-// Používá Atlas NAVI, Atlas Planner i Roadbook NAVI.
+// Používá Atlas NAVI, GPX planner i Roadbook NAVI.
 //
 //   CendurZoom.bind(map, { in1, out1, in3, out3 }, { min, max, after })
 //     in1/out1/in3/out3 – tlačítka (element nebo id), chybějící se přeskočí

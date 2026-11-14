@@ -5,9 +5,9 @@
 // Na stránce stačí prázdný <header class="topbar" data-page="atlas|planovac|merch"></header>
 // a načíst tento skript (po public/config.js). Skript doplní:
 //   - logo + název stránky u loga,
-//   - dlaždice (v4.18): ATLAS (mapa, navigace, roadbook, stopař) | příprava: 1 Atlas Planner → 2 Roadbook editor
+//   - dlaždice (v4.18): ATLAS (mapa, navigace, roadbook, stopař) | příprava: 1 GPX planner → 2 Roadbook editor
 //     | Nastavení účtu · FAQ · Merch (aktivní stránka má zlatý obrys); Roadbook NAVI se spouští z Atlasu,
-//   - tlačítko „+ Nahrát trasu“ (Atlas a Atlas Planner), „O projektu“ a tlačítko uživatele,
+//   - tlačítko „+ Nahrát trasu“ (Atlas a GPX planner), „O projektu“ a tlačítko uživatele,
 //   - okno „O projektu“ a okno „Nastavení účtu“ (změna hesla + odhlášení).
 // Stránka pak zavolá CendurHeader.setUser(user) – nebo setUser(null) pro nepřihlášeného.
 // Merch si přihlášení ověří sám (data-auth="auto").
@@ -20,7 +20,7 @@
   // pořadí v nabídce: Atlas | Roadbook | Merch + FAQ (skupiny oddělené čárou)
   const PAGES = [
     { id:'atlas',    label:'Atlas',         href:'index.html' },
-    { id:'planovac', label:'Atlas Planner', href:'planovac.html' }
+    { id:'planovac', label:'GPX planner', href:'planovac.html' }
   ];
   // stránky Roadbooku (v2.0)
   const MENU_PAGES = [
@@ -127,7 +127,7 @@
     ${T('tm-an','atlas','index.html','ATLAS','mapa, navigace, roadbook, stopař')}
   </div></div>
   <div class="tm-col"><div class="tm-lbl">PŘÍPRAVA TRASY</div><div class="tm-grp tm-steps">
-    ${T('tm-ap','planovac','planovac.html','<span class="tm-n">1</span>Atlas Planner','naplánuj, uprav nebo nahraj trasu')}
+    ${T('tm-ap','planovac','planovac.html','<span class="tm-n">1</span>GPX planner','naplánuj, uprav nebo nahraj trasu')}
     ${T('tm-rp','roadbook','roadbook-planner.html','<span class="tm-n">2</span>Roadbook editor','vytvoř k trase roadbook · jen na PC')}
   </div></div>
   <div class="tm-side">
@@ -186,7 +186,7 @@
   tiles.querySelectorAll('a.tm-s').forEach(a=> a.addEventListener('click', e=>{
     if(a.classList.contains('cur')){ e.preventDefault(); closeTiles(); }
   }));
-  // v4.18: „+ Nahrát trasu“ v Atlas Planneru otevře nahrání v Atlasu (stejné okno jako v Atlasu)
+  // v4.18: „+ Nahrát trasu“ v GPX planneru otevře nahrání v Atlasu (stejné okno jako v Atlasu)
   if(page !== 'atlas'){
     const up = document.getElementById('open-upload');
     if(up) up.addEventListener('click', ()=>{ location.href = 'index.html?nahrat=1'; });

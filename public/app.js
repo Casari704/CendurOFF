@@ -92,7 +92,7 @@
           <button class="primary-btn" id="ride-save" type="button">Uložit do CendurOFF</button>
           <div class="ride-row">
             <button class="ghost-btn" id="ride-download" type="button">⬇ Stáhnout GPX</button>
-            <button class="ghost-btn" id="ride-planner" type="button">✏️ Upravit v Atlas Planneru</button>
+            <button class="ghost-btn" id="ride-planner" type="button">✏️ Upravit v GPX planneru</button>
           </div>
           <div class="ride-row">
             <button class="ghost-btn" id="ride-resume" type="button">Pokračovat v záznamu</button>
@@ -1126,7 +1126,7 @@ async function openDetail(id){
     <div class="gpx-actions">
       <button class="ghost-btn" id="download-gpx-btn" type="button">⬇ Stáhnout GPX</button>
       <button class="ghost-btn" id="share-route-btn" type="button">🔗 Sdílet odkaz</button>
-      ${isOwner ? `<a class="ghost-btn planner-link" href="planovac.html?trasa=${route.id}">✏️ Upravit v Atlas Planneru</a>` : ''}
+      ${isOwner ? `<a class="ghost-btn planner-link" href="planovac.html?trasa=${route.id}">✏️ Upravit v GPX planneru</a>` : ''}
     </div>
     ${currentUser && currentUser.role === 'admin' ? '<div class="admin-stats" id="admin-stats"><h3>Projetí trasy <span class="admin-tag">admin</span></h3><p class="hint">Načítám…</p></div>' : ''}
     <div class="elev-profile">
@@ -2736,7 +2736,7 @@ async function enterApp(){
   setTimeout(positionFloatingMapButtons, 100);
   await loadRoutes();
   requestWakeLock();
-  // „+ Nahrát trasu“ z Atlas Planneru → index.html?nahrat=1
+  // „+ Nahrát trasu“ z GPX planneru → index.html?nahrat=1
   try{
     const u = new URL(location.href);
     if(u.searchParams.get('nahrat')){
