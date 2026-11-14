@@ -1172,7 +1172,7 @@ async function openDetail(id){
     // v4.15: velké tlačítko Roadbook jen u trasy s roadbookem
     const gr = inner.querySelector('#detail-go-rb');
     if(gr && st !== 'auto'){
-      gr.href = 'roadbook-navi.html?trasa=' + encodeURIComponent(route.id) + (currentUser ? '&jed=1' : '');   // přihlášený: jízda rovnou, po Konec zpět do Atlasu
+      gr.href = 'roadbook-navi.html?trasa=' + encodeURIComponent(route.id) + '&jed=1';   // rovnou jízda (nepřihlášený jen simulace), po Konec zpět do Atlasu
       gr.hidden = false; inner.querySelector('#detail-go').classList.remove('one');
     }
   }).catch(() => {});

@@ -219,6 +219,13 @@ body.rb-navi{background:#111;}
 #nv-off svg{flex:none;}
 #nv-sim{position:absolute;right:10px;bottom:170px;z-index:6;display:none;gap:6px;}
 #nv-sim.open{display:flex;}
+/* v4.25: nepřihlášený – jen simulace, výrazná hláška s přihlášením */
+#nv-guest{position:absolute;left:50%;transform:translateX(-50%);top:140px;z-index:7;width:max-content;max-width:calc(100% - 20px);box-sizing:border-box;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;padding:8px 10px 8px 14px;border-radius:12px;
+  background:#111;color:#fff;border:2px solid #F5B700;box-shadow:0 4px 14px rgba(0,0,0,.35);font:600 14px 'Exo 2',sans-serif;text-align:center;}
+#nv-guest[hidden]{display:none;}
+#nv-guest b{color:#F5B700;font-weight:800;}
+#nv-guest button{height:36px;padding:0 14px;border-radius:18px;border:0;background:#F5B700;color:#111;font:800 14px 'Exo 2',sans-serif;cursor:pointer;}
 #nv-sim button{height:40px;padding:0 12px;border-radius:20px;border:2px solid #111;background:#fff;color:#111;font:800 14px 'Exo 2',sans-serif;cursor:pointer;}
 #nv-wait{position:absolute;left:0;right:0;top:136px;z-index:4;text-align:center;padding:6px;background:#1E1E1E;color:#F5B700;font-weight:700;font-size:14px;display:none;}
 #nv-wait.open{display:block;}

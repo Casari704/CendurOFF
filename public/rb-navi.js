@@ -355,8 +355,22 @@ async function startRide(id, reverseNoRb){
   if($('nv-simopt').checked) startSim(); else startGps();
 }
 
+// hláška pro nepřihlášené: nahoře nad roadbookem (pod počítadlem), na výšku i na šířku
+function placeGuest(){
+  const g = $('nv-guest'); if(g.hidden) return;
+  const ride = $('nv-ride').getBoundingClientRect(), rows = $('nv-rows').getBoundingClientRect();
+  g.style.top = Math.round(rows.top - ride.top + 8) + 'px';
+  g.style.left = Math.round(rows.left - ride.left + rows.width / 2) + 'px';
+  g.style.maxWidth = Math.round(rows.width - 16) + 'px';
+}
+window.addEventListener('resize', () => setTimeout(placeGuest, 60));
+$('nv-guest-login').addEventListener('click', () => {
+  const id = route ? route.id : Number(new URLSearchParams(location.search).get('trasa'));
+  location.href = 'index.html?next=' + encodeURIComponent('roadbook-navi.html?trasa=' + id + '&jed=1');
+});
 function stopRide(){
   soundGuide = null;
+  $('nv-guest').hidden = true;
   if(watchId != null){ watchId.stop(); watchId = null; }
   if(gpsBadge) gpsBadge.hide();
   stopSim();
@@ -479,7 +493,7 @@ window.addEventListener('resize', () => setTimeout(placeOff, 120));
 // ---------------------------------------------------------------
 const SIM_SPEEDS = [15, 30, 60, 120];
 function startSim(){
-  sim = { s: 0, kmh: 30, paused: false, t: null };
+  sim = { s: 0, kmh: 60, paused: false, t: null };   // v4.25: simulace vždy začíná na 60 km/h
   $('nv-sim').classList.add('open');
   $('nv-sim-speed').textContent = sim.kmh + ' km/h';
   $('nv-sim-pause').textContent = '⏸ Pauza';
@@ -701,11 +715,14 @@ window.addEventListener('resize', () => { if($('nv-ride').classList.contains('op
   if(id && routes.some(r => r.id === id)){
     pickRoute(id, true);
     // v4.15: z Atlasu („Roadbook“ u trasy) – GPS už je povolená, jízdu spustíme rovnou
-    if(FROM_ATLAS && currentUser){
+    if(FROM_ATLAS){
       asked.add(id);
       try{ history.replaceState(null, '', location.pathname + '?trasa=' + id); }catch(e){}
-      $('nv-simopt').checked = false;
-      startRide(id, false);
+      // v4.25: nepřihlášený z Atlasu → jen simulace s hláškou a přihlášením
+      $('nv-simopt').checked = !currentUser;
+      $('nv-guest').hidden = !!currentUser;
+      await startRide(id, false);
+      placeGuest();
       // zvuk se v prohlížeči odemkne až prvním klepnutím
       const un = () => { if(window.CendurSound) CendurSound.unlock(); document.removeEventListener('pointerdown', un, true); };
       document.addEventListener('pointerdown', un, true);
