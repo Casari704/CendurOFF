@@ -2255,7 +2255,8 @@ function mapTransform(){
 
 function setMapRotation(on){
   if(on){
-    if(!navManualActive()) mapRotDeg = displayedHeading;
+    // v4.28: „rozbalený“ úhel – přes sever (359° → 1°) se mapa otočí kratší cestou, ne celé kolo
+    if(!navManualActive()) mapRotDeg = mapRotDeg + angleDiff(displayedHeading, mapRotDeg);
     mapEl.style.transform = mapTransform();
     // ikonky benzínek se otáčejí zpět, ať zůstávají "rovně" i na otočené mapě
     mapEl.style.setProperty('--map-rot', mapRotDeg + 'deg');
@@ -2269,6 +2270,7 @@ function setMapRotation(on){
     updateArrowRotation(displayedHeading);
   } else {
     mapRotDeg = 0;
+    arrowShownDeg = null;
     mapEl.style.transform = 'none';
     mapEl.style.setProperty('--map-rot', '0deg');
     map.dragging.enable();
