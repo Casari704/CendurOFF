@@ -1172,7 +1172,7 @@ async function openDetail(id){
     // v4.15: velké tlačítko Roadbook jen u trasy s roadbookem
     const gr = inner.querySelector('#detail-go-rb');
     if(gr && st !== 'auto'){
-      gr.href = 'roadbook-navi.html?trasa=' + encodeURIComponent(route.id) + (currentUser ? '&jed=1' : '');
+      gr.href = 'roadbook-navi.html?trasa=' + encodeURIComponent(route.id) + (currentUser ? '&jed=1' : '');   // přihlášený: jízda rovnou, po Konec zpět do Atlasu
       gr.hidden = false; inner.querySelector('#detail-go').classList.remove('one');
     }
   }).catch(() => {});
@@ -1416,6 +1416,8 @@ function closeDetail(){
 // ---------------------------------------------------------------
 const overlay = document.getElementById('upload-overlay');
 // v4.3.3: tlačítko vytváří header.js – když se nenačte (např. robot Googlu), Atlas nesmí spadnout
+// v4.18: totéž tlačítko i v seznamu tras (na mobilu, kde hlavička není)
+document.getElementById('list-upload')?.addEventListener('click', ()=> document.getElementById('open-upload')?.click());
 document.getElementById('open-upload')?.addEventListener('click', ()=>{
   if(!requireLogin('nahrání trasy')) return;
   document.getElementById('gpx-file').value='';
@@ -2734,7 +2736,7 @@ async function enterApp(){
   setTimeout(positionFloatingMapButtons, 100);
   await loadRoutes();
   requestWakeLock();
-  // dlaždice „+ Nahrát trasu“ z jiné stránky → index.html?nahrat=1
+  // „+ Nahrát trasu“ z Atlas Planneru → index.html?nahrat=1
   try{
     const u = new URL(location.href);
     if(u.searchParams.get('nahrat')){

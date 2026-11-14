@@ -738,10 +738,10 @@ function showMobileBlock(){
   document.body.classList.remove('auth-pending');
   document.body.classList.add('rb-mobile-blocked');
   $('rb-toolbar').remove();
-  $('rb-main').innerHTML = '<div class="rb-mobile-msg"><h2>Roadbook planner je jen pro počítač</h2>' +
+  $('rb-main').innerHTML = '<div class="rb-mobile-msg"><h2>Roadbook editor je jen pro počítač</h2>' +
     '<p>Plánování roadbooku potřebuje velkou obrazovku a myš, proto ho na mobilu nejde použít. Otevři ho na počítači – doporučujeme prohlížeč <b>Google Chrome</b>.</p>' +
     '<p>Na mobilu můžeš podle hotového roadbooku jet v <b>Roadbook NAVI</b>.</p>' +
-    '<div class="rb-mobile-actions"><a class="btn-rb go" href="roadbook-navi.html">Otevřít Roadbook NAVI</a><a class="btn-rb" href="index.html">Zpět na úvod</a><a class="btn-rb" href="faq.html#rb-planner">Jak to funguje (FAQ)</a></div></div>';
+    '<div class="rb-mobile-actions"><a class="btn-rb go" href="index.html?atlas=1">Otevřít Atlas</a><a class="btn-rb" href="index.html">Zpět na úvod</a><a class="btn-rb" href="faq.html#rb-planner">Jak to funguje (FAQ)</a></div></div>';
 }
 
 (async function boot(){
@@ -749,7 +749,7 @@ function showMobileBlock(){
   if(!isChromium()){
     let off = false; try{ off = localStorage.getItem('cenduroff.rb.chromeHint') === '0'; }catch(e){}
     if(!off){
-      $('rb-toolbar').insertAdjacentHTML('afterend', '<div class="rb-browser-hint" id="rb-browser-hint">Roadbook planner je odladěný pro <b>Google Chrome</b> – v jiném prohlížeči se něco nemusí chovat správně. <button type="button" class="btn-rb" id="rb-browser-hint-x">Rozumím</button></div>');
+      $('rb-toolbar').insertAdjacentHTML('afterend', '<div class="rb-browser-hint" id="rb-browser-hint">Roadbook editor je odladěný pro <b>Google Chrome</b> – v jiném prohlížeči se něco nemusí chovat správně. <button type="button" class="btn-rb" id="rb-browser-hint-x">Rozumím</button></div>');
       $('rb-browser-hint-x').addEventListener('click', () => { $('rb-browser-hint').remove(); try{ localStorage.setItem('cenduroff.rb.chromeHint', '0'); }catch(e){} setTimeout(() => map.invalidateSize(), 50); });
     }
   }

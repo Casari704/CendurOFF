@@ -1,4 +1,7 @@
 (function(){
+// v4.18: z Atlasu (?jed=1) rovnou jízda – výběrovou mapu nezobrazovat, po „Konec“ zpět do Atlasu
+const FROM_ATLAS = new URLSearchParams(location.search).get('jed') === '1';
+if(FROM_ATLAS) document.body.classList.add('nv-direct');
 // ===============================================================
 // CendurOFF – Roadbook NAVI (roadbook-navi.html), v2.1
 //
@@ -43,19 +46,6 @@ function unbusy(){ $('rb-busy').classList.remove('open'); }
 // ---------------------------------------------------------------
 let currentUser = null, routes = [], sums = {};
 // v3.9.2: seznam tras zrušen – trasy se vybírají jen z mapy (funkce zůstává jako prázdná)
-function renderSelect(){
-  if(!$('nv-list')) return;
-  const q = ($('nv-search').value || '').trim().toLowerCase();
-  const list = routes.filter(r => !q || r.name.toLowerCase().includes(q));
-  const titles = { ready:'Roadbook Ready', check:'Ke kontrole – trasa se změnila nebo čeká na kontrolu', draft:'Rozpracované', auto:'Auto – roadbook se spočítá z GPX' };
-  const groups = RB.STATE_ORDER.map(st => [titles[st], list.filter(r => RB.stateOf(sums[r.id]) === st), RB.STATES[st].css, RB.STATES[st].badge]);
-  $('nv-list').innerHTML = groups.filter(g => g[1].length).map(g => '<h2>' + g[0] + '</h2>' +
-    '<div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">' + g[1].map(r =>
-      '<button type="button" class="nv-route" data-id="' + r.id + '"><b>' + esc(r.name) + (offlineIds.has(r.id) ? ' <span title="Uloženo v telefonu">📥</span>' : '') + '</b><span>' + (+r.distance_km).toFixed(1).replace('.', ',') + ' km</span><span class="rb-badge ' + g[2] + '">' + g[3] + '</span></button>').join('') + '</div>').join('') ||
-    '<p class="sub">Žádná trasa.</p>';
-  $('nv-list').querySelectorAll('.nv-route').forEach(b => b.addEventListener('click', () => { $('nv-listpanel').hidden = true; pickRoute(Number(b.dataset.id), true); }));
-  if(picked) { const b = $('nv-list').querySelector('.nv-route[data-id="' + picked + '"]'); if(b) b.classList.add('on'); }
-}
 
 // --- offline: trasy a roadbooky uložené v telefonu (v2.5) ---
 let offlineMode = false;            // bez signálu: pracuje se jen s uloženými trasami
@@ -101,9 +91,9 @@ async function renderOfflineBox(id){
       '<button type="button" class="btn-rb" id="nv-off-upd">Aktualizovat</button><button type="button" class="btn-rb warn" id="nv-off-del">Odebrat z telefonu</button>'
     : '<button type="button" class="btn-rb" id="nv-off-save">📥 Uložit do telefonu pro offline</button><span class="note">Pak pojede i bez signálu (mapa jen tam, kde sis ji už prohlédl).</span>';
   const sv = $('nv-off-save'), up = $('nv-off-upd'), dl = $('nv-off-del');
-  if(sv) sv.addEventListener('click', async () => { busy('Ukládám do telefonu…'); const ok = await saveOffline(id); unbusy(); if(ok){ toast('Trasa i roadbook jsou v telefonu – pojedou i bez signálu.'); renderOfflineBox(id); renderSelect(); } });
+  if(sv) sv.addEventListener('click', async () => { busy('Ukládám do telefonu…'); const ok = await saveOffline(id); unbusy(); if(ok){ toast('Trasa i roadbook jsou v telefonu – pojedou i bez signálu.'); renderOfflineBox(id); } });
   if(up) up.addEventListener('click', async () => { busy('Aktualizuji…'); const ok = await saveOffline(id); unbusy(); if(ok){ toast('Offline kopie aktualizována.'); renderOfflineBox(id); } });
-  if(dl) dl.addEventListener('click', async () => { await removeOffline(id); toast('Odebráno z telefonu.'); renderOfflineBox(id); renderSelect(); });
+  if(dl) dl.addEventListener('click', async () => { await removeOffline(id); toast('Odebráno z telefonu.'); renderOfflineBox(id); });
 }
 
 // --- mapa tras na výběrové obrazovce (v2.11: přes celou plochu, jako v autě) ---
@@ -193,7 +183,6 @@ function pickRoute(id, fromList){
   $('nv-pick').classList.add('open');
   renderOfflineBox(id);
   drawSelectMap();
-  renderSelect();
   updateTitle();
   if(fromList){
     selMap.fitBounds(L.polyline(r.points.map(p => [p[0], p[1]])).getBounds(), { padding:[30, 30] });
@@ -202,7 +191,7 @@ function pickRoute(id, fromList){
 function unpick(){
   picked = null;
   $('nv-pick').classList.remove('open');
-  drawSelectMap(); renderSelect(); updateTitle();
+  drawSelectMap(); updateTitle();
 }
 $('nv-pick-x').addEventListener('click', unpick);
 $('nv-pick-dir').addEventListener('click', () => {
@@ -346,7 +335,7 @@ async function startRide(id, reverseNoRb){
       const osm = await RB.store.get(RB.routeKey(r.id, r.points));
       const g = await RB.generate(r.points, { osm, reversed });
       items = g.items;
-      toast(osm ? 'Roadbook vygenerován automaticky (nezkontrolovaný).' : 'Roadbook jen ze zatáček GPX (bez křižovatek) – úplný připrav v Roadbook planneru.', 5500);
+      toast(osm ? 'Roadbook vygenerován automaticky (nezkontrolovaný).' : 'Roadbook jen ze zatáček GPX (bez křižovatek) – úplný připrav v Roadbook editoru.', 5500);
     }
   }catch(e){
     toast('Roadbook se nepodařilo načíst: ' + e.message, 6000); unbusy(); return;
@@ -374,6 +363,7 @@ function stopRide(){
   if(wakeLock){ try{ wakeLock.release(); }catch(e){} wakeLock = null; }
   $('nv-ride').classList.remove('open');
   $('nv-bigmap').classList.remove('open');
+  if(FROM_ATLAS){ location.replace('index.html?atlas=1'); return; }
   try{ history.replaceState(null, '', location.pathname); }catch(e){}
   startSelectGps();
   if(selMap) setTimeout(() => selMap.invalidateSize(), 60);
@@ -682,7 +672,7 @@ window.addEventListener('resize', () => { if($('nv-ride').classList.contains('op
     }
     if(window.CendurRides) window.CendurRides.setRoutes(routes);
     $('nv-offline-note').hidden = false;
-    renderSelect(); drawSelectMap(); startSelectGps();
+    drawSelectMap(); startSelectGps();
     return;
   }
   // v4.2: bez přihlášení se stránka otevře taky – trasy a roadbooky jdou prohlížet a projet
@@ -704,7 +694,6 @@ window.addEventListener('resize', () => { if($('nv-ride').classList.contains('op
       else await saveOffline(it.id, true);
     }
   })();
-  renderSelect();
   drawSelectMap();
   startSelectGps();
   // přímý odkaz z planneru: jízdu nespouštíme sami (GPS chce klepnutí), jen trasu vybereme
@@ -712,7 +701,7 @@ window.addEventListener('resize', () => { if($('nv-ride').classList.contains('op
   if(id && routes.some(r => r.id === id)){
     pickRoute(id, true);
     // v4.15: z Atlasu („Roadbook“ u trasy) – GPS už je povolená, jízdu spustíme rovnou
-    if(new URLSearchParams(location.search).get('jed') === '1' && currentUser){
+    if(FROM_ATLAS && currentUser){
       asked.add(id);
       try{ history.replaceState(null, '', location.pathname + '?trasa=' + id); }catch(e){}
       $('nv-simopt').checked = false;
@@ -722,6 +711,8 @@ window.addEventListener('resize', () => { if($('nv-ride').classList.contains('op
       document.addEventListener('pointerdown', un, true);
     }
   }
+  // jízda se nespustila (nepřihlášený, trasa nenalezena) → ukázat normální stránku
+  if(FROM_ATLAS && !$('nv-ride').classList.contains('open')) document.body.classList.remove('nv-direct');
 })();
 
 })();

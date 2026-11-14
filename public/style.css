@@ -381,6 +381,10 @@ select:focus{outline:2px solid var(--moss);outline-offset:1px;}
 
 /* výběr více tras */
 #route-tools{padding:8px 12px;border-top:1px solid var(--line);}
+/* v4.18: na mobilu (mapa přes celou obrazovku, bez hlavičky) je „+ Nahrát trasu“ v seznamu tras */
+#list-upload{display:none;}
+body.ride-ui:not(.header-open) #list-upload{display:inline-flex;}
+#list-upload.up{border-color:#C99400;color:#8A6500;font-weight:700;margin-right:6px;}
 #select-mode-btn{width:100%;padding:7px;font-size:0.8rem;}
 #select-mode-btn.active{background:var(--moss);border-color:var(--moss);color:#fff;}
 #route-list.selecting .route-item-info{cursor:copy;}
