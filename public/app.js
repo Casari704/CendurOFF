@@ -1491,6 +1491,7 @@ const HEADING_UPDATE_THRESHOLD_DEG_GPS = 4;      // GPS kurz: změny menší ne�
 const HEADING_UPDATE_THRESHOLD_DEG_COMPASS = 15;  // kompas: vyšší práh, ať drobné chvění v klidu vůbec neprojde
 const HEADING_MIN_UPDATE_MS_GPS = 120;           // GPS: přepočet natočení max ~8x/s
 const HEADING_MIN_UPDATE_MS_COMPASS = 280;       // kompas: přepočet pomalejší, max ~3-4x/s
+const HEADING_COMPASS_TAU_MS = 700;              // v4.27: časová konstanta vyhlazení kompasu (~0,7 s)
 // poloha šipky na obrazovce při sledování (0 = nahoře, 1 = dole): na výšku 80 %, na šířku
 // (nízký displej) 75 % – ať je před šipkou vidět co nejvíc trasy
 const FOLLOW_MARKER_Y_PORTRAIT = 0.80;
@@ -1675,9 +1676,12 @@ function ensureGpsMarker(latlng, accuracy){
     gpsAccuracyCircle.setRadius(accuracy||20);
   }
 }
+let arrowShownDeg = null;   // v4.27: „rozbalený“ úhel – CSS přechod se točí kratší cestou
 function updateArrowRotation(deg){
   const el = document.getElementById('gps-arrow');
-  if(el) el.style.transform = 'rotate('+deg+'deg)';
+  if(!el) return;
+  arrowShownDeg = arrowShownDeg == null ? deg : arrowShownDeg + angleDiff(deg, arrowShownDeg);
+  el.style.transform = 'rotate('+arrowShownDeg+'deg)';
 }
 
 // Rozdíl dvou úhlů v rozsahu -180..180 (ošetřuje přechod přes 0°/360°)
@@ -2144,18 +2148,29 @@ window.CendurZoom.tap(locateBtn, ()=>{ if(!navOn && window.CendurSound) CendurSo
 function startOrientation(){
   if(orientationBound) return;
   orientationBound = true;
-  const handler = (e)=>{
+  // v4.27: jen JEDEN zdroj kompasu. Android posílá „deviceorientationabsolute“ (skutečný sever)
+  // i „deviceorientation“ (relativní úhel s náhodnou nulou) – míchání obou házelo šipkou o desítky
+  // stupňů i v klidu. Bereme absolutní; relativní jen když je výslovně absolutní (nebo kompas iPhonu).
+  let gotAbsolute = false, lastCompassTs = 0;
+  const handler = (e, isAbs)=>{
     // Kompas telefonu bereme v potaz jen pod rychlostním prahem - nad ním má
     // přednost GPS kurz, který se zpracovává v onPosition().
+    if(isAbs) gotAbsolute = true;
+    else if(gotAbsolute) return;
     if(currentSpeedKmh > HEADING_SPEED_THRESHOLD_KMH) return;
     let heading = null;
-    if(e.webkitCompassHeading != null) heading = e.webkitCompassHeading;
-    else if(e.alpha != null) heading = 360 - e.alpha;
+    if(e.webkitCompassHeading != null) heading = e.webkitCompassHeading;          // iPhone
+    else if(e.alpha != null && (isAbs || e.absolute === true)) heading = 360 - e.alpha;
     if(heading==null || isNaN(heading)) return;
-    feedHeading(heading, HEADING_FILTER_ALPHA_COMPASS, HEADING_UPDATE_THRESHOLD_DEG_COMPASS, HEADING_MIN_UPDATE_MS_COMPASS);
+    // vyhlazení podle času (ne podle počtu událostí) – telefony je posílají 5× i 60× za sekundu
+    const now = performance.now();
+    const dt = lastCompassTs ? Math.min(1000, now - lastCompassTs) : 16;
+    lastCompassTs = now;
+    const a = 1 - Math.exp(-dt / HEADING_COMPASS_TAU_MS);
+    feedHeading(heading, a, HEADING_UPDATE_THRESHOLD_DEG_COMPASS, HEADING_MIN_UPDATE_MS_COMPASS);
   };
-  window.addEventListener('deviceorientationabsolute', handler, true);
-  window.addEventListener('deviceorientation', handler, true);
+  window.addEventListener('deviceorientationabsolute', e => handler(e, true), true);
+  window.addEventListener('deviceorientation', e => handler(e, false), true);
 }
 
 // V režimu "směr jízdy" se mapa otáčí. #map je čtverec, jehož STŘED leží přesně na místě

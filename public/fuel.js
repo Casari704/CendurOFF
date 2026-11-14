@@ -11,7 +11,8 @@
   const SVG = '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M4 3h9a1 1 0 0 1 1 1v8h1.5a2.5 2.5 0 0 1 2.5 2.5V18a1 1 0 0 0 2 0v-6.6l-2.7-2.7a1 1 0 1 1 1.4-1.4l3 3a1 1 0 0 1 .3.7V18a3 3 0 0 1-6 0v-3.5a.5.5 0 0 0-.5-.5H14v7h1a1 1 0 1 1 0 2H2a1 1 0 1 1 0-2h1V4a1 1 0 0 1 1-1zm1.5 2v5h6V5h-6z"/></svg>';
 
   let map = null, layer = null, toggleBtn = null, statusEl = null;
-  let on = (()=>{ try{ return localStorage.getItem(STORE_KEY) !== '0'; }catch(e){ return true; } })();
+  // v4.27: výchozí stav vypnuto – zapnuté jen u toho, kdo si benzínky sám zapnul
+  let on = (()=>{ try{ return localStorage.getItem(STORE_KEY) === '1'; }catch(e){ return false; } })();
   let data = null, loading = false, retryTimer = null, hintShown = false;
   const grid = {};                   // "x_y" -> [stanice]
   const markers = new Map();         // id -> marker (jen ty, co jsou teď na mapě)
