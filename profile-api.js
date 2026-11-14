@@ -124,6 +124,8 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
     }
     return ready;
   }
+  (app.locals.cendurSchemas = app.locals.cendurSchemas || []).push(() => ensure());   // v4.16: kvůli obnově zálohy
+
   const whenReady = (req, res, next) => ensure().then(() => next(), () => res.status(500).json({ error: 'Databáze není připravená.' }));
   const adminOnly = (req, res, next) => isAdmin(req) ? next() : res.status(403).json({ error: 'Jen pro admina.' });
 

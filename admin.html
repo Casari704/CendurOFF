@@ -8,8 +8,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
 <title>CendurOFF Admin sekce</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.15.2">
-<link rel="stylesheet" href="public/faq.css?v=4.15.2">
+<link rel="stylesheet" href="public/style.css?v=4.16">
+<link rel="stylesheet" href="public/faq.css?v=4.16">
 <style>
   .a-wrap{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
   .a-wrap h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);}
@@ -64,6 +64,12 @@
   <p class="a-note" id="a-msg">Načítám…</p>
   <p class="a-pending" id="a-pending" hidden></p>
 
+  <section id="a-bak-sec" hidden>
+    <h2>Záloha databáze <small>celá databáze (uživatelé, trasy, fotky, roadbooky, recenze, odznaky…) do jednoho souboru k tobě do počítače · obnova přepíše všechno obsahem zálohy</small></h2>
+    <p style="margin:0 0 8px"><button class="a-btn green" type="button" id="a-bak-dl">⬇ Stáhnout zálohu</button><button class="a-btn red" type="button" id="a-bak-up">⟲ Obnovit ze zálohy…</button><input type="file" id="a-bak-file" accept=".gz,.json,application/gzip" hidden></p>
+    <p class="a-note" id="a-bak-msg"></p>
+  </section>
+
   <section id="a-users-sec" hidden>
     <h2>Uživatelé <small>přihlášení = zadal jméno a heslo (počítá se od verze 2.9.2) · aktivní = naposledy použil web nebo aplikaci (přesnost ~10 min)</small></h2>
     <div class="a-box"><table class="a-t" id="a-users"><thead><tr>
@@ -97,11 +103,11 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.15.2"></script>
-<script src="public/errors.js?v=4.15.2"></script>
-<script src="public/rider.js?v=4.15.2"></script>
-<script src="public/header.js?v=4.15.2"></script>
-<script src="public/pwa.js?v=4.15.2"></script>
+<script src="public/config.js?v=4.16"></script>
+<script src="public/errors.js?v=4.16"></script>
+<script src="public/rider.js?v=4.16"></script>
+<script src="public/header.js?v=4.16"></script>
+<script src="public/pwa.js?v=4.16"></script>
 <script>
 (function(){
   const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
@@ -184,6 +190,46 @@
     const pts = points.map(p => '      <trkpt lat="' + p[0] + '" lon="' + p[1] + '">' + (p[2] != null ? '<ele>' + p[2] + '</ele>' : '') + '</trkpt>').join('\n');
     return '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="CendurOFF" xmlns="http://www.topografix.com/GPX/1/1">\n  <trk><name>' + x(name) + '</name><trkseg>\n' + pts + '\n  </trkseg></trk>\n</gpx>\n';
   }
+  // ---------- v4.16: záloha a obnova databáze ----------
+  const bakCounts = c => Object.entries(c || {}).filter(([k, n]) => n).map(([k, n]) => k + ' ' + n).join(' · ');
+  $('a-bak-dl').addEventListener('click', async () => {
+    const b = $('a-bak-dl'); b.disabled = true; $('a-bak-msg').textContent = 'Připravuji zálohu…';
+    try{
+      let t = null; try{ t = localStorage.getItem('cenduroff.token'); }catch(e){}
+      const res = await fetch(API_URL + '/api/admin/backup', { credentials:'include', headers: t ? { Authorization:'Bearer ' + t } : {} });
+      if(!res.ok){ let d = null; try{ d = await res.json(); }catch(e){} throw new Error((d && d.error) || 'Zálohu se nepodařilo stáhnout.'); }
+      const blob = await res.blob();
+      const m = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '');
+      const name = m ? m[1] : 'cenduroff-zaloha.json.gz';
+      const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = name;
+      document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(link.href), 4000);
+      let counts = null; try{ counts = JSON.parse(decodeURIComponent(res.headers.get('X-Backup-Counts') || '')); }catch(e){}
+      $('a-bak-msg').textContent = '✔ Záloha ' + name + ' (' + (blob.size < 1048576 ? Math.max(1, Math.round(blob.size / 1024)) + ' kB)' : (blob.size / 1048576).toFixed(1).replace('.', ',') + ' MB)') uložena do Stažených. ' + (counts ? 'Obsah: ' + bakCounts(counts) : '');
+    }catch(e){ $('a-bak-msg').textContent = '✖ ' + e.message; }
+    finally{ b.disabled = false; }
+  });
+  $('a-bak-up').addEventListener('click', () => { $('a-bak-file').value = ''; $('a-bak-file').click(); });
+  $('a-bak-file').addEventListener('change', () => {
+    const f = $('a-bak-file').files[0]; if(!f) return;
+    CendurHeader.ask({
+      title: 'Obnovit databázi ze zálohy?',
+      msg: 'Soubor ' + f.name + ' přepíše VŠECHNO, co je teď v databázi (uživatele, trasy, fotky, roadbooky…). Co přibylo po vytvoření zálohy, zmizí. Pokračovat?',
+      no: { label:'Zrušit' },
+      yes: { label:'Obnovit', fn: async () => {
+        $('a-bak-msg').textContent = 'Obnovuji… (nezavírej stránku)';
+        try{
+          let t = null; try{ t = localStorage.getItem('cenduroff.token'); }catch(e){}
+          const res = await fetch(API_URL + '/api/admin/restore?confirm=OBNOVIT', { method:'POST', credentials:'include',
+            headers: Object.assign({ 'Content-Type':'application/gzip' }, t ? { Authorization:'Bearer ' + t } : {}), body: f });
+          let d = null; try{ d = await res.json(); }catch(e){}
+          if(!res.ok) throw new Error((d && d.error) || 'Obnova selhala.');
+          $('a-bak-msg').textContent = '✔ Obnoveno ze zálohy z ' + fmtDate(d.created) + '. ' + bakCounts(d.counts) + (d.skipped && d.skipped.length ? ' · přeskočeno: ' + d.skipped.join(', ') : '');
+          try{ await loadAll(); }catch(e){}
+        }catch(e){ $('a-bak-msg').textContent = '✖ ' + e.message; }
+      } }
+    });
+  });
+
   async function downloadGpx(url){
     try{
       const d = await api(url);
@@ -352,7 +398,7 @@
     me = user;
     if(!user){ location.replace('index.html?next=' + encodeURIComponent('admin.html')); return; }
     if(user.role !== 'admin'){ $('a-msg').textContent = 'Tahle stránka je jen pro admina.'; return; }
-    try{ await loadAll(); $('a-msg').textContent = 'Uživatelé, statistiky projetí tras, archiv smazaných tras a chyby z telefonů.'; $('a-users-sec').hidden = false; $('a-stats-sec').hidden = false; $('a-arch-sec').hidden = false; }
+    try{ await loadAll(); $('a-msg').textContent = 'Uživatelé, statistiky projetí tras, archiv smazaných tras a chyby z telefonů.'; $('a-bak-sec').hidden = false; $('a-users-sec').hidden = false; $('a-stats-sec').hidden = false; $('a-arch-sec').hidden = false; }
     catch(e){ $('a-msg').textContent = 'Nepodařilo se načíst: ' + e.message; }
   })();
 })();

@@ -703,6 +703,12 @@ try {
 } catch (e) {
   console.error('Profil/chyby: modul se nepodařilo připojit:', e);
 }
+// Záloha a obnova databáze (v4.16) – jen admin
+try {
+  require('./backup-api').mount(app, { pool, requireAuth, isAdmin });
+} catch (e) {
+  console.error('Záloha: modul se nepodařilo připojit:', e);
+}
 // CHKO a benzínky pro celou oblast (v4.12) – server je drží pro všechny a obnovuje jednou za týden
 try {
   require('./region-api').mount(app, { pool });

@@ -44,6 +44,8 @@ function mount(app, { pool, requireAuth, optionalAuth, canEdit }) {
     }
     return ready;
   }
+  (app.locals.cendurSchemas = app.locals.cendurSchemas || []).push(() => ensureTable());   // v4.16: kvůli obnově zálohy
+
   const whenReady = (req, res, next) => ensureTable().then(() => next(), () => res.status(500).json({ error: 'Roadbook databáze není připravená.' }));
 
   // efektivní stav: hotový roadbook se změněnou trasou se hlásí jako NOT ready
