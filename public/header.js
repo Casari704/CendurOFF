@@ -123,8 +123,8 @@
     ${T('tm-an','atlas','index.html','ATLAS','mapa, navigace, roadbook, stopař')}
   </div></div>
   <div class="tm-col"><div class="tm-lbl">PŘÍPRAVA TRASY</div><div class="tm-grp tm-steps">
-    ${T('tm-ap','planovac','planovac.html','<span class="tm-n">1</span>Atlas Planner','naplánuj trasu')}
-    ${T('tm-rp','roadbook','roadbook-planner.html','<span class="tm-n">2</span>Roadbook editor','doplň instrukce · jen na PC')}
+    ${T('tm-ap','planovac','planovac.html','<span class="tm-n">1</span>Atlas Planner','naplánuj, uprav nebo nahraj trasu')}
+    ${T('tm-rp','roadbook','roadbook-planner.html','<span class="tm-n">2</span>Roadbook editor','vytvoř k trase roadbook · jen na PC')}
   </div></div>
   <div class="tm-side">
     <button class="tm-s${page==='nastaveni' ? ' cur' : ''}" id="tm-account" type="button">Nastavení účtu</button>
