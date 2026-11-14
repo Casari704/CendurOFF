@@ -725,6 +725,8 @@ function drawRoute(route){
   };
   line.addTo(map);
   line.bindTooltip(routeTipHtml(route), { sticky:true, className:'trail-tip' });
+  // v4.15.2: při navigaci se štítek s názvem trasy neukazuje (na otočené mapě by zůstal viset bokem)
+  line.on('tooltipopen', ()=>{ if(navOn) line.closeTooltip(); });
   line.on('mouseover', ()=>{ if(!isRouteMarked(route.id)) line.setStyle(STYLE_HOVER); });
   line.on('mouseout', ()=> applyRouteStyle(route.id));
   line.on('click', ()=>{
@@ -1870,6 +1872,17 @@ function freeEnsureHud(){
     '<div id="free-hud"><div id="free-corner"></div></div>');
   // v4.1: všechny hlášky (GPS, mimo trasu, režim) ve společném sloupci nahoře (public/status.js)
   freeStatus = window.CendurStatus.create(document.getElementById('free-hud'), { prepend:true, className:'cs-atlas' });
+  // v4.15.2: ťuknutí na pruh režimu – vybraná trasa → volná jízda; „na trase …“ → trasu vybrat (u roadbooku nabídka)
+  document.getElementById('free-hud').addEventListener('click', e => {
+    if(!navOn || !e.target.closest('.cs-item[data-key="mode"]')) return;
+    e.stopPropagation();
+    if(freePickedId != null){ freePick(null); return; }
+    const id = freeCaughtId;
+    if(id == null){ toast('Žádná trasa poblíž – přijeď k trase nebo na ni ťukni v mapě.', 2500); return; }
+    const RB = window.CendurRB;
+    if(RB && freeSums && freeSums[id] && RB.stateOf(freeSums[id]) !== 'auto' && rec.state === 'idle'){ freeAsked.add(id); freeOfferAsk(id); }
+    else freePick(id);
+  });
 }
 async function freeStart(){
   freeEnsureHud();
@@ -1896,7 +1909,7 @@ function freePick(id){
   const now = freeActiveId();
   if(old != null) applyRouteStyle(old);
   if(now != null) applyRouteStyle(now);
-  toast(id != null ? 'Trasa: ' + freeShort(routesCache[id] && routesCache[id].name) : 'Volná jízda', 1800);
+  // v4.15.2: bez toastu – totéž už ukazuje modrý pruh nahoře (Trasa: … / Volná jízda)
   if(now != null) freeLoadRb(now);
   freeRender();
 }
@@ -1935,6 +1948,11 @@ function freeOffer(latlng){
   if(!r || !freeSums[id] || st === 'auto') return;
   if(freeDistM(r, latlng[0], latlng[1], 100) > FREE_ASK_M) return;
   freeAsked.add(id);
+  freeOfferAsk(id);
+}
+// nabídka Atlas NAVI | Roadbook | Ne – u trasy s roadbookem (sama při příjezdu i po ťuknutí na pruh nahoře)
+function freeOfferAsk(id){
+  const RB = window.CendurRB, r = routesCache[id], st = RB.stateOf(freeSums && freeSums[id]);
   const note = st === 'check' ? 'Roadbook je ke kontrole.' : st === 'draft' ? 'Roadbook je zatím rozpracovaný.' : 'Trasa má roadbook.';
   CendurHeader.ask({
     title: 'Jsi u trasy „' + r.name + '“',
@@ -1973,7 +1991,7 @@ function freeRender(){
   const caught = freeCaughtId != null ? routesCache[freeCaughtId] : null;
   freeStatus.set('mode', {
     title: picked ? 'Trasa: ' + freeShort(picked.name) : 'Volná jízda',
-    sub: picked ? 'klepnutím do mapy zpět do volné jízdy' : caught ? 'na trase: ' + freeShort(caught.name) : '',
+    sub: picked ? 'ťukni = volná jízda' : caught ? 'na trase: ' + freeShort(caught.name) + ' · ťukni' : '',
     tone: picked ? 'blue' : 'dark', prio: 10 });
   let routeNote = null;   // hláška „mimo trasu“ / „proti směru“ (do společného sloupce)
   // roh s další instrukcí roadbooku
@@ -2063,6 +2081,7 @@ function setNavMode(on){
   locateBtnLabel.textContent = navOn ? 'Ukončit navigaci' : 'NAVIGOVAT';
   locateBtn.setAttribute('aria-pressed', navOn ? 'true' : 'false');
   document.body.classList.toggle('nav-on', navOn);
+  if(navOn) Object.values(layersById).forEach(l => { if(l && l.closeTooltip) l.closeTooltip(); });
   // čáry tras a záznamu podle režimu
   Object.keys(layersById).forEach(applyRouteStyle);
   if(recLine) recLine.setStyle({ weight: routeWeight('rec') });
