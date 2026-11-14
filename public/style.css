@@ -519,6 +519,11 @@ a.btn{text-decoration:none;}
 .gpx-actions a.planner-link{flex:1 1 100%;text-decoration:none;display:flex;align-items:center;justify-content:center;font-size:0.85rem;padding:11px 6px;}
 
 .rec-btn{min-width:0;width:219px;}
+/* v4.19: na počítači je Stopař ve volném poli nad NAVIGOVAT (stejná velikost) */
+@media (min-width:761px){
+  body:not(.ride-ui) #locate-controls #rec-btn{position:absolute;left:0;bottom:calc(64px + 5px);width:150px;height:64px;border-radius:14px;padding:0 12px;gap:8px;}
+  body:not(.ride-ui) #locate-controls #rec-btn .map-btn-label{font-size:0.95rem;}
+}
 .rec-icon{width:20px;height:20px;border-radius:50%;background:#D32F2F;box-shadow:0 0 0 3px rgba(211,47,47,0.18);display:block;}
 .rec-btn.rec-on{background:#D32F2F;border-color:#D32F2F;color:#fff;}
 .rec-btn.rec-on .rec-icon{background:#fff;border-radius:4px;width:16px;height:16px;animation:rec-pulse 1.4s ease-in-out infinite;}

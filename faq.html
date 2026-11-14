@@ -10,8 +10,8 @@
 <title>CendurOFF FAQ – jak to funguje</title>
 <meta name="description" content="Nápověda k CendurOFF: Atlas NAVI, navigace, záznam jízdy, Atlas Planner, Roadbook editor a Roadbook NAVI.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.18.1">
-<link rel="stylesheet" href="public/faq.css?v=4.18.1">
+<link rel="stylesheet" href="public/style.css?v=4.19">
+<link rel="stylesheet" href="public/faq.css?v=4.19">
 </head>
 <body class="faq-page">
 <header class="topbar" data-page="faq" data-auth="auto"></header>
@@ -27,7 +27,7 @@
     <a href="#ucet">Účet</a>
     <a href="#atlas">Atlas NAVI</a>
     <a href="#navigace">Navigace v Atlas NAVI</a>
-    <a href="#zaznam">Záznam jízdy</a>
+    <a href="#zaznam">Stopař (záznam jízdy)</a>
     <a href="#planovac">Atlas Planner</a>
     <a href="#roadbook">Roadbook</a>
     <a href="#rb-planner">Roadbook editor</a>
@@ -114,7 +114,7 @@
       <p><b>Hodnost</b> se řídí najetými kilometry: 🔰 Bažant (0 km), ⚙️ Zelenáč (10 km), 🧭 Průzkumník (100 km), 🐗 Cestovatel (500 km), 🐺 Šedý vlk (1 500 km) a 🏆 Legenda CendurOFF (5 000 km). Kilometry se počítají jen ze skutečné polohy GPS při navigaci (Atlas, Roadbook NAVI) nebo při záznamu jízdy – simulace se nepočítá.</p>
       <p><b>Odznaky</b> sbíráš za jízdy a aktivitu – každý jde získat jednou:</p>
       <ul>
-        <li>👣 <b>Stopař</b> – nahrál aspoň 2 trasy ze záznamu své jízdy v Atlasu</li>
+        <li>👣 <b>Stopař</b> – nahrál aspoň 2 trasy ze záznamu své jízdy v Atlasu (tlačítko Stopař)</li>
         <li>📸 <b>Fotograf</b> – nahrál fotky aspoň ke 2 trasám (svým i cizím)</li>
         <li>🧊 <b>Ledoborec</b> – projel trasu mezi listopadem a únorem</li>
         <li>🏁 <b>Dakarista</b> – projel 2× trasu podle roadbooku (Roadbook NAVI, ne simulace)</li>
@@ -160,7 +160,7 @@
     </details>
     <details>
       <summary>Jak nahraju novou trasu?</summary>
-      <p>Tlačítko <b>+ Nahrát trasu</b> v hlavičce Atlasu → vyber GPX soubor, napiš název, popis a typ trasy → <b>Nahrát</b>. Trasu můžeš taky nakreslit v Atlas Planneru nebo nahrát jízdou (Záznam jízdy).</p>
+      <p>Tlačítko <b>+ Nahrát trasu</b> v hlavičce Atlasu → vyber GPX soubor, napiš název, popis a typ trasy → <b>Nahrát</b>. Trasu můžeš taky nakreslit v Atlas Planneru nebo nahrát jízdou (tlačítko Stopař).</p>
     </details>
     <details>
       <summary>Jak stáhnu víc tras najednou?</summary>
@@ -217,10 +217,10 @@
 
   <!-- ===================== ZÁZNAM ===================== -->
   <section id="zaznam">
-    <h2>Záznam jízdy</h2>
+    <h2>Stopař – záznam jízdy</h2>
     <details>
       <summary>Jak nahraju projetou trasu?</summary>
-      <p>V Atlasu klikni na <b>Záznam jízdy</b>. Panel ukazuje čas, kilometry a rychlost, záznam jde <b>pozastavit</b>. Po <b>Stop</b> můžeš trasu <b>uložit do CendurOFF</b>, <b>stáhnout jako GPX</b>, <b>upravit v Atlas Planneru</b>, pokračovat v záznamu, nebo ho zahodit.</p>
+      <p>V Atlasu klikni na tlačítko <b>Stopař</b> (na počítači nad tlačítkem NAVIGOVAT). Panel ukazuje čas, kilometry a rychlost, záznam jde <b>pozastavit</b>. Po <b>Stop</b> můžeš trasu <b>uložit do CendurOFF</b>, <b>stáhnout jako GPX</b>, <b>upravit v Atlas Planneru</b>, pokračovat v záznamu, nebo ho zahodit.</p>
       <p>Záznam funguje i během navigace – můžeš jet podle jiné trasy a zároveň nahrávat.</p>
     </details>
   </section>
@@ -390,11 +390,11 @@
 </main>
 
 <div class="toast" id="toast"></div>
-<script src="public/config.js?v=4.18.1"></script>
-<script src="public/errors.js?v=4.18.1"></script>
-<script src="public/rider.js?v=4.18.1"></script>
-<script src="public/header.js?v=4.18.1"></script>
-<script src="public/pwa.js?v=4.18.1"></script>
+<script src="public/config.js?v=4.19"></script>
+<script src="public/errors.js?v=4.19"></script>
+<script src="public/rider.js?v=4.19"></script>
+<script src="public/header.js?v=4.19"></script>
+<script src="public/pwa.js?v=4.19"></script>
 <script>
 // otevře sekci, na kterou vede odkaz (#rb-planner apod.)
 (function(){

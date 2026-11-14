@@ -48,9 +48,9 @@
   if(!document.getElementById('rec-btn')){
     const lc = document.getElementById('locate-controls');
     if(lc) lc.insertAdjacentHTML('afterbegin', `
-      <button class="map-btn rec-btn" id="rec-btn" type="button" title="Nahrávat projetou trasu">
+      <button class="map-btn rec-btn" id="rec-btn" type="button" title="Stopař – nahrávat projetou trasu">
         <span class="map-btn-icon"><span class="rec-icon"></span></span>
-        <span class="map-btn-label" id="rec-btn-label">Záznam jízdy</span>
+        <span class="map-btn-label" id="rec-btn-label">Stopař</span>
       </button>`);
   }
   if(!document.getElementById('rec-panel')){
@@ -2459,7 +2459,7 @@ function updateRecUi(){
     recBtn.classList.toggle('rec-on', rec.state==='recording');
     recBtn.classList.toggle('rec-paused', rec.state==='paused');
   }
-  if(recBtnLabel) recBtnLabel.textContent = rec.state==='recording' ? 'Nahrávám…' : rec.state==='paused' ? 'Pozastaveno' : 'Záznam jízdy';
+  if(recBtnLabel) recBtnLabel.textContent = rec.state==='recording' ? 'Nahrávám…' : rec.state==='paused' ? 'Pozastaveno' : 'Stopař';
   if(recPanel){
     recPanel.classList.toggle('open', active && !recPanelHidden);
     recPanel.classList.toggle('paused', rec.state==='paused');
