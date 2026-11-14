@@ -8,8 +8,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
 <title>CendurOFF Admin sekce</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.16">
-<link rel="stylesheet" href="public/faq.css?v=4.16">
+<link rel="stylesheet" href="public/style.css?v=4.17">
+<link rel="stylesheet" href="public/faq.css?v=4.17">
 <style>
   .a-wrap{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
   .a-wrap h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);}
@@ -65,8 +65,8 @@
   <p class="a-pending" id="a-pending" hidden></p>
 
   <section id="a-bak-sec" hidden>
-    <h2>Záloha databáze <small>celá databáze (uživatelé, trasy, fotky, roadbooky, recenze, odznaky…) do jednoho souboru k tobě do počítače · obnova přepíše všechno obsahem zálohy</small></h2>
-    <p style="margin:0 0 8px"><button class="a-btn green" type="button" id="a-bak-dl">⬇ Stáhnout zálohu</button><button class="a-btn red" type="button" id="a-bak-up">⟲ Obnovit ze zálohy…</button><input type="file" id="a-bak-file" accept=".gz,.json,application/gzip" hidden></p>
+    <h2>Záloha <small>jeden ZIP k tobě do počítače: přehled v Excelu, všechny trasy jako GPX, fotky po trasách a celá databáze pro obnovu · obnova (vyber ten ZIP) přepíše všechno obsahem zálohy</small></h2>
+    <p style="margin:0 0 8px"><button class="a-btn green" type="button" id="a-bak-dl">⬇ Stáhnout zálohu</button><button class="a-btn red" type="button" id="a-bak-up">⟲ Obnovit ze zálohy…</button><input type="file" id="a-bak-file" accept=".zip,.gz,application/zip,application/gzip" hidden></p>
     <p class="a-note" id="a-bak-msg"></p>
   </section>
 
@@ -103,11 +103,11 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.16"></script>
-<script src="public/errors.js?v=4.16"></script>
-<script src="public/rider.js?v=4.16"></script>
-<script src="public/header.js?v=4.16"></script>
-<script src="public/pwa.js?v=4.16"></script>
+<script src="public/config.js?v=4.17"></script>
+<script src="public/errors.js?v=4.17"></script>
+<script src="public/rider.js?v=4.17"></script>
+<script src="public/header.js?v=4.17"></script>
+<script src="public/pwa.js?v=4.17"></script>
 <script>
 (function(){
   const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
@@ -200,7 +200,7 @@
       if(!res.ok){ let d = null; try{ d = await res.json(); }catch(e){} throw new Error((d && d.error) || 'Zálohu se nepodařilo stáhnout.'); }
       const blob = await res.blob();
       const m = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '');
-      const name = m ? m[1] : 'cenduroff-zaloha.json.gz';
+      const name = m ? m[1] : 'cenduroff-zaloha.zip';
       const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = name;
       document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(link.href), 4000);
       let counts = null; try{ counts = JSON.parse(decodeURIComponent(res.headers.get('X-Backup-Counts') || '')); }catch(e){}
@@ -220,7 +220,7 @@
         try{
           let t = null; try{ t = localStorage.getItem('cenduroff.token'); }catch(e){}
           const res = await fetch(API_URL + '/api/admin/restore?confirm=OBNOVIT', { method:'POST', credentials:'include',
-            headers: Object.assign({ 'Content-Type':'application/gzip' }, t ? { Authorization:'Bearer ' + t } : {}), body: f });
+            headers: Object.assign({ 'Content-Type':'application/octet-stream' }, t ? { Authorization:'Bearer ' + t } : {}), body: f });
           let d = null; try{ d = await res.json(); }catch(e){}
           if(!res.ok) throw new Error((d && d.error) || 'Obnova selhala.');
           $('a-bak-msg').textContent = '✔ Obnoveno ze zálohy z ' + fmtDate(d.created) + '. ' + bakCounts(d.counts) + (d.skipped && d.skipped.length ? ' · přeskočeno: ' + d.skipped.join(', ') : '');
