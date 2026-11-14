@@ -10,8 +10,8 @@
 <title>CendurOFF Roadbook editor</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.25">
-<link rel="stylesheet" href="public/rb.css?v=4.25">
+<link rel="stylesheet" href="public/style.css?v=4.26">
+<link rel="stylesheet" href="public/rb.css?v=4.26">
 <style>body.auth-pending #app-screen{visibility:hidden;}</style>
 </head>
 <body class="rb-page rb-planner auth-pending">
@@ -27,13 +27,13 @@
     <span class="spacer"></span>
     <button class="btn-rb" id="rb-pick" type="button">🗺 Vybrat jinou trasu</button>
     <div class="rb-more">
+      <button class="btn-rb" id="rb-sim" type="button" disabled title="Projet rozpracovaný roadbook v simulaci (bez GPS)">▶ Simulace jízdy</button>
       <button class="btn-rb" id="rb-more-btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="rb-more-list">Nástroje ▾</button>
       <div class="rb-more-list" id="rb-more-list" role="menu" hidden>
         <button class="btn-rb" id="rb-regen" type="button" role="menuitem">↻ Vygenerovat znovu</button>
         <button class="btn-rb" id="rb-reverse" type="button" role="menuitem">⇄ Obrátit směr</button>
         <button class="btn-rb" id="rb-print-btn" type="button" role="menuitem">🖨 Tisk (A5 / pás)</button>
         <button class="btn-rb" id="rb-legend-btn" type="button" role="menuitem">Legenda symbolů</button>
-        <a class="btn-rb" id="rb-navi-link" href="roadbook-navi.html" role="menuitem">Otevřít v Roadbook NAVI</a>
       </div>
     </div>
     <button class="btn-rb" id="rb-ready" type="button">Označit READY</button>
@@ -140,16 +140,20 @@
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="public/config.js?v=4.25"></script>
-<script src="public/errors.js?v=4.25"></script>
-<script src="public/rider.js?v=4.25"></script>
-<script src="public/header.js?v=4.25"></script>
-<script src="public/pwa.js?v=4.25"></script>
-<script src="public/regiondata.js?v=4.25"></script>
-<script src="public/rb-core.js?v=4.25"></script>
-<script src="public/sound.js?v=4.25"></script>
-<script src="public/zoom.js?v=4.25"></script>
-<script src="public/basemaps.js?v=4.25"></script>
-<script src="public/rb-planner.js?v=4.25"></script>
+<script src="public/config.js?v=4.26"></script>
+<script src="public/errors.js?v=4.26"></script>
+<script src="public/rider.js?v=4.26"></script>
+<script src="public/header.js?v=4.26"></script>
+<script src="public/pwa.js?v=4.26"></script>
+<script src="public/regiondata.js?v=4.26"></script>
+<script src="public/rb-core.js?v=4.26"></script>
+<script src="public/sound.js?v=4.26"></script>
+<script src="public/zoom.js?v=4.26"></script>
+<script src="public/basemaps.js?v=4.26"></script>
+<script src="public/status.js?v=4.26"></script>
+<script src="public/gps.js?v=4.26"></script>
+<script src="public/route-arrows.js?v=4.26"></script>
+<script src="public/rb-ride.js?v=4.26"></script>
+<script src="public/rb-planner.js?v=4.26"></script>
 </body>
 </html>

@@ -1025,10 +1025,16 @@ body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !import
 
 /* v4.14: stav roadbooku v detailu trasy */
 .detail-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+/* v4.26: roadbook do telefonu (jízda bez signálu) – pod tlačítky navigace v detailu */
+.detail-off{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 6px;font-size:0.82rem;}
+.detail-off[hidden]{display:none;}
+.detail-off button{border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;font:700 0.82rem 'Exo 2',sans-serif;cursor:pointer;color:var(--ink,#111);}
+.detail-off .ok{color:#2E7D32;font-weight:700;}
+.detail-off .note{color:var(--ink-soft,#666);}
 /* v4.15: velká tlačítka navigace v detailu trasy */
 .detail-go{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 6px;}
 .detail-go.one{grid-template-columns:1fr;}
-.detail-go .go-atlas,.detail-go .go-rb{display:flex;align-items:center;justify-content:center;gap:8px;min-height:60px;padding:6px 10px;border-radius:12px;border:2px solid #111;font-family:'Exo 2',sans-serif;font-weight:800;font-size:1.15rem;cursor:pointer;text-decoration:none;touch-action:manipulation;}
+.detail-go .go-atlas,.detail-go .go-rb{appearance:none;display:flex;align-items:center;justify-content:center;gap:8px;min-height:60px;padding:6px 10px;border-radius:12px;border:2px solid #111;font-family:'Exo 2',sans-serif;font-weight:800;font-size:1.15rem;cursor:pointer;text-decoration:none;touch-action:manipulation;}
 .detail-go .go-rb[hidden]{display:none;}
 .detail-go .go-atlas{background:var(--moss,#4F7048);border-color:var(--moss,#4F7048);color:#fff;}
 .detail-go .go-rb{background:#111;color:#fff;}

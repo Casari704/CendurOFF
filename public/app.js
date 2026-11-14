@@ -288,7 +288,7 @@ let pendingLinkId = routeIdFromUrl(); // trasa z odkazu, otevře se po přihlá�
 // Povolené jsou jen naše vlastní stránky, ať se odkaz nedá zneužít k přesměrování jinam.
 function nextPageAfterLogin(){
   const n = new URLSearchParams(location.search).get('next');
-  return (n && /^(planovac|merch|faq|admin|nastaveni|roadbook-planner|roadbook-navi)\.html(\?[^#]*)?$/.test(n)) ? n : null;
+  return (n && /^(planovac|merch|faq|admin|nastaveni|roadbook-planner)\.html(\?[^#]*)?$/.test(n)) ? n : null;
 }
 // ---------------------------------------------------------------
 // v4.2: Atlas bez přihlášení – host vidí mapu a trasy; navigace, záznam jízdy, nahrávání,
@@ -1094,8 +1094,9 @@ async function openDetail(id){
     <div class="detail-chips"><div class="type-chip">${typeDot(typeOf(route))}${typeInfo(route).label} trasa</div><a class="rb-chip" id="detail-rb" hidden></a></div>
     <div class="detail-go one" id="detail-go">
       <button type="button" class="go-atlas" id="detail-go-atlas">▶ <span class="t">Navigovat<small>Atlas NAVI</small></span></button>
-      <a class="go-rb" id="detail-go-rb" hidden>📒 <span class="t">Roadbook<small>Roadbook NAVI</small></span></a>
+      <button type="button" class="go-rb" id="detail-go-rb" hidden>📒 <span class="t">Roadbook<small>Roadbook NAVI</small></span></button>
     </div>
+    <div class="detail-off" id="detail-off" hidden></div>
     <div class="detail-owner">Přidal(a) ${escapeHtml(route.owner_display)} · ${fmtDate(route.created_at)}${route.gpx_updated_at ? `<br>GPX aktualizováno dne: ${fmtDateShort(route.gpx_updated_at)}` : ''}</div>
     ${route.description ? `<div class="detail-desc" id="detail-desc-text">${escapeHtml(route.description)}${route.description_by && route.description_by !== route.owner_id && route.description_by_display ? `<div class="desc-by">Popis doplnil(a) ${escapeHtml(route.description_by_display)}</div>` : ''}</div>` : ''}
     ${renderRatingBlock(route)}
@@ -1166,14 +1167,15 @@ async function openDetail(id){
     const T = { ready:'Roadbook ready', check:'Roadbook ke kontrole', draft:'Roadbook rozpracovaný', auto:'Bez roadbooku' };
     el.className = 'rb-chip rb-' + st;
     el.innerHTML = '<i></i>' + T[st] + (st === 'auto' ? '' : ' ›');
-    if(st !== 'auto'){ el.href = 'roadbook-navi.html?trasa=' + encodeURIComponent(route.id); el.title = 'Otevřít v Roadbook NAVI'; }
-    else el.removeAttribute('href');
+    el.removeAttribute('href');
+    if(st !== 'auto'){ el.title = 'Jet podle roadbooku'; el.style.cursor = 'pointer'; el.onclick = e => { e.preventDefault(); startRoadbook(route.id); }; }
     el.hidden = false;
-    // v4.15: velké tlačítko Roadbook jen u trasy s roadbookem
+    // v4.15: velké tlačítko Roadbook jen u trasy s roadbookem – v4.26: jízda přes celou obrazovku přímo v Atlasu
     const gr = inner.querySelector('#detail-go-rb');
     if(gr && st !== 'auto'){
-      gr.href = 'roadbook-navi.html?trasa=' + encodeURIComponent(route.id) + '&jed=1';   // rovnou jízda (nepřihlášený jen simulace), po Konec zpět do Atlasu
+      gr.onclick = () => startRoadbook(route.id);
       gr.hidden = false; inner.querySelector('#detail-go').classList.remove('one');
+      renderDetailOffline(inner, route);
     }
   }).catch(() => {});
   // v4.15: ▶ Navigovat – Atlas NAVI rovnou po téhle trase
@@ -1882,7 +1884,7 @@ function freeEnsureHud(){
     const id = freeCaughtId;
     if(id == null){ toast('Žádná trasa poblíž – přijeď k trase nebo na ni ťukni v mapě.', 2500); return; }
     const RB = window.CendurRB;
-    if(RB && freeSums && freeSums[id] && RB.stateOf(freeSums[id]) !== 'auto' && rec.state === 'idle'){ freeAsked.add(id); freeOfferAsk(id); }
+    if(RB && freeSums && freeSums[id] && RB.stateOf(freeSums[id]) !== 'auto'){ freeAsked.add(id); freeOfferAsk(id); }
     else freePick(id);
   });
 }
@@ -1937,6 +1939,53 @@ function freeUpdate(latlng){
   freeRender();
   freeOffer(latlng);
 }
+// ---------------------------------------------------------------
+// v4.26: jízda podle roadbooku přes celou obrazovku přímo v Atlasu (public/rb-ride.js)
+//  přihlášený: skutečná jízda podle GPS; nepřihlášený: jen simulace s hláškou a přihlášením
+// ---------------------------------------------------------------
+function startRoadbook(id){
+  const r = routesCache[id];
+  if(!r || !window.CendurRide) return;
+  if(window.CendurSound) CendurSound.unlock();
+  // Atlas NAVI během jízdy podle roadbooku stojí (žádné dvojí zvuky a počítání); Stopař běží dál
+  const wasNav = navOn;
+  if(navOn) setNavMode(false);
+  closeDetail();
+  window.CendurRide.start({
+    route: r, guest: !currentUser, user: currentUser,
+    loginHref: null,
+    onEnd: () => { if(wasNav && currentUser){ setNavMode(true); if(navOn){ freeAsked.add(id); freePick(id); } } }
+  }).then(ok => { if(!ok && wasNav) setNavMode(true); });
+}
+// tlačítko „Přihlásit se“ v simulaci: ukončit simulaci, přihlásit a po přihlášení rovnou jet
+document.addEventListener('click', e => {
+  if(!e.target.closest || !e.target.closest('#nv-guest-login')) return;
+  const id = (document.getElementById('nv-ride') || {}).dataset ? Number(document.getElementById('nv-ride').dataset.routeId) : 0;
+  try{ if(id) sessionStorage.setItem('cenduroff.rbAfterLogin', String(id)); }catch(err){}
+  window.CendurRide.stop();
+  showLoginOverlay('jízdu podle roadbooku');
+}, true);
+function rbAfterLogin(){
+  let id = null; try{ id = Number(sessionStorage.getItem('cenduroff.rbAfterLogin')) || null; sessionStorage.removeItem('cenduroff.rbAfterLogin'); }catch(e){}
+  if(id && currentUser && routesCache[id]) setTimeout(() => startRoadbook(id), 300);
+}
+// uložení roadbooku do telefonu (jízda i bez signálu) – v detailu trasy pod tlačítky
+async function renderDetailOffline(inner, route){
+  const box = inner.querySelector('#detail-off');
+  if(!box || !window.CendurRide || !currentUser) return;
+  const info = await window.CendurRide.offline.info(route.id);
+  box.hidden = false;
+  box.innerHTML = info
+    ? '<span class="ok">✓ Roadbook je v telefonu (' + new Date(info.savedAt).toLocaleDateString('cs-CZ') + ')</span><button type="button" data-a="upd">Aktualizovat</button><button type="button" data-a="del">Odebrat</button>'
+    : '<button type="button" data-a="save">📥 Uložit roadbook do telefonu</button><span class="note">pojede i bez signálu</span>';
+  box.onclick = async e => {
+    const a = e.target.closest('button'); if(!a) return;
+    if(a.dataset.a === 'del'){ await window.CendurRide.offline.remove(route.id); toast('Odebráno z telefonu.'); }
+    else { a.disabled = true; const ok = await window.CendurRide.offline.save(route); if(ok) toast(a.dataset.a === 'upd' ? 'Roadbook v telefonu aktualizován.' : 'Roadbook je v telefonu – pojede i bez signálu.'); }
+    renderDetailOffline(inner, route);
+  };
+}
+
 // v4.15: přijedu k trase s roadbookem → nabídka Atlas NAVI | Roadbook | Ne (jednou; znovu až po vzdálení na 200 m)
 const FREE_ASK_M = 40, FREE_ASK_RESET_M = 200;
 const freeAsked = new Set();
@@ -1945,7 +1994,7 @@ function freeOffer(latlng){
   if(!RB || !freeSums || !navOn || !currentUser) return;
   [...freeAsked].forEach(id => { const r = routesCache[id]; if(!r || freeDistM(r, latlng[0], latlng[1], FREE_ASK_RESET_M + 100) > FREE_ASK_RESET_M) freeAsked.delete(id); });
   if(freePickedId != null || freeCaughtId == null || freeAsked.has(freeCaughtId)) return;
-  if(rec.state !== 'idle' || (window.CendurHeader && CendurHeader.askOpen())) return;   // při nahrávání jízdy neodcházet ze stránky
+  if((window.CendurHeader && CendurHeader.askOpen()) || (window.CendurRide && CendurRide.isOpen())) return;
   const id = freeCaughtId, r = routesCache[id], st = RB.stateOf(freeSums[id]);
   if(!r || !freeSums[id] || st === 'auto') return;
   if(freeDistM(r, latlng[0], latlng[1], 100) > FREE_ASK_M) return;
@@ -1961,7 +2010,7 @@ function freeOfferAsk(id){
     msg: note + ' Jak chceš jet?',
     choices: [
       { icon:'🧭', label:'Atlas NAVI', sub:'mapa, instrukce v rohu', cls:'atlas', fn: () => freePick(id) },
-      { icon:'📒', label:'Roadbook', sub:'velké instrukce, počítadlo', cls:'rb', fn: () => { location.href = 'roadbook-navi.html?trasa=' + id + '&jed=1'; } },
+      { icon:'📒', label:'Roadbook', sub:'velké instrukce, počítadlo', cls:'rb', fn: () => startRoadbook(id) },
       { label:'Ne', cls:'no', countdown:10 }
     ]
   });
@@ -2757,6 +2806,7 @@ async function enterApp(){
       toast('Trasa z odkazu už neexistuje.', 5000);
     }
   }
+  rbAfterLogin();   // v4.26: „Přihlásit se“ ze simulace roadbooku → po přihlášení rovnou jízda
 }
 
 (async function boot(){

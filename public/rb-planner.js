@@ -379,13 +379,22 @@ function renderStatus(){
   }
   $('rb-info').textContent = RB.fmtKm(R ? R.total : 0) + ' km' + (dirty ? ' · neuložené změny' : '');
   $('rb-ready').textContent = status === 'ready' ? 'Vrátit na rozpracovaný' : 'Označit READY';
+  // v4.26: READY zeleně jako Uložit (jde to ruku v ruce), návrat na rozpracovaný oranžově (barva stavu Rozpracovaný)
+  $('rb-ready').classList.toggle('go', status !== 'ready');
+  $('rb-ready').classList.toggle('draft', status === 'ready');
   ['rb-save','rb-ready','rb-regen','rb-reverse'].forEach(id => { $(id).hidden = !canEdit; });
   $('rb-more-btn').disabled = !route;
   $('rb-add').hidden = !canEdit || pickMode;
   $('rb-reverse').textContent = settings.reversed ? '⇄ Směr: obrácený' : '⇄ Obrátit směr';
   $('rb-save').disabled = !dirty && saved;
-  $('rb-navi-link').href = 'roadbook-navi.html' + (route ? '?trasa=' + route.id : '');
+  $('rb-sim').disabled = !route;
 }
+
+// v4.26: simulace jízdy podle právě rozpracovaného roadbooku (i neuloženého) – okno přes celou obrazovku
+$('rb-sim').addEventListener('click', () => {
+  if(!route || !window.CendurRide) return;
+  window.CendurRide.start({ route, items: cleanItems(), reversed: !!settings.reversed, sim: true });
+});
 
 function cleanItems(){
   return items.map(it => {
@@ -740,7 +749,7 @@ function showMobileBlock(){
   $('rb-toolbar').remove();
   $('rb-main').innerHTML = '<div class="rb-mobile-msg"><h2>Roadbook editor je jen pro počítač</h2>' +
     '<p>Plánování roadbooku potřebuje velkou obrazovku a myš, proto ho na mobilu nejde použít. Otevři ho na počítači – doporučujeme prohlížeč <b>Google Chrome</b>.</p>' +
-    '<p>Na mobilu můžeš podle hotového roadbooku jet v <b>Roadbook NAVI</b>.</p>' +
+    '<p>Na mobilu jedeš podle hotového roadbooku v <b>Atlasu</b> – v detailu trasy tlačítko <b>📒 Roadbook</b>.</p>' +
     '<div class="rb-mobile-actions"><a class="btn-rb go" href="index.html?atlas=1">Otevřít Atlas</a><a class="btn-rb" href="index.html">Zpět na úvod</a><a class="btn-rb" href="faq.html#rb-planner">Jak to funguje (FAQ)</a></div></div>';
 }
 

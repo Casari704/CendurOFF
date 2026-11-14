@@ -24,8 +24,8 @@
   ];
   // stránky Roadbooku (v2.0)
   const MENU_PAGES = [
-    { id:'roadbook',      label:'Roadbook editor',  href:'roadbook-planner.html' },
-    { id:'roadbook-navi', label:'Roadbook NAVI',    href:'roadbook-navi.html' }   // bez dlaždice – spouští se z Atlasu
+    { id:'roadbook',      label:'Roadbook editor',  href:'roadbook-planner.html' }
+    // v4.26: Roadbook NAVI už není samostatná stránka – jízda podle roadbooku se otevírá v Atlasu (public/rb-ride.js)
   ];
   const HELP_PAGES = [
     { id:'merch', label:'Merch',          href:'merch.html' },
