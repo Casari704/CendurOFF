@@ -1487,9 +1487,9 @@ let followMode=false, headingMode='north', lastLatLng=null, orientationBound=fal
 const HEADING_SPEED_THRESHOLD_KMH = 5;     // nad touto rychlostí bereme směr z GPS kurzu, pod ní z kompasu telefonu
 const HEADING_FILTER_ALPHA_GPS = 0.35;     // vyhlazení GPS kurzu (0-1, vyšší = pružnější reakce)
 const HEADING_FILTER_ALPHA_COMPASS = 0.06; // vyhlazení kompasu (silný filtr - magnetometr je v klidu i za jízdy dost "cukavý")
-const HEADING_UPDATE_THRESHOLD_DEG_GPS = 4;      // GPS kurz: změny menší než toto se ignorují
+const HEADING_UPDATE_THRESHOLD_DEG_GPS = 2;      // GPS kurz: změny menší než toto se ignorují (v4.31: z 4°, otočení je teď plynulé)
 const HEADING_UPDATE_THRESHOLD_DEG_COMPASS = 3;   // kompas: práh (v4.30: 3° – po opravě zdroje stačí malý, šipka nekrokuje)
-const HEADING_MIN_UPDATE_MS_GPS = 120;           // GPS: přepočet natočení max ~8x/s
+const HEADING_MIN_UPDATE_MS_GPS = 0;             // GPS: kurz chodí ~1× za s, každý se použije (v4.31)
 const HEADING_MIN_UPDATE_MS_COMPASS = 66;        // kompas: přepočet max ~15x/s (v4.30)
 const HEADING_COMPASS_TAU_MS = 250;              // časová konstanta vyhlazení kompasu (v4.30: 0,25 s – menší prodleva)
 // poloha šipky na obrazovce při sledování (0 = nahoře, 1 = dole): na výšku 80 %, na šířku
@@ -1731,17 +1731,38 @@ function onPosition(pos){
   // Nad prahovou rychlostí bereme směr z GPS kurzu (na motorce za jízdy stabilnější než kompas).
   // Pod prahem (stání, pomalá technická pasáž) je GPS kurz nespolehlivý - směr pak dodává kompas
   // telefonu (viz startOrientation), pokud je uživatel zapnul.
-  if(currentSpeedKmh > HEADING_SPEED_THRESHOLD_KMH && pos.coords.heading != null && !isNaN(pos.coords.heading)){
-    feedHeading(pos.coords.heading, HEADING_FILTER_ALPHA_GPS, HEADING_UPDATE_THRESHOLD_DEG_GPS, HEADING_MIN_UPDATE_MS_GPS);
+  // v4.31: interval mezi polohami z GPS (obvykle ~1 s) – podle něj se rozprostře pohyb i otočení
+  const nowTs = performance.now();
+  const fixGap = lastFixTs ? Math.max(300, Math.min(1500, nowTs - lastFixTs)) : 1000;
+  lastFixTs = nowTs;
+  const gpsCourse = currentSpeedKmh > HEADING_SPEED_THRESHOLD_KMH && pos.coords.heading != null && !isNaN(pos.coords.heading);
+  // otočení mapy podle GPS kurzu se rozprostře na celý interval (plynule), u kompasu krátký přechod
+  setRotationGlide(gpsCourse && navOn ? fixGap : 150);
+  if(gpsCourse){
+    feedHeading(pos.coords.heading, gpsHeadingAlpha(currentSpeedKmh), HEADING_UPDATE_THRESHOLD_DEG_GPS, HEADING_MIN_UPDATE_MS_GPS);
   }
 
   freeUpdate(latlng);
   // v4.0: šipka přichycená ke sledované trase (když jsem na ní), jinak skutečná poloha
   const shown = (navOn && freeSnapLL) ? freeSnapLL : latlng;
   shownLatLng = shown;
-  ensureGpsMarker(shown, pos.coords.accuracy);
+  // v4.31: za jízdy v navigaci šipka i mapa plynule „dojíždějí“ mezi polohami (jako Mapy.com),
+  // cíl je kousek dopředu podle rychlosti a kurzu, ať šipka nezaostává za skutečnou polohou
+  if(navOn && gpsMarker && currentSpeedKmh > GLIDE_MIN_KMH){
+    let target = shown;
+    const hdg = gpsCourse ? pos.coords.heading : (headingInitialized ? displayedHeading : null);
+    if(hdg != null){
+      const ahead = Math.min(GLIDE_AHEAD_MAX_M, (currentSpeedKmh / 3.6) * (fixGap / 1000) * GLIDE_AHEAD_FRACTION);
+      target = offsetLatLng(shown, hdg, ahead);
+    }
+    if(gpsAccuracyCircle) gpsAccuracyCircle.setRadius(pos.coords.accuracy || 20);
+    glideTo(target, fixGap);
+  } else {
+    stopGlide();
+    ensureGpsMarker(shown, pos.coords.accuracy);
+    if(followMode && !navManualActive()) setFollowView(shown, true);
+  }
   if(gpsMarker){ const el = gpsMarker.getElement(); if(el) el.classList.toggle('gps-predicted', !!pos.predicted); }
-  if(followMode && !navManualActive()) setFollowView(shown, true);
   updateTilt(currentSpeedKmh);
   // dopočtená poloha (výpadek signálu) se do záznamu jízdy ani projetí tras nepočítá
   if(pos.predicted) return;
@@ -1753,6 +1774,54 @@ function onPosition(pos){
     window.CendurRides.track(latlng[0], latlng[1], navOn ? 'atlas' : 'record');
   }
 }
+// ---------------------------------------------------------------
+// v4.31: plynulý pohyb za jízdy – šipka (a mapa za ní) se posouvá každý snímek, ne skokem 1× za s
+// ---------------------------------------------------------------
+const GLIDE_MIN_KMH = 3;            // pod touto rychlostí bez animace (stání – nic neplave)
+const GLIDE_AHEAD_FRACTION = 0.5;   // o kolik intervalu dopředu cílit (0 = jen dojíždět, 1 = plná předpověď)
+const GLIDE_AHEAD_MAX_M = 25;       // předpověď nejvýš 25 m (v zatáčce se nepřestřelí)
+let lastFixTs = 0, glide = null;
+function offsetLatLng(ll, brgDeg, m){
+  const R = 6371000, b = brgDeg * Math.PI / 180, la = ll[0] * Math.PI / 180, lo = ll[1] * Math.PI / 180, d = m / R;
+  const la2 = Math.asin(Math.sin(la) * Math.cos(d) + Math.cos(la) * Math.sin(d) * Math.cos(b));
+  const lo2 = lo + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(la), Math.cos(d) - Math.sin(la) * Math.sin(la2));
+  return [la2 * 180 / Math.PI, lo2 * 180 / Math.PI];
+}
+function stopGlide(){ if(glide && glide.raf) cancelAnimationFrame(glide.raf); glide = null; }
+function glideTo(target, dur){
+  const cur = gpsMarker ? gpsMarker.getLatLng() : null;
+  const from = cur ? [cur.lat, cur.lng] : target;
+  stopGlide();
+  // velký skok (nová poloha po výpadku) – bez animace
+  if(map.distance(from, target) > 150){ ensureGpsMarker(target); if(followMode && !navManualActive()) setFollowView(target, false); return; }
+  const g = glide = { from, target, t0: performance.now(), dur: Math.max(200, dur), raf: 0 };
+  const step = () => {
+    if(glide !== g) return;
+    const k = Math.min(1, (performance.now() - g.t0) / g.dur);
+    const p = [g.from[0] + (g.target[0] - g.from[0]) * k, g.from[1] + (g.target[1] - g.from[1]) * k];
+    gpsMarker.setLatLng(p);
+    if(gpsAccuracyCircle) gpsAccuracyCircle.setLatLng(p);
+    if(followMode && !navManualActive()) setFollowView(p, false);
+    if(k < 1) g.raf = requestAnimationFrame(step); else glide = null;
+  };
+  g.raf = requestAnimationFrame(step);
+}
+// otočení mapy a šipky: délka CSS přechodu podle zdroje (GPS = celý interval, lineárně)
+let rotGlideMs = 150;
+function setRotationGlide(ms){
+  ms = Math.round(ms);
+  if(Math.abs(ms - rotGlideMs) < 40) return;
+  rotGlideMs = ms;
+  mapEl.style.transitionDuration = ms + 'ms';
+  const a = document.getElementById('gps-arrow'); if(a) a.style.transitionDuration = ms + 'ms';
+}
+// vyhlazení GPS kurzu podle rychlosti: pomalu je kurz neklidný (víc vyhladit), rychle přesný (reagovat hned)
+function gpsHeadingAlpha(kmh){
+  if(kmh < 12) return 0.45;
+  if(kmh < 30) return 0.65;
+  return 0.85;
+}
+
 function onPositionError(err){
   // vypršení času / dočasně nedostupná poloha (slabý signál v lese) není důvod vypínat
   // sledování ani záznam - watchPosition běží dál a polohu pošle, až ji zase bude mít
@@ -2124,6 +2193,7 @@ function setNavMode(on){
   } else {
     navOn = false;
     followMode = false;
+    stopGlide(); setRotationGlide(150);
     headingMode = 'north';
     if(gpsBadge) gpsBadge.hide();
   }
