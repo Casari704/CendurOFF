@@ -75,6 +75,10 @@
       .tm-head img{height:34px;border-radius:5px;}
       .tm-head b{font-family:'Exo 2',sans-serif;font-size:1.35rem;font-weight:700;}
       .tm-head span{margin-left:auto;font-size:0.82rem;color:#C9B87A;text-align:right;}
+      .tm-head .tm-uv{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:1px;}
+      .tm-head .tm-uv span{margin-left:0;}
+      .tm-ver{font-size:0.68rem;color:#8E9A86;letter-spacing:0.02em;}
+      .tm-ver a{color:#F5D36A;font-weight:700;text-decoration:none;}
       .tm-lbl{font-size:0.78rem;letter-spacing:0.12em;color:#C9B87A;font-weight:700;margin:2px 2px -4px;}
       .tm-grp{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0;}
       .tm-tile{border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
@@ -118,7 +122,7 @@
       `<a class="tm-tile ${cls}${id===page ? ' cur' : ''}" href="${href}" data-page="${id}">${title}${sub ? '<small>' + sub + '</small>' : ''}</a>`;
     document.body.insertAdjacentHTML('beforeend', `
 <div id="tile-menu" role="dialog" aria-modal="true" aria-label="Menu CendurOFF">
-  <div class="tm-head"><img src="public/img/pms-logo.png" alt=""><b>CendurOFF</b><span id="tm-user"></span></div>
+  <div class="tm-head"><img src="public/img/pms-logo.png" alt=""><b>CendurOFF</b><div class="tm-uv"><span id="tm-user"></span><small class="tm-ver" id="tm-ver"></small></div></div>
   <div class="tm-col"><div class="tm-lbl">JÍZDA</div><div class="tm-grp tm-one">
     ${T('tm-an','atlas','index.html','ATLAS','mapa, navigace, roadbook, stopař')}
   </div></div>
@@ -142,12 +146,14 @@
   function openTiles(){
     if(tiles.classList.contains('open')) return;
     tiles.classList.add('open');
+    appVersionInfo();
     // tlačítko Zpět v telefonu zavře dlaždice (vrátí na stránku)
     try{ history.pushState({ cendurTiles: 1 }, ''); tilesPushed = true; }catch(e){}
   }
   function openHome(){
     tilesHome = true; tilesPushed = false;
     tiles.classList.add('open', 'home');
+    setTimeout(appVersionInfo, 400);
   }
   function closeTiles(fromPop){
     if(!tiles.classList.contains('open') || tilesHome) return;
@@ -262,6 +268,31 @@
     const ta = document.getElementById('tm-account');
     if(ta) ta.textContent = user ? 'Nastavení účtu' : 'Přihlásit se';
     window.dispatchEvent(new Event('resize')); // hlavička mohla změnit výšku (mobil)
+  }
+
+  // v4.20: verze v rohu úvodních dlaždic (web · aplikace) a kontrola nové verze aplikace pro Android
+  //  nejnovější verzi říká download/app-version.json ({"version":"3.0"}) – mění se spolu s download/CendurOFF.apk
+  const APK_URL = 'https://github.com/Casari704/CendurOFF/raw/main/download/CendurOFF.apk';  // jiná doména → stáhne Chrome (i aplikace 3.0)
+  const verCmp = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number);
+    for(let i = 0; i < Math.max(x.length, y.length); i++){ const d = (x[i] || 0) - (y[i] || 0); if(d) return d; } return 0; };
+  function appVersionInfo(){
+    const el = document.getElementById('tm-ver'); if(!el) return;
+    let app = null; try{ if(window.CendurApp && window.CendurApp.version) app = String(window.CendurApp.version()); }catch(e){}
+    const web = window.CENDUROFF_WEB_VERSION || '';
+    el.textContent = 'web ' + web + (app ? ' · aplikace ' + app : '');
+    if(!app) return;
+    fetch('download/app-version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => {
+      if(!d || !d.version || verCmp(d.version, app) <= 0) return;
+      el.innerHTML = '';
+      el.append('web ' + web + ' · aplikace ' + app + ' · ');
+      const a = document.createElement('a'); a.href = APK_URL; a.textContent = '⬆ nová ' + d.version; el.append(a);
+      // nabídka jednou za verzi, jen na úvodních dlaždicích (ne při jízdě)
+      let seen = null; try{ seen = localStorage.getItem('cenduroff.appUpdateAsked'); }catch(e){}
+      if(seen === d.version || !tilesHome) return;
+      try{ localStorage.setItem('cenduroff.appUpdateAsked', d.version); }catch(e){}
+      ask({ title: 'Nová verze aplikace ' + d.version, msg: 'Máš verzi ' + app + '. Stáhni novou a nainstaluj ji přes starou – účet i nastavení zůstanou.',
+        yes: { label: 'Stáhnout', fn: () => { location.href = APK_URL; } }, no: { label: 'Později' } });
+    }).catch(() => {});
   }
 
   // v4.3.1: sdílené potvrzovací okno (Atlas i Roadbook NAVI) – titulek, text, 1–2 tlačítka a křížek
