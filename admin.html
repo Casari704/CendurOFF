@@ -8,8 +8,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="public/img/icon-192.png">
 <title>CendurOFF Admin sekce</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.22">
-<link rel="stylesheet" href="public/faq.css?v=4.22">
+<link rel="stylesheet" href="public/style.css?v=4.23">
+<link rel="stylesheet" href="public/faq.css?v=4.23">
 <style>
   .a-wrap{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
   .a-wrap h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);}
@@ -64,16 +64,11 @@
   <p class="a-note" id="a-msg">Načítám…</p>
   <p class="a-pending" id="a-pending" hidden></p>
 
-  <section id="a-bak-sec" hidden>
-    <h2>Záloha <small>jeden ZIP k tobě do počítače: přehled v Excelu, všechny trasy jako GPX, fotky po trasách a celá databáze pro obnovu · obnova (vyber ten ZIP) přepíše všechno obsahem zálohy</small></h2>
-    <p style="margin:0 0 8px"><button class="a-btn green" type="button" id="a-bak-dl">⬇ Stáhnout zálohu</button><button class="a-btn red" type="button" id="a-bak-up">⟲ Obnovit ze zálohy…</button><input type="file" id="a-bak-file" accept=".zip,.gz,application/zip,application/gzip" hidden></p>
-    <p class="a-note" id="a-bak-msg"></p>
-  </section>
 
   <section id="a-users-sec" hidden>
     <h2>Uživatelé <small>přihlášení = zadal jméno a heslo (počítá se od verze 2.9.2) · aktivní = naposledy použil web nebo aplikaci (přesnost ~10 min)</small></h2>
     <div class="a-box"><table class="a-t" id="a-users"><thead><tr>
-      <th>Přezdívka</th><th>E-mail / login</th><th>Hodnost</th><th class="num">Km</th><th>Odznaky</th><th>Naposledy přihlášen</th><th class="num">Přihlášení za 30 dní</th><th class="num">Přihlášení celkem</th><th>Naposledy aktivní</th><th class="num">Tras</th><th class="num">Projetí</th><th>Registrace</th><th></th>
+      <th data-k="display_name">Přezdívka</th><th data-k="username">E-mail / login</th><th data-k="km">Hodnost</th><th class="num" data-k="km">Km</th><th data-k="badges">Odznaky</th><th data-k="last_seen_at">Naposledy aktivní</th><th class="num" data-k="logins_30d">Přihlášení za 30 dní</th><th class="num" data-k="logins_total">Přihlášení celkem</th><th class="num" data-k="routes">Tras</th><th class="num" data-k="rides">Projetí</th><th data-k="last_login_at">Naposledy přihlášen</th><th data-k="created_at">Registrace</th><th></th>
     </tr></thead><tbody></tbody></table></div>
   </section>
 
@@ -100,14 +95,20 @@
       <th>Chyba</th><th class="num">Výskyt</th><th class="num">Zařízení</th><th>Stránky</th><th>Naposledy</th><th></th>
     </tr></thead><tbody></tbody></table></div>
   </section>
+
+  <section id="a-bak-sec" hidden>
+    <h2>Záloha <small>jeden ZIP k tobě do počítače: přehled v Excelu, všechny trasy jako GPX, fotky po trasách a celá databáze pro obnovu · obnova (vyber ten ZIP) přepíše všechno obsahem zálohy</small></h2>
+    <p style="margin:0 0 8px"><button class="a-btn green" type="button" id="a-bak-dl">⬇ Stáhnout zálohu</button><button class="a-btn red" type="button" id="a-bak-up">⟲ Obnovit ze zálohy…</button><input type="file" id="a-bak-file" accept=".zip,.gz,application/zip,application/gzip" hidden></p>
+    <p class="a-note" id="a-bak-msg"></p>
+  </section>
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.22"></script>
-<script src="public/errors.js?v=4.22"></script>
-<script src="public/rider.js?v=4.22"></script>
-<script src="public/header.js?v=4.22"></script>
-<script src="public/pwa.js?v=4.22"></script>
+<script src="public/config.js?v=4.23"></script>
+<script src="public/errors.js?v=4.23"></script>
+<script src="public/rider.js?v=4.23"></script>
+<script src="public/header.js?v=4.23"></script>
+<script src="public/pwa.js?v=4.23"></script>
 <script>
 (function(){
   const API_URL = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
@@ -262,10 +263,28 @@
     return fmtDate(d) + ' <small style="color:#777">(' + rel + ')</small>';
   }
   let users = [], me = null;
+  // v4.23: řazení uživatelů klepnutím na záhlaví (stejně jako u tras)
+  let uSortK = null, uSortDesc = true, uSortTh = -1;
+  const uVal = (u, k) => {
+    const R = window.CendurRider, st = u.stats || {};
+    if(k === 'km') return +st.km || 0;
+    if(k === 'badges') return R && u.stats ? R.achievements(st, u.earned).filter(a => a.got).length : 0;
+    if(/_at$/.test(k)) return u[k] ? new Date(u[k]).getTime() : 0;
+    return u[k];
+  };
   function renderUsers(list){
     users = list;
     const R = window.CendurRider;
     const tb = $('a-users').querySelector('tbody');
+    if(uSortK){
+      const k = uSortK;
+      users = users.slice().sort((a, b) => {
+        let x = uVal(a, k), y = uVal(b, k);
+        if(k === 'display_name' || k === 'username'){ x = String(x || ''); y = String(y || ''); return uSortDesc ? y.localeCompare(x, 'cs') : x.localeCompare(y, 'cs'); }
+        return uSortDesc ? ((+y || 0) - (+x || 0)) : ((+x || 0) - (+y || 0));
+      });
+    }
+    $('a-users').querySelectorAll('th[data-k]').forEach((th, i) => { th.textContent = th.textContent.replace(/ [▲▼]$/, '') + (i === uSortTh ? (uSortDesc ? ' ▼' : ' ▲') : ''); });
     const pending = users.filter(u => !u.is_approved).length;
     $('a-pending').textContent = pending ? '⏳ ' + pending + (pending === 1 ? ' registrace čeká' : pending < 5 ? ' registrace čekají' : ' registrací čeká') + ' na schválení' : '';
     $('a-pending').hidden = !pending;
@@ -276,13 +295,16 @@
       '<td>' + esc(u.username) + '</td>' +
       '<td>' + (b ? b.icon + ' ' + esc(b.name) : '—') + '</td><td class="num">' + (u.stats ? R.fmtKm(st.km).replace(' km', '') : '—') + '</td>' +
       '<td class="a-ach">' + (ach.length ? ach.map(a => '<span title="' + esc(a.name) + '">' + a.icon + '</span>').join('') : '—') + '</td>' +
-      '<td>' + ago(u.last_login_at) + '</td><td class="num big">' + u.logins_30d + '</td><td class="num big">' + u.logins_total + '</td><td>' + ago(u.last_seen_at) + '</td>' +
-      '<td class="num">' + u.routes + '</td><td class="num">' + u.rides + '</td><td>' + fmtDate(u.created_at) + '</td>' +
+      '<td>' + ago(u.last_seen_at) + '</td><td class="num big">' + u.logins_30d + '</td><td class="num big">' + u.logins_total + '</td>' +
+      '<td class="num">' + u.routes + '</td><td class="num">' + u.rides + '</td><td>' + ago(u.last_login_at) + '</td><td>' + fmtDate(u.created_at) + '</td>' +
       '<td>' + (u.is_approved ? (me && u.id !== me.id ? '<button class="a-btn red" type="button" data-remove="' + u.id + '">Smazat účet</button>' : '') : '<button class="a-btn green" type="button" data-approve="' + u.id + '">✓ Schválit</button><button class="a-btn red" type="button" data-reject="' + u.id + '">Zamítnout</button>') + '</td></tr>' +
       (removeId === u.id ? removeRow(u) : '');
     }).join('')
       : '<tr><td colspan="13" class="a-empty">Žádní uživatelé.</td></tr>';
   }
+  $('a-users').querySelectorAll('th[data-k]').forEach((th, i) => th.addEventListener('click', () => {
+    const k = th.dataset.k; if(uSortTh === i) uSortDesc = !uSortDesc; else { uSortK = k; uSortTh = i; uSortDesc = !(k === 'display_name' || k === 'username'); } renderUsers(users);
+  }));
   // v4.5.2: smazání účtu – trasy se nejdřív převedou na jiný účet (třeba „archiv“)
   let removeId = null;
   function removeRow(u){
