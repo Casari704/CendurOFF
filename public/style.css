@@ -887,7 +887,7 @@ body.ride-ui .leaflet-bottom.leaflet-left{left:50%;transform:translateX(-50%);}
 body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !important;}
 
 /* na šířku: stejné rozložení na všech telefonech; přiblížení ve 2 sloupcích a 1,5× větší,
-   NAVIGOVAT vpravo vedle nich (palec pravé ruky) */
+   NAVIGOVAT vlevo dole jako na výšku (v4.24) */
 @media (orientation:landscape){
   body.ride-ui{ --rb:46px; --rg:6px; --re:8px; --rz:66px; --rzg:8px; }
   body.ride-ui #zoom-in-btn, body.ride-ui #zoom-out-btn,
@@ -900,15 +900,12 @@ body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !import
   body.ride-ui #zoom-in-btn  { bottom:calc(var(--rbm) + var(--rz) + var(--rzg)); right:var(--rr); }
   body.ride-ui #zoom-out3-btn{ bottom:var(--rbm); right:calc(var(--rr) + var(--rz) + var(--rzg)); }
   body.ride-ui #zoom-in3-btn { bottom:calc(var(--rbm) + var(--rz) + var(--rzg)); right:calc(var(--rr) + var(--rz) + var(--rzg)); }
-  /* NAVIGOVAT: vysoké tlačítko vlevo od bloku přiblížení, s větší mezerou */
+  /* v4.24: NAVIGOVAT vlevo dole, stejně velké jako na výšku (52 px) */
   body.ride-ui #locate-btn{
-    left:auto; bottom:var(--rbm); right:calc(var(--rr) + (var(--rz) + var(--rzg)) * 2 + 10px);
-    width:var(--rz); height:calc(var(--rz) * 2 + var(--rzg)); border-radius:16px;
+    left:var(--rl); right:auto; bottom:var(--rbm);
+    width:52px; height:52px; border-radius:12px;
   }
-  body.ride-ui #locate-btn .map-btn-icon{ width:calc(var(--rz) * 0.55); height:calc(var(--rz) * 0.55); }
-  /* logo Mapy.com zpět vlevo dole – tam už teď nic není */
-  body.ride-ui .leaflet-bottom.leaflet-left{left:0;transform:none;}
-  body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:8px !important;}
+  body.ride-ui #locate-btn .map-btn-icon{ width:calc(52px * 0.48); height:calc(52px * 0.48); }
 }
 
 /* ===== v4.0: stav GPS (společné pro Atlas NAVI i Roadbook NAVI, public/gps.js) ===== */
