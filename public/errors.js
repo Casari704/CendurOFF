@@ -19,7 +19,7 @@
       let appVersion = null;
       try{ if(window.CendurApp && window.CendurApp.version) appVersion = String(window.CendurApp.version()); }catch(e){}
       let t = null; try{ t = localStorage.getItem('cenduroff.token'); }catch(e){}
-      const api = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
+      const api = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
       fetch(api + '/api/errors', {
         method:'POST', credentials:'include', keepalive:true,
         headers: Object.assign({ 'Content-Type':'application/json' }, t ? { Authorization:'Bearer ' + t } : {}),

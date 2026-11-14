@@ -8,7 +8,7 @@
 // v2.1: výběr trasy z mapy, rozpracované roadbooky v paměti, obrácení směru,
 //       dotaz před stažením OSM s průběhem a zrušením, uložená OSM data v prohlížeči
 const RB = window.CendurRB;
-const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
+const API_URL = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
 const LAST_KEY = 'cenduroff.rb.lastRoute';   // jen pro informaci, trasa se po otevření stránky vybírá na mapě
 const SHARED_BASE_KEY = 'baseMap';
 

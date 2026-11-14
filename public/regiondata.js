@@ -83,7 +83,7 @@
 
   // v4.12: odkud brát data – nejdřív z našeho serveru (ten je drží pro všechny a obnovuje jednou
   // za týden), teprve když nejde, stáhnout přímo z Overpass jako dřív
-  const API = () => window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
+  const API = () => window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
   async function fromServer(kind){
     const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = ctl ? setTimeout(()=>ctl.abort(), 90000) : null;

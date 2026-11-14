@@ -107,7 +107,7 @@
     if(sending || pending < 10 || !token()) return;
     const m = Math.round(pending);
     pending = 0; lastFlush = Date.now(); sending = true;
-    const api = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
+    const api = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
     fetch(api + '/api/profile/km', {
       method:'POST', credentials:'include', keepalive: !!keepalive,
       headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + token() },
@@ -120,7 +120,7 @@
   window.addEventListener('pagehide', () => flush(true));
 
   // ---------- v4.4: okno „Získal jsi odznak“ (jednou za účet – co už viděl, si pamatuje server) ----------
-  const API = () => window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
+  const API = () => window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
   let checking = false, lastCheck = 0;
   function riding(){
     const b = document.body;

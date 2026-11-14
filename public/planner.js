@@ -10,7 +10,7 @@
 //                dokud se nepohne s některým z jeho krajních bodů)
 // ===============================================================
 
-const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app'; // prázdná/chybějící adresa = Railway
+const API_URL = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz'; // prázdná/chybějící adresa = Railway
 const BROUTER_URL = 'https://brouter.de/brouter';
 const DRAFT_KEY = 'cenduroff.planner.draft';
 const IMPORT_KEY = 'cenduroff.planner.import';

@@ -2,7 +2,7 @@
 // CendurOFF – Nastavení účtu (nastaveni.html), v3.2
 // ---------------------------------------------------------------
 (function(){
-  const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
+  const API_URL = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
   const $ = id => document.getElementById(id);
 
   function toast(msg, ms){

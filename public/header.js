@@ -13,7 +13,7 @@
 // Merch si přihlášení ověří sám (data-auth="auto").
 // ---------------------------------------------------------------
 (function(){
-    const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app'; // prázdná/chybějící adresa = Railway
+    const API_URL = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz'; // prázdná/chybějící adresa = Railway
   const header = document.querySelector('header.topbar[data-page]');
   if(!header) return;
   const page = header.dataset.page;

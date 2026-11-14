@@ -371,7 +371,7 @@ function countWords(text){ return String(text||'').trim().split(/\s+/).filter(Bo
 
  // Adresa backendu z Railway (bez lomítka na konci) - nastavuje se v public/config.js,
  // tady je jen záloha pro případ, že by config.js na webu chyběl.
-const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app'; // prázdná/chybějící adresa = Railway
+const API_URL = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz'; // prázdná/chybějící adresa = Railway
 
 // přihlašovací token uložený v prohlížeči – posílá se v hlavičce Authorization, takže přihlášení
 // funguje i tam, kde prohlížeč blokuje cookies serveru (anonymní okno, Safari na iPhonu)

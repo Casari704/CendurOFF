@@ -10,7 +10,7 @@ if(FROM_ATLAS) document.body.classList.add('nv-direct');
 // dole nad odpočtem). Trasy a roadbooky jen čte.
 // ===============================================================
 const RB = window.CendurRB;
-const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
+const API_URL = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
 const $ = id => document.getElementById(id);
 const esc = RB.esc;
 

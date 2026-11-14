@@ -7,7 +7,7 @@
 // Rozjetá jízda se pamatuje v prohlížeči 24 h (přežije zavření aplikace).
 // ---------------------------------------------------------------
 (function(){
-  const API_URL = window.CENDUROFF_API_URL || 'https://cenduroff-web.up.railway.app';
+  const API_URL = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
   const STORE_KEY = 'cenduroff.rides.v1';
   const NODE_STEP = 50;          // m – vzdálenost bodů trasy pro počítání pokrytí
   const HIT_M = 35;              // m – jak blízko musí jezdec bodu projet
