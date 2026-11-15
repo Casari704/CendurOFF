@@ -16,7 +16,7 @@ const express = require('express');
 const { zipBuild, zipRead, xlsxBuild } = require('./export-zip');
 
 const FORMAT = 1;
-const SKIP = new Set(['region_cache']);   // CHKO a benzínky si server stáhne sám znovu
+const SKIP = new Set(['region_cache', 'route_terrain', 'osm_cell']);   // mezipaměti z OpenStreetMap – server si je stáhne sám znovu
 const qi = n => '"' + String(n).replace(/"/g, '""') + '"';
 
 async function tableList(db){

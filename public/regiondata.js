@@ -133,5 +133,5 @@
     return pending[kind];
   }
 
-  window.CendurRegion = { REGION, overpass, bboxStr, stripes, load };
+  window.CendurRegion = { REGION, overpass, bboxStr, stripes, load, idbGet, idbSet, API };
 })();

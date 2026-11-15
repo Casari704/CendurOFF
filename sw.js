@@ -9,7 +9,7 @@
 // Při každém vydání nové verze webu zvyš VERSION – telefonům se pak ukáže
 // „Je dostupná nová verze – Obnovit“.
 // ---------------------------------------------------------------
-const VERSION = '4.34';
+const VERSION = '4.35';
 const APP_CACHE = 'cenduroff-app-' + VERSION;
 const CDN_CACHE = 'cenduroff-cdn-v1';
 const TILE_CACHE = 'cenduroff-tiles-v1';
@@ -21,7 +21,7 @@ const CORE = [
   'roadbook-planner.html', 'manifest.webmanifest',
   'public/style.css', 'public/planner.css', 'public/merch.css', 'public/merch-gallery.js', 'public/faq.css', 'public/settings.css', 'public/rb.css',
   'public/config.js', 'public/header.js', 'public/pwa.js', 'public/app.js', 'public/planner.js',
-  'public/planner-profile.js', 'public/regiondata.js', 'public/fuel.js', 'public/chko.js',
+  'public/planner-profile.js', 'public/regiondata.js', 'public/fuel.js', 'public/osmpoints.js', 'public/chko.js',
   'public/rb-core.js', 'public/rb-planner.js', 'public/rb-ride.js', 'public/ride-stats.js', 'public/sound.js', 'public/settings.js', 'public/zoom.js', 'public/basemaps.js', 'public/gps.js', 'public/status.js', 'public/route-arrows.js', 'public/rider.js', 'public/errors.js',
   'public/img/pms-logo.png', 'public/img/gps-arrow.png', 'public/img/icon-locate.png',
   'public/img/icon-192.png', 'public/img/icon-512.png', 'public/img/cenduroff-logo.png'

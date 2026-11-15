@@ -178,4 +178,4 @@ function mount(app, { pool }){
     }catch(e){ console.error('region init', e.message); }
   }, 15000);
 }
-module.exports = { mount, _test: { parseElements, joinRings, simplify, BUILDERS } };
+module.exports = { mount, overpass, REGION, _test: { parseElements, joinRings, simplify, BUILDERS } };

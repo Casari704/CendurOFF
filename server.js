@@ -715,6 +715,12 @@ try {
 } catch (e) {
   console.error('Region: modul se nepodařilo připojit:', e);
 }
+// Povrch tras, brody a závory z OpenStreetMap (v4.35)
+try {
+  require('./osm-api').mount(app, { pool });
+} catch (e) {
+  console.error('OSM: modul se nepodařilo připojit:', e);
+}
 
 // ---------------------------------------------------------------
 // Handlery pro API chybějící cesty & statické soubory

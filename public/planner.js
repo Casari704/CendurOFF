@@ -459,6 +459,7 @@ document.addEventListener('click', (e)=>{
 window.addEventListener('resize', ()=>{ if(layerMenu.classList.contains('open')) placeLayerMenu(); });
 if(window.CendurFuel) CendurFuel.attach(map, layerMenu);
 if(window.CendurChko) CendurChko.attach(map, layerMenu);
+if(window.CendurOsmPoints) CendurOsmPoints.attach(map, layerMenu);
 
 map.createPane('pl-others').style.zIndex = 405;
 map.createPane('pl-route').style.zIndex = 450;

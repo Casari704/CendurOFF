@@ -1025,6 +1025,139 @@ function renderElevationProfile(points){
 }
 
 // ---------------------------------------------------------------
+// v4.35: výjezdy z výškového profilu
+// Výška se převzorkuje po 10 m a vyhladí (±40 m), ať šum GPS nedělá falešné kopečky.
+// Výjezd = souvislé stoupání; končí, když výška klesne o víc než 10 m pod dosažené maximum.
+// Počítá se výjezd s převýšením aspoň 25 m a průměrným sklonem aspoň 3 %.
+// ---------------------------------------------------------------
+function computeClimbs(points){
+  const d = [], e = [];
+  let dist = 0;
+  for(let i=0;i<points.length;i++){
+    if(i) dist += haversine(points[i-1], points[i]);
+    const ele = points[i][2];
+    if(ele != null && !isNaN(ele)){ d.push(dist); e.push(+ele); }
+  }
+  if(d.length < 5 || dist < 200) return null;
+  const STEP = 10, n = Math.floor(d[d.length-1] / STEP) + 1;
+  const raw = new Float64Array(n);
+  let j = 0;
+  for(let k=0;k<n;k++){
+    const x = k * STEP;
+    while(j < d.length - 2 && d[j+1] < x) j++;
+    const span = d[j+1] - d[j];
+    const t = span > 0 ? Math.max(0, Math.min(1, (x - d[j]) / span)) : 0;
+    raw[k] = e[j] + (e[j+1] - e[j]) * t;
+  }
+  const W = 4, sm = new Float64Array(n);           // klouzavý průměr ±40 m
+  let acc = 0, cnt = 0;
+  for(let k=0;k<Math.min(n, W);k++){ acc += raw[k]; cnt++; }
+  for(let k=0;k<n;k++){
+    if(k + W < n){ acc += raw[k+W]; cnt++; }
+    if(k - W - 1 >= 0){ acc -= raw[k-W-1]; cnt--; }
+    sm[k] = acc / cnt;
+  }
+  const climbs = [];
+  let low = 0, top = 0;
+  // úsek od nejnižšího bodu k nejvyššímu; rovinky na začátku a konci se uříznou (6 % převýšení, min. 3 m)
+  const close = () => {
+    if(top <= low) return;
+    const tol = Math.max(3, (sm[top] - sm[low]) * 0.06);
+    let b = low; while(b < top && sm[b] < sm[top] - tol) b++;    // první místo, kde je skoro nahoře
+    let a = b;   while(a > low && sm[a] > sm[low] + tol) a--;     // poslední místo před ním, kde je ještě skoro dole
+    const gain = sm[top] - sm[low], len = (b - a) * STEP, g = len > 0 ? (sm[b] - sm[a]) / len : 0;
+    if(gain >= 25 && g >= 0.03) climbs.push({ from: a*STEP, to: b*STEP, gain, len, grade: g * 100 });
+  };
+  for(let k=1;k<n;k++){
+    if(sm[k] < sm[low] && top === low){ low = k; top = k; continue; }   // ještě klesá – začátek se posouvá
+    if(sm[k] > sm[top]) top = k;
+    if(sm[top] - sm[k] > 10){ close(); low = k; top = k; }
+  }
+  close();
+  // nejprudší úsek: nejvyšší sklon na 100 m
+  let maxGrade = 0;
+  for(let k=10;k<n;k++){ const g = (sm[k] - sm[k-10]) / 100 * 100; if(g > maxGrade) maxGrade = g; }
+  const totGain = climbs.reduce((a,c)=>a+c.grade*c.len, 0) / 100, totLen = climbs.reduce((a,c)=>a+c.len, 0);
+  const biggest = climbs.reduce((b,c)=> !b || c.gain > b.gain ? c : b, null);
+  return { climbs, biggest, avgGrade: totLen ? totGain / totLen * 100 : 0, maxGrade, total: dist };
+}
+function fmtKm(m){ return m >= 1000 ? (m/1000).toFixed(1).replace('.', ',') + ' km' : Math.round(m/10)*10 + ' m'; }
+// Náročnost trasy (1 lehká … 4 velmi náročná) z kopců a povrchu:
+//  kopce = průměrný sklon výjezdů (3 % → 0, 12 % → 1) a nejprudší úsek (8 % → 0, 30 % → 1)
+//  povrch = podíl hlíny a ostatních cest (plná váha) a šotoliny (40 %); dokud není povrch známý, jen kopce
+const DIFF = ['Lehká', 'Střední', 'Náročná', 'Velmi náročná'];
+function difficulty(cl, t){
+  const cap = x => Math.max(0, Math.min(1, x));
+  const k = cl ? cap((cl.avgGrade - 3) / 9) * 0.6 + cap((cl.maxGrade - 8) / 22) * 0.4 : null;
+  const s = t && t.surface ? cap((t.surface.hlina || 0) + (t.surface.sotolina || 0) * 0.4 + (t.surface.nezname || 0) * 0.7) : null;
+  if(k == null && s == null) return null;
+  const v = k == null ? s : s == null ? k : 0.45 * k + 0.55 * s;
+  return v < 0.2 ? 0 : v < 0.4 ? 1 : v < 0.6 ? 2 : 3;
+}
+function renderDiffStat(cl, t){
+  const d = difficulty(cl, t);
+  return `<div class="stat" id="detail-diff"><b class="diff diff-${d == null ? 'x' : d}">${d == null ? '–' : DIFF[d]}</b><span>náročnost</span></div>`;
+}
+function renderClimbStats(cl, t){
+  const avg = cl && cl.biggest ? cl.avgGrade.toFixed(0) + ' %' : (cl ? '0 %' : '–');
+  return `<div class="stat"><b>${avg}</b><span>Ø stoupání</span></div>${renderDiffStat(cl, t)}`;
+}
+function renderClimbNote(cl){
+  if(!cl) return '';
+  if(!cl.biggest) return '<p class="climb-note">Bez výraznějších výjezdů.</p>';
+  const n = cl.climbs.length;
+  return `<p class="climb-note">${n} ${n === 1 ? 'výjezd' : n < 5 ? 'výjezdy' : 'výjezdů'} · nejprudší úsek ${Math.round(cl.maxGrade)} %</p>`;
+}
+
+// v4.35: povrch trasy, brody a závory (server je spočítá z OpenStreetMap a uloží)
+const SURF = [
+  { k:'asfalt',   label:'Asfalt',            cls:'sf-asf' },
+  { k:'sotolina', label:'Šotolina',          cls:'sf-sot' },
+  { k:'hlina',    label:'Hlína a ostatní',   cls:'sf-hli' },
+  { k:'nezname',  label:'Mimo cesty v mapě', cls:'sf-unk' }
+];
+function renderTerrainBox(t){
+  if(!t) return '<h3>Povrch trasy</h3><p class="hint">Zjišťuji povrch z mapy…</p>';
+  const s = t.surface || {};
+  const pct = k => Math.round((s[k] || 0) * 100);
+  const bar = SURF.filter(x => (s[x.k] || 0) > 0.004).map(x => `<i class="${x.cls}" style="width:${((s[x.k]||0)*100).toFixed(1)}%" title="${x.label} ${pct(x.k)} %"></i>`).join('');
+  const legend = SURF.filter(x => x.k !== 'nezname' || pct('nezname') > 0).map(x => `<span><i class="${x.cls}"></i>${x.label} <b>${pct(x.k)} %</b></span>`).join('');
+  const obst = [];
+  if(t.fords) obst.push(`${t.fords} ${t.fords === 1 ? 'brod' : t.fords < 5 ? 'brody' : 'brodů'}`);
+  if(t.barriers) obst.push(`${t.barriers} ${t.barriers === 1 ? 'závora' : t.barriers < 5 ? 'závory' : 'závor'}`);
+  return `<h3>Povrch trasy</h3>
+    <div class="surf-bar">${bar}</div>
+    <div class="surf-legend">${legend}</div>
+    ${obst.length ? '<p class="surf-obst">Na trase: ' + obst.join(' · ') + '</p>' : ''}`;
+}
+const terrainCache = {};
+async function loadTerrain(routeId, tries){
+  const box = document.getElementById('detail-terrain');
+  if(!box) return;
+  tries = tries || 0;
+  if(terrainCache[routeId]){ box.innerHTML = renderTerrainBox(terrainCache[routeId]); return; }   // náročnost už je v řádku spočítaná i s povrchem
+  try{
+    const res = await fetch(API_URL + '/api/routes/' + routeId + '/terrain');
+    if(res.status === 202){
+      if(tries < 20) setTimeout(()=>{ if(activeRouteId === routeId) loadTerrain(routeId, tries + 1); }, 5000);
+      else box.innerHTML = '<h3>Povrch trasy</h3><p class="hint">Mapová data se zatím nepodařilo zpracovat, zkus detail otevřít později.</p>';
+      return;
+    }
+    if(!res.ok) throw new Error('server ' + res.status);
+    const j = await res.json();
+    terrainCache[routeId] = j.data;
+    if(activeRouteId !== routeId || !document.getElementById('detail-terrain')) return;
+    document.getElementById('detail-terrain').innerHTML = renderTerrainBox(j.data);
+    const dEl = document.getElementById('detail-diff'), r = routesCache[routeId];
+    if(dEl && r) dEl.outerHTML = renderDiffStat(computeClimbs(r.points || []), j.data);
+  }catch(e){
+    if(activeRouteId !== routeId) return;
+    const b = document.getElementById('detail-terrain');
+    if(b) b.innerHTML = '<h3>Povrch trasy</h3><p class="hint">Povrch teď nejde zjistit' + (navigator.onLine === false ? ' (jsi offline).' : '.') + '</p>';
+  }
+}
+
+// ---------------------------------------------------------------
 // Detail panel + photos
 // ---------------------------------------------------------------
 // v2.5: statistika projetí trasy v detailu (jen admin)
@@ -1074,6 +1207,7 @@ async function openDetail(id){
   // upravovat smí vlastník trasy, nebo admin (ten může upravovat trasy všech)
   const isRealOwner = !!(currentUser && currentUser.id === route.owner_id);
   const isOwner = isRealOwner || isAdminUser();
+  const climbs = computeClimbs(route.points || []);   // v4.35: výjezdy
 
   const photoSlots = [0,1,2].map(i=>{
     const p = photos[i];
@@ -1121,20 +1255,21 @@ async function openDetail(id){
       </div>` : ''}
     <div class="detail-stats">
       <div class="stat"><b>${Number(route.distance_km).toFixed(1)}</b><span>km</span></div>
-      <div class="stat"><b>${Math.round(route.elev_gain_m)}</b><span>m převýšení</span></div>
-      <div class="stat"><b>${route.points.length}</b><span>bodů GPX</span></div>
+      ${renderClimbStats(climbs, terrainCache[route.id])}
     </div>
     <div class="gpx-actions">
       <button class="ghost-btn" id="download-gpx-btn" type="button">⬇ Stáhnout GPX</button>
       <button class="ghost-btn" id="share-route-btn" type="button">🔗 Sdílet odkaz</button>
       ${isOwner ? `<a class="ghost-btn planner-link" href="planovac.html?trasa=${route.id}">✏️ Upravit v GPX planneru</a>` : ''}
     </div>
-    ${currentUser && currentUser.role === 'admin' ? '<div class="admin-stats" id="admin-stats"><h3>Projetí trasy <span class="admin-tag">admin</span></h3><p class="hint">Načítám…</p></div>' : ''}
+    <div class="detail-terrain" id="detail-terrain">${renderTerrainBox(terrainCache[route.id] || null)}</div>
     <div class="elev-profile">
       <h3>Výškový profil</h3>
       ${renderElevationProfile(route.points)}
+      ${renderClimbNote(climbs)}
     </div>
     <div class="photo-grid">${photoSlots}</div>
+    ${currentUser && currentUser.role === 'admin' ? '<div class="admin-stats" id="admin-stats"><h3>Projetí trasy <span class="admin-tag">admin</span></h3><p class="hint">Načítám…</p></div>' : ''}
     ${isOwner ? `
       <div class="owner-controls">
         <h3>Fotky trasy</h3>
@@ -1206,6 +1341,7 @@ async function openDetail(id){
 
   document.getElementById('download-gpx-btn').addEventListener('click', ()=> downloadGPX(route.points, route.name));
   if(currentUser && currentUser.role === 'admin') loadAdminStats(route.id);
+  loadTerrain(route.id);
   document.getElementById('share-route-btn').addEventListener('click', ()=> shareRoute(route));
   bindRating(route);
   bindReviews(route.id, reviews);
@@ -2867,6 +3003,7 @@ async function enterApp(){
     enterApp._fuelBound = true;
     if(window.CendurFuel) CendurFuel.attach(map, layerMenu);
     if(window.CendurChko) CendurChko.attach(map, layerMenu);
+    if(window.CendurOsmPoints) CendurOsmPoints.attach(map, layerMenu);
   }
   positionFloatingMapButtons();
   setTimeout(positionFloatingMapButtons, 100);
