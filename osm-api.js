@@ -30,15 +30,16 @@ async function pump(){
 }
 // v4.46: vlastní volání Overpass – limit 100 s na server, bez dlouhých pauz; začíná serverem,
 // který naposledy odpověděl (veřejné servery bývají různě vytížené)
-const OP_URLS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+const OP_URLS = ['https://overpass-api.de/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass.private.coffee/api/interpreter',
+                 'https://overpass.kumi.systems/api/interpreter', 'https://overpass.osm.jp/api/interpreter'];
 let opFirst = 0, opTrying = '';
 const opLog = [];   // posledních 8 pokusů: server, výsledek, čas
-function opNote(host, ok, ms, msg){ opLog.unshift(host + ': ' + (ok ? 'OK' : msg) + ' (' + Math.round(ms / 1000) + ' s, ' + new Date().toLocaleTimeString('cs-CZ', { timeZone: 'Europe/Prague' }) + ')'); opLog.length = Math.min(opLog.length, 8); }
+function opNote(host, ok, ms, msg){ opLog.unshift(host + ': ' + (ok ? 'OK' : msg) + ' (' + Math.round(ms / 1000) + ' s, ' + new Date().toLocaleTimeString('cs-CZ', { timeZone: 'Europe/Prague' }) + ')'); opLog.length = Math.min(opLog.length, 10); }
 async function overpassFast(query){
   let last = null;
   for(let k = 0; k < OP_URLS.length; k++){
     const idx = (opFirst + k) % OP_URLS.length, url = OP_URLS[idx];
-    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 100000);
+    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 60000);
     const host = url.split('/')[2], t0 = Date.now(); opTrying = host + ' od ' + new Date().toLocaleTimeString('cs-CZ', { timeZone: 'Europe/Prague' });
     try{
       const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded', 'User-Agent':'CendurOFF/1.0 (cenduroff.cz)' }, body:'data=' + encodeURIComponent(query), signal: ctl.signal });
@@ -47,7 +48,7 @@ async function overpassFast(query){
       if(json.remark && /runtime error|timed out|out of memory|rate_limited/i.test(json.remark) && !(json.elements || []).length) throw new Error(url.split('/')[2] + ' přetížený');
       opFirst = idx; opNote(host, true, Date.now() - t0);
       return json;
-    }catch(e){ last = e && e.name === 'AbortError' ? new Error(host + ' neodpověděl do 100 s') : e; opNote(host, false, Date.now() - t0, last.message); }
+    }catch(e){ last = e && e.name === 'AbortError' ? new Error(host + ' neodpověděl do 60 s') : e; opNote(host, false, Date.now() - t0, last.message); }
     finally{ clearTimeout(timer); opTrying = ''; }
   }
   throw last || new Error('Overpass nedostupný');
@@ -445,7 +446,7 @@ function mount(app, { pool }){
     const servers = {};
     await Promise.all(OP_URLS.map(async u => {
       const st = u.replace('/interpreter', '/status'), host = u.split('/')[2];
-      const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 6000);
+      const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 10000);
       try{ const r = await fetch(st, { signal: ctl.signal, headers:{ 'User-Agent':'CendurOFF/1.0 (cenduroff.cz)' } }); servers[host] = (await r.text()).split('\n').filter(l => /Rate limit|slot|Currently running|available/i.test(l)).join(' | ') || ('HTTP ' + r.status); }
       catch(e){ servers[host] = 'neodpovídá'; }
       finally{ clearTimeout(tm); }
