@@ -31,21 +31,24 @@ async function pump(){
 // v4.46: vlastní volání Overpass – limit 100 s na server, bez dlouhých pauz; začíná serverem,
 // který naposledy odpověděl (veřejné servery bývají různě vytížené)
 const OP_URLS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
-let opFirst = 0;
+let opFirst = 0, opTrying = '';
+const opLog = [];   // posledních 8 pokusů: server, výsledek, čas
+function opNote(host, ok, ms, msg){ opLog.unshift(host + ': ' + (ok ? 'OK' : msg) + ' (' + Math.round(ms / 1000) + ' s, ' + new Date().toLocaleTimeString('cs-CZ', { timeZone: 'Europe/Prague' }) + ')'); opLog.length = Math.min(opLog.length, 8); }
 async function overpassFast(query){
   let last = null;
   for(let k = 0; k < OP_URLS.length; k++){
     const idx = (opFirst + k) % OP_URLS.length, url = OP_URLS[idx];
     const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 100000);
+    const host = url.split('/')[2], t0 = Date.now(); opTrying = host + ' od ' + new Date().toLocaleTimeString('cs-CZ', { timeZone: 'Europe/Prague' });
     try{
       const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded', 'User-Agent':'CendurOFF/1.0 (cenduroff.cz)' }, body:'data=' + encodeURIComponent(query), signal: ctl.signal });
       if(!res.ok) throw new Error(url.split('/')[2] + ' ' + res.status);
       const json = await res.json();
       if(json.remark && /runtime error|timed out|out of memory|rate_limited/i.test(json.remark) && !(json.elements || []).length) throw new Error(url.split('/')[2] + ' přetížený');
-      opFirst = idx;
+      opFirst = idx; opNote(host, true, Date.now() - t0);
       return json;
-    }catch(e){ last = e && e.name === 'AbortError' ? new Error(url.split('/')[2] + ' neodpověděl do 100 s') : e; }
-    finally{ clearTimeout(timer); }
+    }catch(e){ last = e && e.name === 'AbortError' ? new Error(host + ' neodpověděl do 100 s') : e; opNote(host, false, Date.now() - t0, last.message); }
+    finally{ clearTimeout(timer); opTrying = ''; }
   }
   throw last || new Error('Overpass nedostupný');
 }
@@ -438,7 +441,19 @@ function mount(app, { pool }){
       rbReady = (await pool.query('SELECT count(*)::int n FROM route_osm')).rows[0].n;
       cells = (await pool.query("SELECT count(*)::int n FROM osm_cell WHERE cell <> 'osm-points-region'")).rows[0].n;
     }catch(e){}
+    // stav veřejných serverů Overpass pro naši IP (kolik dotazů nám zrovna dovolí)
+    const servers = {};
+    await Promise.all(OP_URLS.map(async u => {
+      const st = u.replace('/interpreter', '/status'), host = u.split('/')[2];
+      const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 6000);
+      try{ const r = await fetch(st, { signal: ctl.signal, headers:{ 'User-Agent':'CendurOFF/1.0 (cenduroff.cz)' } }); servers[host] = (await r.text()).split('\n').filter(l => /Rate limit|slot|Currently running|available/i.test(l)).join(' | ') || ('HTTP ' + r.status); }
+      catch(e){ servers[host] = 'neodpovídá'; }
+      finally{ clearTimeout(tm); }
+    }));
     res.json({
+      zkousi_server: opTrying || '—',
+      posledni_pokusy: opLog,
+      overpass_stav: servers,
       prave_bezi: busy ? busyWhat + ' (' + Math.round((Date.now() - busySince) / 1000) + ' s)' : 'nic',
       ve_fronte: queue.slice().sort((a, b) => (b.ctx.prio - a.ctx.prio) || (a.t - b.t)).map(j => (j.ctx.prio >= TOP ? '★★ ' : j.ctx.prio ? '★ ' : '') + (j.ctx.what || '?')),
       povrch_tras: ready + ' z ' + routes,
