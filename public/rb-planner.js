@@ -450,10 +450,21 @@ async function downloadOsmUi(){
       (last.totalBytes / 1048576).toFixed(2).replace('.', ',') + ' MB · ' + sec + ' s<br><small>Server nejdřív data připraví (to trvá nejdéle), pak je teprve posílá.</small>';
   };
   busy('', () => ctl.abort());
-  show();
-  const tick = setInterval(show, 1000);
+  // v4.43: nejdřív z našeho serveru (data má připravená předem → většinou hned)
+  let viaServer = true;
+  const showServer = () => { $('rb-busy-text').innerHTML = 'Načítám cesty z OpenStreetMap…<br><b>' + Math.round((Date.now() - t0) / 1000) + ' s</b><br><small>Data pro tuhle trasu server teprve připravuje – příště už budou hned.</small>'; };
+  $('rb-busy-text').innerHTML = 'Načítám cesty z OpenStreetMap…';
+  const tick = setInterval(() => { if(viaServer){ if(Date.now() - t0 > 2500) showServer(); } else show(); }, 1000);
   try{
-    const osm = await RB.downloadOsm(R, { signal: ctl.signal, onProgress: p => { last = p; show(); } });
+    let osm = null;
+    if(route && route.id){
+      try{ osm = await RB.serverOsm(route.id, { signal: ctl.signal }); }
+      catch(e){ if(e.name === 'AbortError') throw e; console.warn('server OSM', e.message); }
+    }
+    if(!osm){   // server nedostupný → postaru přímo z Overpass
+      viaServer = false; show();
+      osm = await RB.downloadOsm(R, { signal: ctl.signal, onProgress: p => { last = p; show(); } });
+    }
     await RB.store.set(osmKey(), osm);
     return osm;
   }catch(e){
@@ -480,8 +491,7 @@ function askGenerate(mode){
     $('rb-minangle').value = String(settings.minAngle || 30);
     const osmInfo = cached
       ? 'Data z OpenStreetMap pro tuhle trasu už máš uložená v prohlížeči (' + new Date(cached.t).toLocaleDateString('cs-CZ') + ', ' + ((cached.bytes || 0) / 1048576).toFixed(2).replace('.', ',') + ' MB) – generování bude okamžité.'
-      : 'Stažení z OpenStreetMap může chvíli trvat, ale roadbook bude výrazně přesnější – doplní se křižovatky s odbočkami, typ cesty, brody, závory, přejezdy a benzínky (jen ze zatáček GPX tohle nepoznám). Trasa ' + est.km.toFixed(1).replace('.', ',') + ' km = ' + est.queries + ' ' + (est.queries === 1 ? 'dotaz' : est.queries < 5 ? 'dotazy' : 'dotazů') +
-        ' na server, obvykle ' + est.mbLow.toFixed(1).replace('.', ',') + '–' + est.mbHigh.toFixed(1).replace('.', ',') + ' MB, trvá to od pár vteřin po minutu (podle vytížení serveru). Stahování jde kdykoli zrušit.';
+      : 'S daty z OpenStreetMap bude roadbook výrazně přesnější – doplní se křižovatky s odbočkami, typ cesty, brody, závory, přejezdy a benzínky (jen ze zatáček GPX tohle nepoznám). Server je má pro trasy připravené předem, takže načtení bývá hned.';
     $('rb-gen-osm').textContent = osmInfo;
     $('rb-gen-osm-btn').textContent = cached ? 'Vygenerovat (s uloženými daty OSM)' : 'Stáhnout z OSM a vygenerovat';
     $('rb-gen-redl').hidden = !cached;

@@ -401,6 +401,27 @@ out center tags qt;`;
       ways: Object.keys(ways).map(id => ({ id: +id, nodes: ways[id].n, tags: ways[id].t })),
       pois: Object.values(pois) };
   };
+  // v4.43: data z OSM kolem trasy připravená na našem serveru (ten je stáhne jednou a drží) –
+  // většinou hned; když je server teprve chystá, ptá se znovu po 4 s (max. 5 min). Vrací stejný tvar jako downloadOsm.
+  RB.serverOsm = async function(routeId, opts){
+    opts = opts || {};
+    const api = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
+    const t0 = Date.now();
+    for(;;){
+      if(opts.signal && opts.signal.aborted) throw abortErr();
+      const res = await fetch(api + '/api/routes/' + routeId + '/osm', { signal: opts.signal });
+      if(res.status === 202){
+        if(Date.now() - t0 > 300000) throw new Error('server data zatím nepřipravil');
+        if(opts.onWait) opts.onWait(Math.round((Date.now() - t0) / 1000));
+        await new Promise((r, rej) => { const t = setTimeout(r, 4000); if(opts.signal) opts.signal.addEventListener('abort', () => { clearTimeout(t); rej(abortErr()); }, { once: true }); });
+        continue;
+      }
+      if(!res.ok) throw new Error('server ' + res.status);
+      const j = await res.json();
+      if(!j || !Array.isArray(j.ways)) throw new Error('neplatná data');
+      return j;
+    }
+  };
   function hydrateOsm(c){
     const nodes = new Map();
     (c.nodes || []).forEach(n => nodes.set(n[0], { id: n[0], lat: n[1], lon: n[2] }));

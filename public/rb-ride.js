@@ -212,7 +212,13 @@ async function start(o){
       if(!items){
         R = RB.prepareRoute(r.points, reversed);
         // bez stahování: použijí se jen OSM data, která už jsou v prohlížeči z Roadbook editoru
-        const osm = await RB.store.get(RB.routeKey(r.id, r.points));
+        let osm = await RB.store.get(RB.routeKey(r.id, r.points));
+        // v4.43: když nejsou v prohlížeči, zkusit je krátce vzít z našeho serveru (má je připravené předem)
+        if(!osm && RB.serverOsm && navigator.onLine !== false){
+          const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 8000);
+          try{ osm = await RB.serverOsm(r.id, { signal: ctl.signal }); RB.store.set(RB.routeKey(r.id, r.points), osm); }
+          catch(e){ osm = null; } finally{ clearTimeout(tm); }
+        }
         const g = await RB.generate(r.points, { osm, reversed });
         items = g.items;
         toast(osm ? 'Roadbook vygenerován automaticky (nezkontrolovaný).' : 'Roadbook jen ze zatáček GPX (bez křižovatek) – úplný připrav v Roadbook editoru.', 5500);
