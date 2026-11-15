@@ -1,12 +1,13 @@
 // ---------------------------------------------------------------
 // Brody a závory na mapě – sdílený modul pro Atlas i GPX planner (v4.35)
 // - dvě zaškrtávátka v nabídce 🗺 (Brody, Závory), nastavení společné pro obě stránky
-// - data z OpenStreetMap po buňkách 0,1° (~ 11 × 7 km) z našeho serveru (ten je drží 30 dní),
-//   v prohlížeči se buňka uloží na 14 dní → podruhé i bez signálu
-// - na mapě se ukazují od přiblížení 12
+// - data z OpenStreetMap po blocích 1° × 0,5° (~ 70 × 55 km) z našeho serveru (ten je drží 30 dní),
+//   v prohlížeči se blok uloží na 14 dní → podruhé i bez signálu
+// - v4.39: ukazují se od přiblížení 10 jako benzínky; do přiblížení 12 jen jako tečky (rychlé i při tisících bodů)
 // ---------------------------------------------------------------
 (function(){
-  const MIN_ZOOM = 12, CELL = 0.1, MAX_CELLS = 16, KEEP_DAYS = 14;
+  const MIN_ZOOM = 10, ICON_ZOOM = 13, MAX_BLOCKS = 12, KEEP_DAYS = 14;
+  const DOT = { f:'#1E88E5', b:'#C62828' };
   const KINDS = {
     f: { key:'fordsOn', id:'ford-toggle', label:'Brody', cls:'osm-ford',
          svg:'<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M2 15c2 0 2-1.5 4-1.5S8 15 10 15s2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5V16c-2 0-2 1.5-4 1.5S16 16 14 16s-2 1.5-4 1.5S8 16 6 16s-2 1.5-4 1.5zm0 4c2 0 2-1.5 4-1.5S8 19 10 19s2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5V20c-2 0-2 1.5-4 1.5S16 20 14 20s-2 1.5-4 1.5S8 20 6 20s-2 1.5-4 1.5zM7 4h10l-2 8H9z"/></svg>' },
@@ -19,10 +20,10 @@
   const ACCESS = { private:'soukromá cesta', no:'zákaz vjezdu', permissive:'průjezd povolen', yes:'průjezd povolen', forestry:'jen lesní provoz',
     agricultural:'jen zemědělský provoz', destination:'jen dopravní obsluha', delivery:'jen zásobování', customers:'jen zákazníci' };
 
-  let map = null, layer = null;
+  let map = null, layer = null, canvas = null, mode = '';
   const on = {}, btn = {};
   Object.keys(KINDS).forEach(k => { try{ on[k] = localStorage.getItem(KINDS[k].key) === '1'; }catch(e){ on[k] = false; } });
-  const cells = new Map();     // cell -> [[id, lat, lon, typ, a, b], …]
+  const cells = new Map();     // blok -> [[id, lat, lon, typ, a, b], …]
   const loading = new Set();
   const markers = new Map();   // id -> marker
   let retryTimer = null, hintShown = false, failShown = false;
@@ -34,7 +35,9 @@
   function makeMarker(it){
     const [, lat, lon, typ, a, b] = it, K = KINDS[typ];
     const icon = L.divIcon({ className:'osm-marker', html:`<div class="osm-ico ${K.cls}">${K.svg}</div>`, iconSize:[22,22], iconAnchor:[11,11], popupAnchor:[0,-10] });
-    const m = L.marker([lat, lon], { icon, keyboard:false, zIndexOffset:-500 });
+    const m = mode === 'dot'
+      ? L.circleMarker([lat, lon], { renderer: canvas, radius: 4, color:'#fff', weight: 1.5, fillColor: DOT[typ], fillOpacity: 1 })
+      : L.marker([lat, lon], { icon, keyboard:false, zIndexOffset:-500 });
     let title, extra = [];
     if(typ === 'f'){ title = 'Brod'; if(a) extra.push(a); }
     else { title = BARRIER_NAMES[a] || 'Zábrana na cestě'; if(b) extra.push(ACCESS[b] ? ACCESS[b][0].toUpperCase() + ACCESS[b].slice(1) : 'Přístup: ' + b); }
@@ -44,9 +47,9 @@
   }
 
   function cellsInView(){
-    const b = map.getBounds().pad(0.2), out = [];
-    const x0 = Math.floor(b.getWest()/CELL), x1 = Math.floor(b.getEast()/CELL);
-    const y0 = Math.floor(b.getSouth()/CELL), y1 = Math.floor(b.getNorth()/CELL);
+    const b = map.getBounds().pad(0.1), out = [];
+    const x0 = Math.floor(b.getWest()), x1 = Math.floor(b.getEast());
+    const y0 = Math.floor(b.getSouth()*2), y1 = Math.floor(b.getNorth()*2);
     for(let x=x0;x<=x1;x++) for(let y=y0;y<=y1;y++) out.push(x + '_' + y);
     return out;
   }
@@ -57,22 +60,22 @@
     for(const c of list){
       if(cells.has(c) || loading.has(c)) continue;
       loading.add(c);
-      const saved = R && R.idbGet ? await R.idbGet('osmcell:' + c) : null;
+      const saved = R && R.idbGet ? await R.idbGet('osmblk:' + c) : null;
       if(saved && saved.data && Date.now() - saved.t < KEEP_DAYS * 86400000){ cells.set(c, saved.data); loading.delete(c); }
       else need.push({ c, saved });
     }
     if(!need.length){ update(); return; }
     update();
     const api = (R && R.API) ? R.API() : (window.CENDUROFF_API_URL || 'https://api.cenduroff.cz');
-    for(let i = 0; i < need.length; i += 6){
-      const part = need.slice(i, i + 6);
+    for(let i = 0; i < need.length; i += 4){
+      const part = need.slice(i, i + 4);
       try{
-        const res = await fetch(api + '/api/osm/points?cells=' + part.map(p => p.c).join(','));
+        const res = await fetch(api + '/api/osm/blocks?ids=' + part.map(p => p.c).join(','));
         if(!res.ok) throw new Error('server ' + res.status);
         const j = await res.json();
         part.forEach(p => {
-          const data = j.cells && j.cells[p.c];
-          if(data){ cells.set(p.c, data); if(R && R.idbSet) R.idbSet('osmcell:' + p.c, { t: Date.now(), data }); }
+          const data = j.blocks && j.blocks[p.c];
+          if(data){ cells.set(p.c, data); if(R && R.idbSet) R.idbSet('osmblk:' + p.c, { t: Date.now(), data }); }
           else if(p.saved && p.saved.data) cells.set(p.c, p.saved.data);   // starší kopie je lepší než nic
         });
         if(j.pending && j.pending.length){ clearTimeout(retryTimer); retryTimer = setTimeout(update, 15000); }
@@ -89,12 +92,14 @@
     if(!map) return;
     if(!layer) layer = L.layerGroup();
     const visible = anyOn() && map.getZoom() >= MIN_ZOOM;
+    const want_mode = map.getZoom() >= ICON_ZOOM ? 'icon' : 'dot';
+    if(want_mode !== mode){ markers.forEach(m => layer.removeLayer(m)); markers.clear(); mode = want_mode; }
     if(visible && !map.hasLayer(layer)) layer.addTo(map);
     if(!visible && map.hasLayer(layer)) map.removeLayer(layer);
     const want = new Set();
     if(visible){
       const list = cellsInView();
-      if(list.length <= MAX_CELLS){
+      if(list.length <= MAX_BLOCKS){
         const missing = list.filter(c => !cells.has(c) && !loading.has(c));
         if(missing.length) load(missing);
         const b = map.getBounds().pad(0.3);
@@ -136,6 +141,7 @@
       addToggles(menu);
       if(!m || map === m) return;
       map = m;
+      canvas = L.canvas({ padding: 0.3 });
       map.on('moveend', update);
       setTimeout(update, 500);
     }

@@ -212,9 +212,18 @@ out center tags qt;`;
   });
   return out;
 }
-const cellOf = (lat, lon) => Math.floor(lon / CELL) + '_' + Math.floor(lat / CELL);
+const cellOf = (lat, lon) => Math.floor(lon * 10 + 1e-9) + '_' + Math.floor(lat * 10 + 1e-9);   // CELL = 0,1°
 async function buildCell(cell, ctx){ return buildBox(cellBox(cell), ctx); }
 // celá oblast ČR + 100 km po blocích 1° × 0,5° (každý blok = jeden dotaz) → rozdělit do buněk 0,1°
+// blok 1° × 0,5°: id „x_y“ = floor(lon) _ floor(lat*2)
+const blockOf = (lat, lon) => Math.floor(lon) + '_' + Math.floor(lat * 2);
+function blockBox(id){ const [x, y] = id.split('_').map(Number); return { s: y / 2, w: x, n: y / 2 + 0.5, e: x + 1 }; }
+function blockCells(b){
+  const out = [];
+  for(let y = Math.round(b.s / CELL); y < Math.round(b.n / CELL); y++)
+    for(let x = Math.round(b.w / CELL); x < Math.round(b.e / CELL); x++) out.push(x + '_' + y);
+  return out;
+}
 function regionBlocks(){
   const out = [];
   for(let s = Math.floor(REGION.s * 2) / 2; s < REGION.n; s += 0.5)
@@ -244,6 +253,32 @@ function mount(app, { pool }){
     building.set(key, { p, ctx });
     return p;
   }
+  // v4.39: brody a závory po blocích 1° × 0,5° (mapa je ukazuje už od přiblížení 10 jako benzínky)
+  app.get('/api/osm/blocks', async (req, res) => {
+    const ids = String(req.query.ids || '').split(',').filter(c => /^-?\d{1,3}_-?\d{1,3}$/.test(c)).slice(0, 16);
+    if(!ids.length) return res.status(400).json({ error: 'Chybí bloky.' });
+    try{
+      await ensure();
+      const out = [], pending = [], t0 = Date.now();
+      for(const id of ids){
+        const cells = blockCells(blockBox(id));
+        const r = await pool.query('SELECT data FROM osm_cell WHERE cell = ANY($1)', [cells]);
+        if(r.rows.length >= cells.length){ out.push('"' + id + '":[' + r.rows.map(x => x.data.slice(1, -1)).filter(Boolean).join(',') + ']'); continue; }
+        // blok ještě není stažený – stáhnout přednostně; na dlouhé čekání se klient zeptá znovu
+        const job = storeBlock(id, { prio: HIGH, what: 'brody a závory – blok ' + id });
+        job.catch(e => console.error('osm blok', id, e.message));
+        const left = Math.max(0, 20000 - (Date.now() - t0));
+        const items = left ? await Promise.race([job.catch(() => null), new Promise(r2 => setTimeout(() => r2(null), left))]) : null;
+        if(items) out.push('"' + id + '":' + JSON.stringify(items)); else pending.push(id);
+      }
+      res.set('Cache-Control', 'public, max-age=600');
+      res.type('application/json').send('{"blocks":{' + out.join(',') + '},"pending":' + JSON.stringify(pending) + '}');
+    }catch(e){
+      console.error('osm blocks', e.message);
+      res.status(503).json({ error: 'Data teď nejdou připravit (' + e.message + ').' });
+    }
+  });
+
   // stav fronty – pro kontrolu, co server zrovna dělá
   app.get('/api/osm/status', async (req, res) => {
     let routes = null, ready = null, cells = null;
@@ -338,28 +373,41 @@ function mount(app, { pool }){
   // ---- předem připravit vše na serveru (jako benzínky a CHKO) ----
   // 1) brody a závory pro celou oblast: blok po bloku, s pauzou, obnova jednou za 30 dní
   const REGION_KEY = 'osm-points-region';
+  // jeden blok 1° × 0,5° jedním dotazem → rozdělit do buněk 0,1° (i prázdné, ať se na ně nikdo zbytečně neptá)
+  const blockJobs = new Map();
+  function storeBlock(id, ctx){
+    const had = blockJobs.get(id);
+    if(had){ if(ctx.prio) had.ctx.prio = Math.max(had.ctx.prio, ctx.prio); return had.p; }
+    const p = (async () => {
+      const b = blockBox(id);
+      const items = await buildBox(b, ctx);
+      const byCell = new Map(blockCells(b).map(c => [c, []]));
+      items.forEach(it => { const c = cellOf(it[1], it[2]); if(byCell.has(c)) byCell.get(c).push(it); });
+      for(const [cell, list] of byCell)
+        await pool.query(`INSERT INTO osm_cell (cell, data, updated_at) VALUES ($1, $2, now())
+                          ON CONFLICT (cell) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`, [cell, JSON.stringify(list)]);
+      return items;
+    })().finally(() => blockJobs.delete(id));
+    blockJobs.set(id, { p, ctx });
+    return p;
+  }
+  async function blockFresh(id){
+    const cells = blockCells(blockBox(id));
+    const r = await pool.query(`SELECT count(*)::int n FROM osm_cell WHERE cell = ANY($1) AND updated_at > now() - interval '30 days'`, [cells]);
+    return r.rows[0].n >= cells.length;
+  }
   async function prebuildRegion(){
-    const r = await pool.query("SELECT updated_at FROM osm_cell WHERE cell = $1", [REGION_KEY]);
-    if(r.rows[0] && Date.now() - new Date(r.rows[0].updated_at).getTime() < CELL_MAX_AGE_MS) return;
     const blocks = regionBlocks();
-    let done = 0;
+    let done = 0, skipped = 0;
     for(const b of blocks){
+      const id = blockOf(b.s + 0.01, b.w + 0.01);
       try{
-        const items = await buildBox(b, { prio: 0, what: 'brody a závory – oblast ' + (done + 1) + '/' + blocks.length });
-        const byCell = new Map();
-        // i prázdné buňky uložit – ať se na ně klient zbytečně neptá Overpassu
-        for(let y = Math.round(b.s / CELL); y < Math.round(b.n / CELL); y++)
-          for(let x = Math.round(b.w / CELL); x < Math.round(b.e / CELL); x++) byCell.set(x + '_' + y, []);
-        items.forEach(it => { const c = cellOf(it[1], it[2]); if(byCell.has(c)) byCell.get(c).push(it); });
-        for(const [cell, list] of byCell)
-          await pool.query(`INSERT INTO osm_cell (cell, data, updated_at) VALUES ($1, $2, now())
-                            ON CONFLICT (cell) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`, [cell, JSON.stringify(list)]);
+        if(await blockFresh(id)){ skipped++; continue; }   // po restartu pokračuje, kde přestal
+        await storeBlock(id, { prio: 0, what: 'brody a závory – oblast ' + (done + skipped + 1) + '/' + blocks.length });
         done++;
-      }catch(e){ console.error('osm prebuild blok', JSON.stringify(b), e.message); }
+      }catch(e){ console.error('osm prebuild blok', id, e.message); }
     }
-    if(done === blocks.length) await pool.query(`INSERT INTO osm_cell (cell, data, updated_at) VALUES ($1, '[]', now())
-                              ON CONFLICT (cell) DO UPDATE SET updated_at = now()`, [REGION_KEY]);
-    console.log('OSM brody/závory: připraveno', done, 'z', blocks.length, 'bloků');
+    console.log('OSM brody/závory: staženo', done, 'bloků, aktuálních', skipped, 'z', blocks.length);
   }
   // 2) povrch všech tras, které ho ještě nemají (nebo se od výpočtu změnily)
   async function prebuildTerrain(){
@@ -378,4 +426,4 @@ function mount(app, { pool }){
   // jednou denně zkontrolovat, jestli není co obnovit (nové trasy, data starší než 30 dní)
   setInterval(() => { prebuildTerrain().then(prebuildRegion).catch(e => console.error('osm denní', e.message)); }, 86400000);
 }
-module.exports = { mount, _test: { buildTerrain, surfaceClass, resample, simplify, buildCell, regionBlocks } };
+module.exports = { mount, _test: { buildTerrain, surfaceClass, resample, simplify, buildCell, regionBlocks, blockOf, blockBox, blockCells } };
