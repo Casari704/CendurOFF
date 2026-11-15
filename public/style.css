@@ -583,7 +583,7 @@ a.btn{text-decoration:none;}
 
 .fuel-marker{background:none;border:none;}
 .fuel-ico{
-  width:22px;height:22px;border-radius:6px;background:#1F4E8C;border:2px solid #fff;
+  width:22px;height:22px;border-radius:50%;background:#16A34A;border:2px solid #fff;
   box-shadow:0 1px 4px rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;
   transform:rotate(var(--map-rot, 0deg));box-sizing:border-box;
 }
@@ -595,7 +595,7 @@ a.btn{text-decoration:none;}
   display:flex;align-items:center;justify-content:center;transform:rotate(var(--map-rot, 0deg));box-sizing:border-box;}
 .osm-ico svg{width:14px;height:14px;display:block;}
 .osm-ford{background:#1E88E5;}
-.osm-barrier{background:#C62828;border-radius:6px;}
+.osm-barrier{background:#C62828;}
 /* v4.35: povrch trasy a výjezdy v detailu */
 .detail-terrain{margin:16px 0 16px;}
 .detail-terrain h3{margin:0 0 8px;}
@@ -1070,3 +1070,11 @@ body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !import
 .rb-chip.rb-draft i{background:#EF6C00;}
 .rb-chip.rb-auto{color:var(--ink-soft);font-weight:600;}
 a.rb-chip:hover{background:#E4DCC6;}
+
+/* v4.40: průhlednost tras (public/route-alpha.js) */
+.leaflet-pane[class*="leaflet-route-"], .leaflet-pl-route-pane, .leaflet-pl-others-pane, .leaflet-rec-track-pane,
+#rb-map .leaflet-overlay-pane, #nv-mini .leaflet-overlay-pane, #nv-bigmap-map .leaflet-overlay-pane{opacity:var(--route-alpha, 1);}
+.ra-row{display:flex;gap:4px;padding:4px 8px 8px;}
+.ra-row button{flex:1;padding:7px 0;border:1px solid var(--line);border-radius:8px;background:var(--surface);
+  font:600 0.82rem 'Roboto',sans-serif;color:var(--ink);cursor:pointer;}
+.ra-row button.on{background:var(--moss);border-color:var(--moss);color:#fff;}

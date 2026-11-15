@@ -2979,6 +2979,7 @@ async function enterApp(){
     if(window.CendurFuel) CendurFuel.attach(map, layerMenu);
     if(window.CendurChko) CendurChko.attach(map, layerMenu);
     if(window.CendurOsmPoints) CendurOsmPoints.attach(map, layerMenu);
+    if(window.CendurRouteAlpha) CendurRouteAlpha.attach(layerMenu);
   }
   positionFloatingMapButtons();
   setTimeout(positionFloatingMapButtons, 100);

@@ -460,6 +460,7 @@ window.addEventListener('resize', ()=>{ if(layerMenu.classList.contains('open'))
 if(window.CendurFuel) CendurFuel.attach(map, layerMenu);
 if(window.CendurChko) CendurChko.attach(map, layerMenu);
 if(window.CendurOsmPoints) CendurOsmPoints.attach(map, layerMenu);
+if(window.CendurRouteAlpha) CendurRouteAlpha.attach(layerMenu);
 
 map.createPane('pl-others').style.zIndex = 405;
 map.createPane('pl-route').style.zIndex = 450;

@@ -6,11 +6,12 @@
 // ---------------------------------------------------------------
 (function(){
   const STORE_KEY = 'fuelOn';
-  const MIN_ZOOM = 10;
+  const MIN_ZOOM = 10, ICON_ZOOM = 13;   // v4.40: do přiblížení 12 jen zelené tečky, od 13 ikony (jako brody a závory)
+  const COLOR = '#16A34A';
   const CELL = 0.1;                  // mřížka pro rychlé hledání stanic v záběru
   const SVG = '<svg viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M4 3h9a1 1 0 0 1 1 1v8h1.5a2.5 2.5 0 0 1 2.5 2.5V18a1 1 0 0 0 2 0v-6.6l-2.7-2.7a1 1 0 1 1 1.4-1.4l3 3a1 1 0 0 1 .3.7V18a3 3 0 0 1-6 0v-3.5a.5.5 0 0 0-.5-.5H14v7h1a1 1 0 1 1 0 2H2a1 1 0 1 1 0-2h1V4a1 1 0 0 1 1-1zm1.5 2v5h6V5h-6z"/></svg>';
 
-  let map = null, layer = null, toggleBtn = null, statusEl = null;
+  let map = null, layer = null, toggleBtn = null, statusEl = null, canvas = null, mode = '';
   // v4.27: výchozí stav vypnuto – zapnuté jen u toho, kdo si benzínky sám zapnul
   let on = (()=>{ try{ return localStorage.getItem(STORE_KEY) === '1'; }catch(e){ return false; } })();
   let data = null, loading = false, retryTimer = null, hintShown = false;
@@ -31,7 +32,9 @@
     const title = name || brand || 'Čerpací stanice';
     const extra = [brand && brand !== title ? brand : '', hours ? 'Otevřeno: ' + hours : ''].filter(Boolean);
     // interactive:false v plánovači by schovalo popup; klik na ikonu bod trasy nepřidá (Leaflet ho zastaví)
-    const m = L.marker([lat, lon], { icon:icon(), keyboard:false, zIndexOffset:-500 });
+    const m = mode === 'dot'
+      ? L.circleMarker([lat, lon], { renderer: canvas, radius: 4, color:'#fff', weight: 1.5, fillColor: COLOR, fillOpacity: 1 })
+      : L.marker([lat, lon], { icon:icon(), keyboard:false, zIndexOffset:-500 });
     m.bindTooltip(esc(title), { direction:'top', offset:[0,-10], className:'trail-tip' });
     m.bindPopup(`<div class="fuel-popup"><b>⛽ ${esc(title)}</b>${extra.map(e=>`<div>${esc(e)}</div>`).join('')}</div>`);
     return m;
@@ -85,6 +88,8 @@
     if(!map) return;
     if(!layer) layer = L.layerGroup();
     const visible = on && map.getZoom() >= MIN_ZOOM;
+    const wantMode = map.getZoom() >= ICON_ZOOM ? 'icon' : 'dot';
+    if(wantMode !== mode){ markers.forEach(m => layer.removeLayer(m)); markers.clear(); mode = wantMode; }
     if(visible && !map.hasLayer(layer)) layer.addTo(map);
     if(!visible && map.hasLayer(layer)) map.removeLayer(layer);
     if(!on) return;
@@ -134,6 +139,7 @@
       addToggle(menu);
       if(!m || map === m) return;
       map = m;
+      canvas = L.canvas({ padding: 0.3 });
       map.on('moveend', update);
       setTimeout(update, 400);
     }
