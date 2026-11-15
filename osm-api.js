@@ -8,7 +8,25 @@
 //                                 za 30 dní) a drží ji v databázi (osm_cell) – klient dostane data hned.
 //                                 Chybějící buňku (mimo oblast) stáhne na požádání.
 const crypto = require('crypto');
-const { overpass, REGION } = require('./region-api');
+const { overpass: overpassRaw, REGION } = require('./region-api');
+
+// v4.37: všechny dotazy na Overpass po jednom ve frontě (veřejný server souběžné dotazy odmítá a zdržuje);
+// co si vyžádal uživatel (otevřel detail, posunul mapu), jde na řadu před přípravou na pozadí
+const queue = [];
+let busy = false;
+function overpass(query, ctx){
+  return new Promise((res, rej) => { queue.push({ query, ctx: ctx || { prio: 0 }, res, rej, t: Date.now() }); pump(); });
+}
+async function pump(){
+  if(busy || !queue.length) return;
+  queue.sort((a, b) => (b.ctx.prio - a.ctx.prio) || (a.t - b.t));
+  const job = queue.shift();
+  busy = true;
+  try{ job.res(await overpassRaw(job.query)); }
+  catch(e){ job.rej(e); }
+  finally{ busy = false; setTimeout(pump, 1500); }
+}
+const HIGH = 10;
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS route_terrain (route_id INTEGER PRIMARY KEY, hash TEXT NOT NULL, data TEXT NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
@@ -104,7 +122,7 @@ function cluster(items, minM){
 }
 
 // ---------- výpočet terénu trasy ----------
-async function buildTerrain(points){
+async function buildTerrain(points, ctx){
   const pts = points.filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1])).map(p => [+p[0], +p[1]]);
   if(pts.length < 2) return { surface:{ asfalt:0, sotolina:0, hlina:0, nezname:1 }, items:[], fords:0, barriers:0 };
   const simple = simplify(pts, 8).map(p => p[0].toFixed(5) + ',' + p[1].toFixed(5));
@@ -121,7 +139,7 @@ out tags geom qt;
  way["ford"]["ford"!="no"](around:25,${C});
  node["barrier"~"${BARRIER_RE}"](around:15,${C}););
 out center tags qt;`;
-    const d = await overpass(q);
+    const d = await overpass(q, ctx);
     (d.elements || []).forEach(el => {
       const t = el.tags || {};
       if(el.type === 'way' && t.highway && el.geometry && !ways.has(el.id)) ways.set(el.id, { t, g: el.geometry.map(g => [g.lat, g.lon]) });
@@ -168,7 +186,7 @@ function cellBox(cell){
   return { s: y * CELL, w: x * CELL, n: (y + 1) * CELL, e: (x + 1) * CELL };
 }
 // brody a závory v obdélníku → seznam [id, lat, lon, 'f'|'b', a, b]
-async function buildBox(b){
+async function buildBox(b, ctx){
   const bb = `${b.s.toFixed(3)},${b.w.toFixed(3)},${b.n.toFixed(3)},${b.e.toFixed(3)}`;
   // závory jen na cestách, kudy se dá jet (ne u vjezdů k domům a na parkovištích)
   const q = `[out:json][timeout:180];
@@ -177,7 +195,7 @@ way["highway"~"^(track|path|bridleway|unclassified|service|tertiary|byway|cyclew
  way["ford"]["ford"!="no"](${bb});
  node(w.w)["barrier"~"${BARRIER_RE}"];);
 out center tags qt;`;
-  const d = await overpass(q);
+  const d = await overpass(q, ctx);
   const out = [];
   (d.elements || []).forEach(el => {
     const t = el.tags || {};
@@ -189,7 +207,7 @@ out center tags qt;`;
   return out;
 }
 const cellOf = (lat, lon) => Math.floor(lon / CELL) + '_' + Math.floor(lat / CELL);
-async function buildCell(cell){ return buildBox(cellBox(cell)); }
+async function buildCell(cell, ctx){ return buildBox(cellBox(cell), ctx); }
 // celá oblast ČR + 100 km po blocích 1° × 0,5° (každý blok = jeden dotaz) → rozdělit do buněk 0,1°
 function regionBlocks(){
   const out = [];
@@ -205,17 +223,19 @@ function mount(app, { pool }){
 
   // ---- terén trasy ----
   const building = new Map();   // route_id:hash -> Promise
-  function computeTerrain(id, hash, points){
+  function computeTerrain(id, hash, points, prio){
     const key = id + ':' + hash;
-    if(building.has(key)) return building.get(key);
+    const had = building.get(key);
+    if(had){ if(prio) had.ctx.prio = Math.max(had.ctx.prio, prio); return had.p; }   // už se počítá – jen zvýšit přednost
+    const ctx = { prio: prio || 0 };
     const p = (async () => {
-      const data = await buildTerrain(points);
+      const data = await buildTerrain(points, ctx);
       const text = JSON.stringify(data);
       await pool.query(`INSERT INTO route_terrain (route_id, hash, data, updated_at) VALUES ($1, $2, $3, now())
                         ON CONFLICT (route_id) DO UPDATE SET hash = EXCLUDED.hash, data = EXCLUDED.data, updated_at = now()`, [id, hash, text]);
       return text;
     })().finally(() => building.delete(key));
-    building.set(key, p);
+    building.set(key, { p, ctx });
     return p;
   }
   app.get('/api/routes/:id/terrain', async (req, res) => {
@@ -235,7 +255,7 @@ function mount(app, { pool }){
         return res.type('application/json').send('{"status":"ok","data":' + row.data + '}');
       }
       // první výpočet (nebo po úpravě trasy) – chvíli počkáme, jinak ať se klient zeptá znovu
-      const job = computeTerrain(id, hash, points);
+      const job = computeTerrain(id, hash, points, HIGH);
       job.catch(e => console.error('terrain', id, e.message));
       const text = await Promise.race([job, new Promise(r2 => setTimeout(() => r2(null), 20000))]);
       if(text) return res.type('application/json').send('{"status":"ok","data":' + text + '}');
@@ -251,7 +271,7 @@ function mount(app, { pool }){
   function fetchCell(cell){
     if(cellJobs.has(cell)) return cellJobs.get(cell);
     const p = (async () => {
-      const data = await buildCell(cell);
+      const data = await buildCell(cell, { prio: HIGH });
       const text = JSON.stringify(data);
       await pool.query(`INSERT INTO osm_cell (cell, data, updated_at) VALUES ($1, $2, now())
                         ON CONFLICT (cell) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`, [cell, text]);
@@ -311,7 +331,6 @@ function mount(app, { pool }){
                             ON CONFLICT (cell) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`, [cell, JSON.stringify(list)]);
         done++;
       }catch(e){ console.error('osm prebuild blok', JSON.stringify(b), e.message); }
-      await new Promise(r2 => setTimeout(r2, 4000));   // šetrně k Overpass
     }
     if(done === blocks.length) await pool.query(`INSERT INTO osm_cell (cell, data, updated_at) VALUES ($1, '[]', now())
                               ON CONFLICT (cell) DO UPDATE SET updated_at = now()`, [REGION_KEY]);
@@ -319,18 +338,18 @@ function mount(app, { pool }){
   }
   // 2) povrch všech tras, které ho ještě nemají (nebo se od výpočtu změnily)
   async function prebuildTerrain(){
+    let n = 0;
     const r = await pool.query(`SELECT r.id, r.points, t.hash FROM routes r LEFT JOIN route_terrain t ON t.route_id = r.id WHERE r.deleted_at IS NULL`);
     for(const row of r.rows){
       const hash = crypto.createHash('md5').update(JSON.stringify(row.points)).digest('hex');
       if(row.hash === hash) continue;
-      try{ await computeTerrain(row.id, hash, row.points); }catch(e){ console.error('terrain prebuild', row.id, e.message); }
-      await new Promise(r2 => setTimeout(r2, 3000));
+      try{ await computeTerrain(row.id, hash, row.points); n++; }catch(e){ console.error('terrain prebuild', row.id, e.message); }
     }
   }
   setTimeout(async () => {
-    try{ await ensure(); await prebuildTerrain(); await prebuildRegion(); }
+    try{ await ensure(); await prebuildTerrain(); console.log('OSM povrch tras: hotovo'); await prebuildRegion(); }
     catch(e){ console.error('osm init', e.message); }
-  }, 60000);
+  }, 20000);
   // jednou denně zkontrolovat, jestli není co obnovit (nové trasy, data starší než 30 dní)
   setInterval(() => { prebuildTerrain().then(prebuildRegion).catch(e => console.error('osm denní', e.message)); }, 86400000);
 }

@@ -1117,7 +1117,7 @@ async function loadTerrain(routeId, tries){
   try{
     const res = await fetch(API_URL + '/api/routes/' + routeId + '/terrain');
     if(res.status === 202){
-      if(tries < 20) setTimeout(()=>{ if(activeRouteId === routeId) loadTerrain(routeId, tries + 1); }, 5000);
+      if(tries < 60) setTimeout(()=>{ if(activeRouteId === routeId) loadTerrain(routeId, tries + 1); }, 5000);
       else box.innerHTML = '<h3>Povrch trasy</h3><p class="hint">Mapová data se zatím nepodařilo zpracovat, zkus detail otevřít později.</p>';
       return;
     }
