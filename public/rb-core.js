@@ -500,7 +500,7 @@ out center tags qt;`;
       const nd = osm.nodes.get(id);
       if(!nd) return;
       const p = RB.project(R, nd.lat, nd.lon);
-      if(p.dist > 12 || p.s < 20 || R.total - p.s < 20) return;
+      if(p.dist > 20 || p.s < 20 || R.total - p.s < 20) return;   // v4.44: 20 m (GPX bývá kousek vedle cesty)
       // směry ramen ~20 m od uzlu
       const branches = [];
       wayAt.get(id).forEach(({ w, j }) => {
@@ -529,7 +529,10 @@ out center tags qt;`;
       merged.push(j);
     });
     return merged.map(j => {
-      const bin = RB.bearingBetween(R, j.s - 30, j.s), bout = RB.bearingBetween(R, j.s, j.s + 30);
+      // v4.44: směr příjezdu a odjezdu měřený kus od křižovatky (15–60 m) – těsně u ní je vyhlazená
+      // trasa ještě v oblouku a úhel výjezdu vycházel o půlku menší (ostrá odbočka pak vypadala jako „rovně“)
+      const bin = RB.bearingBetween(R, Math.max(0, j.s - 60), Math.max(0, j.s - 15));
+      const bout = RB.bearingBetween(R, Math.min(R.total, j.s + 15), Math.min(R.total, j.s + 60));
       if(bin == null || bout == null) return null;
       const exit = RB.angleDiff(bout, bin);
       let rel = j.branches.map(br => ({ a: RB.angleDiff(br.b, bin), tags: br.tags }));
@@ -539,8 +542,8 @@ out center tags qt;`;
         rel.forEach((r, i) => { const dd = Math.abs(RB.angleDiff(r.a, target)); if(dd < bd){ bd = dd; bi = i; } });
         return bi >= 0 ? rel.splice(bi, 1)[0] : null;
       };
-      takeClosest(180, 40);
-      const exitBr = takeClosest(exit, 40);
+      takeClosest(180, 45);
+      const exitBr = takeClosest(exit, 50);
       // ramena skoro ve stejném směru (dvě cesty těsně vedle sebe) spojit
       const sides = [];
       rel.filter(r => !ignoredBranch(r.tags)).forEach(r => {

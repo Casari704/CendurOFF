@@ -213,6 +213,7 @@ async function start(o){
         R = RB.prepareRoute(r.points, reversed);
         // bez stahování: použijí se jen OSM data, která už jsou v prohlížeči z Roadbook editoru
         let osm = await RB.store.get(RB.routeKey(r.id, r.points));
+        if(osm && !(osm.ways && osm.ways.length)) osm = null;
         // v4.43: když nejsou v prohlížeči, zkusit je krátce vzít z našeho serveru (má je připravené předem)
         if(!osm && RB.serverOsm && navigator.onLine !== false){
           const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 8000);

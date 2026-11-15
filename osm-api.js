@@ -129,6 +129,7 @@ function cluster(items, minM){
 // v4.43: data z OSM kolem trasy ve stejném tvaru jako RB.downloadOsm v public/rb-core.js
 // (cesty s uzly, body zájmu) – jedno stažení slouží povrchu trasy i Roadbook editoru
 async function buildRouteOsm(points, ctx){
+  ctx = ctx || { prio: 0 };
   const pts = points.filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1])).map(p => [+p[0], +p[1]]);
   const out = { v: 1, t: Date.now(), bytes: 0, nodes: [], ways: [], pois: [] };
   if(pts.length < 2) return out;
@@ -165,6 +166,9 @@ out center tags qt;`;
       }
     });
   }
+  // OpenStreetMap občas vrátí prázdnou odpověď (přetížení) – jednou zkusit znovu; když je i pak prázdná,
+  // trasa opravdu nevede po žádné zmapované cestě
+  if(!Object.keys(ways).length && !ctx.retried){ ctx.retried = true; return buildRouteOsm(points, ctx); }
   out.nodes = Object.keys(nodes).map(id => [+id, nodes[id][0], nodes[id][1]]);
   out.ways = Object.keys(ways).map(id => ({ id: +id, nodes: ways[id].n, tags: ways[id].t }));
   out.pois = Object.values(pois);

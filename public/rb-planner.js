@@ -437,7 +437,8 @@ window.addEventListener('beforeunload', () => { if(dirty) saveDraftNow(); });
 // ---------------------------------------------------------------
 // Uložená OSM data pro trasu (IndexedDB) – stáhnou se jednou, pak je generování okamžité
 function osmKey(){ return RB.routeKey(route.id, route.points); }
-async function cachedOsm(){ return route ? await RB.store.get(osmKey()) : null; }
+// v4.44: prázdná data (OpenStreetMap kdysi nic nevrátil) se neberou – stáhnou se znovu
+async function cachedOsm(){ const c = route ? await RB.store.get(osmKey()) : null; return c && Array.isArray(c.ways) && c.ways.length ? c : null; }
 
 // Stažení OSM s průběhem a tlačítkem Zrušit. Vrací data, nebo null (zrušeno / chyba).
 async function downloadOsmUi(){
@@ -465,6 +466,7 @@ async function downloadOsmUi(){
       viaServer = false; show();
       osm = await RB.downloadOsm(R, { signal: ctl.signal, onProgress: p => { last = p; show(); } });
     }
+    if(!osm || !Array.isArray(osm.ways) || !osm.ways.length) throw new Error('nevrátil žádné cesty');
     await RB.store.set(osmKey(), osm);
     return osm;
   }catch(e){
@@ -538,7 +540,14 @@ async function runGenerate(choice, keep, markReview){
   }
   selId = null; markDirty(); renderAll(); drawAllRoutes();
   const rev = RB.visible(items).filter(i => i.review).length;
-  toast('Roadbook vygenerován' + (osm ? '' : ' jen ze zatáček GPX') + (keep ? ' – tvoje úpravy zůstaly' : '') + (rev ? '. Ke kontrole: ' + rev : '') + '.', 5000);
+  const junc = fresh.filter(i => !i.kind && i.sides && i.sides.length).length;
+  if(osm && r.osmError) console.error('OSM v generování', r.osmError);
+  if(osm && (r.osmError || !junc)){
+    toast(r.osmError ? 'Data z OpenStreetMap se nepodařilo použít (' + r.osmError.message + ') – roadbook je jen ze zatáček GPX.'
+                     : 'V datech z OpenStreetMap jsem u trasy nenašel žádnou křižovatku – zkontroluj, jestli trasa vede po cestách v mapě.', 7000);
+    return;
+  }
+  toast('Roadbook vygenerován' + (osm ? ' · křižovatek: ' + junc : ' jen ze zatáček GPX') + (keep ? ' – tvoje úpravy zůstaly' : '') + (rev ? '. Ke kontrole: ' + rev : '') + '.', 5000);
 }
 
 $('rb-regen').addEventListener('click', async () => {
