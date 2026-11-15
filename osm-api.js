@@ -27,7 +27,8 @@ async function pump(){
   catch(e){ stat.failed++; stat.lastError = e.message; stat.lastErrorAt = Date.now(); job.rej(e); }
   finally{ busy = false; busyWhat = ''; setTimeout(pump, 1500); }
 }
-const HIGH = 10;
+const HIGH = 10;     // vyžádal uživatel (kousek mapy s brody a závorami)
+const TOP = 20;      // povrch trasy, kterou má uživatel otevřenou – před vším ostatním
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS route_terrain (route_id INTEGER PRIMARY KEY, hash TEXT NOT NULL, data TEXT NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
@@ -190,11 +191,15 @@ function cellBox(cell){
 async function buildBox(b, ctx){
   const bb = `${b.s.toFixed(3)},${b.w.toFixed(3)},${b.n.toFixed(3)},${b.e.toFixed(3)}`;
   // závory jen na cestách, kudy se dá jet (ne u vjezdů k domům a na parkovištích)
-  const q = `[out:json][timeout:180];
-way["highway"~"^(track|path|bridleway|unclassified|service|tertiary|byway|cycleway)$"]["service"!~"driveway|parking_aisle|drive-through"](${bb})->.w;
+  // v4.38: nejdřív jen závory (málo bodů), pak cesty, na kterých leží, a z nich jen ty závory –
+  // o řád rychlejší než procházet všechny body všech cest v oblasti
+  const q = `[out:json][timeout:120];
+node["barrier"~"${BARRIER_RE}"](${bb})->.b;
+way(bn.b)["highway"~"^(track|path|bridleway|unclassified|service|tertiary|byway|cycleway)$"]["service"!~"driveway|parking_aisle|drive-through"]->.w;
+node.b(w.w)->.ok;
 (node["ford"]["ford"!="no"](${bb});
  way["ford"]["ford"!="no"](${bb});
- node(w.w)["barrier"~"${BARRIER_RE}"];);
+ node.ok;);
 out center tags qt;`;
   const d = await overpass(q, ctx);
   const out = [];
@@ -250,7 +255,7 @@ function mount(app, { pool }){
     }catch(e){}
     res.json({
       prave_bezi: busy ? busyWhat + ' (' + Math.round((Date.now() - busySince) / 1000) + ' s)' : 'nic',
-      ve_fronte: queue.map(j => (j.ctx.prio ? '★ ' : '') + (j.ctx.what || '?')),
+      ve_fronte: queue.slice().sort((a, b) => (b.ctx.prio - a.ctx.prio) || (a.t - b.t)).map(j => (j.ctx.prio >= TOP ? '★★ ' : j.ctx.prio ? '★ ' : '') + (j.ctx.what || '?')),
       povrch_tras: ready + ' z ' + routes,
       bunky_brody_zavory: cells,
       dotazu_ok: stat.ok, dotazu_chyba: stat.failed,
@@ -275,7 +280,7 @@ function mount(app, { pool }){
         return res.type('application/json').send('{"status":"ok","data":' + row.data + '}');
       }
       // první výpočet (nebo po úpravě trasy) – chvíli počkáme, jinak ať se klient zeptá znovu
-      const job = computeTerrain(id, hash, points, HIGH);
+      const job = computeTerrain(id, hash, points, TOP);
       job.catch(e => console.error('terrain', id, e.message));
       const text = await Promise.race([job, new Promise(r2 => setTimeout(() => r2(null), 20000))]);
       if(text) return res.type('application/json').send('{"status":"ok","data":' + text + '}');

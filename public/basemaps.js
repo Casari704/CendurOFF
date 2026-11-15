@@ -13,7 +13,24 @@
   const STORE = 'baseMap', STORE_STREET = 'baseStreet';
   const ORDER = ['osm', 'mapy', 'sat'];
   const NAMES = { osm:'OpenStreetMap', mapy:'Turistická (Mapy.com)', sat:'Satelit' };
-  const ICONS = { osm:'🗺', mapy:'🗺', sat:'🛰' };
+  // v4.38: vlastní kreslené ikony (emoji vypadaly na každém zařízení jinak)
+  const SVG_MAP = '<svg class="bm-ico" viewBox="0 0 28 28" aria-hidden="true">' +
+    '<path d="M3.5 7.2 10 4.5l8 2.8 6.5-2.7v16.2L18 23.5l-8-2.8-6.5 2.7z" fill="#FBF8EE" stroke="#1E2A1E" stroke-width="1.8" stroke-linejoin="round"/>' +
+    '<path d="M10 4.5v16.2M18 7.3v16.2" stroke="#1E2A1E" stroke-width="1.5"/>' +
+    '<path d="M10 4.5l8 2.8v16.2l-8-2.8z" fill="#4F7048" fill-opacity="0.28"/>' +
+    '<path d="M5.5 17.5c2.5-1 3.5-4 6.5-4.2s3.5 2.4 6.2 1.6 3-4 4.3-5.4" fill="none" stroke="#A8572E" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="0.1 3.1"/>' +
+    '</svg>';
+  const SVG_SAT = '<svg class="bm-ico" viewBox="0 0 28 28" aria-hidden="true">' +
+    '<g transform="rotate(-38 14 14)">' +
+    '<rect x="-0.5" y="9.5" width="10" height="8.5" rx="1.2" fill="#4F7048" stroke="#1E2A1E" stroke-width="1.6"/>' +
+    '<rect x="18.5" y="9.5" width="10" height="8.5" rx="1.2" fill="#4F7048" stroke="#1E2A1E" stroke-width="1.6"/>' +
+    '<path d="M4.5 9.5v8.5M23.5 9.5v8.5M-0.5 13.75h10M18.5 13.75h10" stroke="#FBF8EE" stroke-width="1" stroke-opacity="0.85"/>' +
+    '<path d="M9.5 13.75h1.6M16.9 13.75h1.6" stroke="#1E2A1E" stroke-width="1.6"/>' +
+    '<rect x="10.8" y="8.6" width="6.4" height="10.3" rx="1.6" fill="#C79A3E" stroke="#1E2A1E" stroke-width="1.6"/>' +
+    '<path d="M14 18.9v2.4" stroke="#1E2A1E" stroke-width="1.6" stroke-linecap="round"/>' +
+    '<path d="M11.4 23.6a3.6 3.6 0 0 1 5.2 0" fill="none" stroke="#A8572E" stroke-width="1.6" stroke-linecap="round"/>' +
+    '</g></svg>';
+  const ICONS = { osm:SVG_MAP, mapy:SVG_MAP, sat:SVG_SAT };
 
   function get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
   function put(k, v){ try{ localStorage.setItem(k, v); }catch(e){} }
@@ -121,7 +138,7 @@
       // tlačítko: klepnutí = přepnout; podržení (nebo pravé tlačítko) = opt.onMenu (benzínky, CHKO)
       bindButton(btn, onMenu){
         if(!btn) return;
-        const sync = () => { btn.textContent = api.icon(); btn.title = api.title() + (onMenu ? ' · podržením výběr mapy, benzínky, CHKO' : ''); };
+        const sync = () => { btn.innerHTML = api.icon(); btn.title = api.title() + (onMenu ? ' · podržením výběr mapy, benzínky, CHKO' : ''); };
         sync();
         // společné klepnutí (public/zoom.js): klepnutí = přepnout, podržení = nabídka
         const doToggle = () => { api.toggle(); sync(); if(api._menuSync) api._menuSync(); };
