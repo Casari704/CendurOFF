@@ -19,8 +19,12 @@
       '<button type="button" id="pwa-update-go" style="border:0;border-radius:6px;background:#C79A3E;color:#172218;font:800 14px \'Exo 2\',sans-serif;padding:8px 12px;cursor:pointer">Obnovit</button>' +
       '<button type="button" id="pwa-update-x" aria-label="Později" style="border:0;background:none;color:#EFEAD8;font-size:18px;cursor:pointer;padding:4px 6px">×</button>';
     document.body.appendChild(b);
-    document.getElementById('pwa-update-go').addEventListener('click', () => {
-      if(reg.waiting){ reloading = true; reg.waiting.postMessage('skipWaiting'); }
+    document.getElementById('pwa-update-go').addEventListener('click', e => {
+      e.target.textContent = 'Načítám…'; e.target.disabled = true;
+      // v4.42: nová verze převezme řízení a stránka se obnoví (controllerchange); kdyby se to do 3 s
+      // nestalo (např. mezitím přišla další verze a ta čekající je už neplatná), obnoví se stejně
+      const w = reg.waiting;
+      if(w){ reloading = true; try{ w.postMessage('skipWaiting'); }catch(err){} setTimeout(() => location.reload(), 3000); }
       else location.reload();
     });
     document.getElementById('pwa-update-x').addEventListener('click', () => b.remove());
