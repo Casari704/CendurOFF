@@ -13,7 +13,8 @@ const { overpass: overpassRaw, REGION } = require('./region-api');
 // v4.37: všechny dotazy na Overpass po jednom ve frontě (veřejný server souběžné dotazy odmítá a zdržuje);
 // co si vyžádal uživatel (otevřel detail, posunul mapu), jde na řadu před přípravou na pozadí
 const queue = [];
-let busy = false;
+let busy = false, busySince = 0, busyWhat = '';
+const stat = { ok: 0, failed: 0, lastError: '', lastErrorAt: 0, lastOkMs: 0 };
 function overpass(query, ctx){
   return new Promise((res, rej) => { queue.push({ query, ctx: ctx || { prio: 0 }, res, rej, t: Date.now() }); pump(); });
 }
@@ -21,10 +22,10 @@ async function pump(){
   if(busy || !queue.length) return;
   queue.sort((a, b) => (b.ctx.prio - a.ctx.prio) || (a.t - b.t));
   const job = queue.shift();
-  busy = true;
-  try{ job.res(await overpassRaw(job.query)); }
-  catch(e){ job.rej(e); }
-  finally{ busy = false; setTimeout(pump, 1500); }
+  busy = true; busySince = Date.now(); busyWhat = job.ctx.what || '';
+  try{ const r = await overpassRaw(job.query); stat.ok++; stat.lastOkMs = Date.now() - busySince; job.res(r); }
+  catch(e){ stat.failed++; stat.lastError = e.message; stat.lastErrorAt = Date.now(); job.rej(e); }
+  finally{ busy = false; busyWhat = ''; setTimeout(pump, 1500); }
 }
 const HIGH = 10;
 
@@ -227,7 +228,7 @@ function mount(app, { pool }){
     const key = id + ':' + hash;
     const had = building.get(key);
     if(had){ if(prio) had.ctx.prio = Math.max(had.ctx.prio, prio); return had.p; }   // už se počítá – jen zvýšit přednost
-    const ctx = { prio: prio || 0 };
+    const ctx = { prio: prio || 0, what: 'povrch trasy ' + id };
     const p = (async () => {
       const data = await buildTerrain(points, ctx);
       const text = JSON.stringify(data);
@@ -238,6 +239,25 @@ function mount(app, { pool }){
     building.set(key, { p, ctx });
     return p;
   }
+  // stav fronty – pro kontrolu, co server zrovna dělá
+  app.get('/api/osm/status', async (req, res) => {
+    let routes = null, ready = null, cells = null;
+    try{
+      await ensure();
+      routes = (await pool.query('SELECT count(*)::int n FROM routes WHERE deleted_at IS NULL')).rows[0].n;
+      ready = (await pool.query('SELECT count(*)::int n FROM route_terrain')).rows[0].n;
+      cells = (await pool.query("SELECT count(*)::int n FROM osm_cell WHERE cell <> 'osm-points-region'")).rows[0].n;
+    }catch(e){}
+    res.json({
+      prave_bezi: busy ? busyWhat + ' (' + Math.round((Date.now() - busySince) / 1000) + ' s)' : 'nic',
+      ve_fronte: queue.map(j => (j.ctx.prio ? '★ ' : '') + (j.ctx.what || '?')),
+      povrch_tras: ready + ' z ' + routes,
+      bunky_brody_zavory: cells,
+      dotazu_ok: stat.ok, dotazu_chyba: stat.failed,
+      posledni_chyba: stat.lastError ? stat.lastError + ' (před ' + Math.round((Date.now() - stat.lastErrorAt) / 60000) + ' min)' : '',
+      posledni_dotaz_trval_s: Math.round(stat.lastOkMs / 1000)
+    });
+  });
   app.get('/api/routes/:id/terrain', async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if(!id) return res.status(400).json({ error: 'Neplatná trasa.' });
@@ -271,7 +291,7 @@ function mount(app, { pool }){
   function fetchCell(cell){
     if(cellJobs.has(cell)) return cellJobs.get(cell);
     const p = (async () => {
-      const data = await buildCell(cell, { prio: HIGH });
+      const data = await buildCell(cell, { prio: HIGH, what: 'brody a závory ' + cell });
       const text = JSON.stringify(data);
       await pool.query(`INSERT INTO osm_cell (cell, data, updated_at) VALUES ($1, $2, now())
                         ON CONFLICT (cell) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`, [cell, text]);
@@ -320,7 +340,7 @@ function mount(app, { pool }){
     let done = 0;
     for(const b of blocks){
       try{
-        const items = await buildBox(b);
+        const items = await buildBox(b, { prio: 0, what: 'brody a závory – oblast ' + (done + 1) + '/' + blocks.length });
         const byCell = new Map();
         // i prázdné buňky uložit – ať se na ně klient zbytečně neptá Overpassu
         for(let y = Math.round(b.s / CELL); y < Math.round(b.n / CELL); y++)
