@@ -9,7 +9,7 @@
 //                                 Chybějící buňku (mimo oblast) stáhne na požádání.
 const crypto = require('crypto');
 const zlib = require('zlib');
-const { overpass: overpassRaw, REGION } = require('./region-api');
+const { REGION } = require('./region-api');
 
 // v4.37: všechny dotazy na Overpass po jednom ve frontě (veřejný server souběžné dotazy odmítá a zdržuje);
 // co si vyžádal uživatel (otevřel detail, posunul mapu), jde na řadu před přípravou na pozadí
@@ -24,9 +24,30 @@ async function pump(){
   queue.sort((a, b) => (b.ctx.prio - a.ctx.prio) || (a.t - b.t));
   const job = queue.shift();
   busy = true; busySince = Date.now(); busyWhat = job.ctx.what || '';
-  try{ const r = await overpassRaw(job.query); stat.ok++; stat.lastOkMs = Date.now() - busySince; job.res(r); }
+  try{ const r = await overpassFast(job.query); stat.ok++; stat.lastOkMs = Date.now() - busySince; job.res(r); }
   catch(e){ stat.failed++; stat.lastError = e.message; stat.lastErrorAt = Date.now(); job.rej(e); }
   finally{ busy = false; busyWhat = ''; setTimeout(pump, 1500); }
+}
+// v4.46: vlastní volání Overpass – limit 100 s na server, bez dlouhých pauz; začíná serverem,
+// který naposledy odpověděl (veřejné servery bývají různě vytížené)
+const OP_URLS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+let opFirst = 0;
+async function overpassFast(query){
+  let last = null;
+  for(let k = 0; k < OP_URLS.length; k++){
+    const idx = (opFirst + k) % OP_URLS.length, url = OP_URLS[idx];
+    const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 100000);
+    try{
+      const res = await fetch(url, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded', 'User-Agent':'CendurOFF/1.0 (cenduroff.cz)' }, body:'data=' + encodeURIComponent(query), signal: ctl.signal });
+      if(!res.ok) throw new Error(url.split('/')[2] + ' ' + res.status);
+      const json = await res.json();
+      if(json.remark && /runtime error|timed out|out of memory|rate_limited/i.test(json.remark) && !(json.elements || []).length) throw new Error(url.split('/')[2] + ' přetížený');
+      opFirst = idx;
+      return json;
+    }catch(e){ last = e && e.name === 'AbortError' ? new Error(url.split('/')[2] + ' neodpověděl do 100 s') : e; }
+    finally{ clearTimeout(timer); }
+  }
+  throw last || new Error('Overpass nedostupný');
 }
 const HIGH = 10;     // vyžádal uživatel (kousek mapy s brody a závorami)
 const TOP = 20;      // povrch trasy, kterou má uživatel otevřenou – před vším ostatním
@@ -133,26 +154,57 @@ async function buildRouteOsm(points, ctx){
   const pts = points.filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1])).map(p => [+p[0], +p[1]]);
   const out = { v: 1, t: Date.now(), bytes: 0, nodes: [], ways: [], pois: [] };
   if(pts.length < 2) return out;
-  const simple = simplify(pts, 8).map(p => p[0].toFixed(5) + ',' + p[1].toFixed(5));
-  const CH = 300, chunks = [];
-  for(let i = 0; i < simple.length - 1; i += CH) chunks.push(simple.slice(i, Math.min(simple.length, i + CH + 1)).join(','));
-  if(!chunks.length) chunks.push(simple.join(','));
+  // v4.46: místo „around“ (na dlouhé trase pro Overpass velmi pomalé) malé obdélníky podél trasy
+  // (úseky do ~1,5 km, okraj 80 m) – hledání v obdélníku je rychlé; co je dál od trasy, vyřadíme tady
+  const PAD = 80, kyD = 1 / 111320, boxes = [];
+  let cur = null, curLen = 0;
+  const kxD = lat => 1 / (111320 * Math.cos(lat * Math.PI / 180));
+  const flush = () => { if(cur){ const px = PAD * kxD((cur.s + cur.n) / 2), py = PAD * kyD; boxes.push({ s: cur.s - py, n: cur.n + py, w: cur.w - px, e: cur.e + px }); } };
+  for(let i = 0; i < pts.length; i++){
+    const [la, lo] = pts[i];
+    if(!cur){ cur = { s: la, n: la, w: lo, e: lo }; curLen = 0; continue; }
+    curLen += hav(pts[i - 1], pts[i]);
+    cur.s = Math.min(cur.s, la); cur.n = Math.max(cur.n, la); cur.w = Math.min(cur.w, lo); cur.e = Math.max(cur.e, lo);
+    if(curLen > 1500){ flush(); cur = { s: la, n: la, w: lo, e: lo }; curLen = 0; }
+  }
+  flush();
+  const bbs = boxes.map(b => `${b.s.toFixed(5)},${b.w.toFixed(5)},${b.n.toFixed(5)},${b.e.toFixed(5)}`);
+
+  // vzdálenost bodu od trasy (mřížka 100 m s úsečkami trasy)
+  const P = projector(pts[0][0]), G = 100, grid = new Map();
+  const rxy = pts.map(p => P(p[0], p[1]));
+  for(let i = 1; i < rxy.length; i++){
+    const [ax, ay] = rxy[i - 1], [bx, by] = rxy[i];
+    for(let x = Math.floor((Math.min(ax, bx) - PAD) / G); x <= Math.floor((Math.max(ax, bx) + PAD) / G); x++)
+      for(let y = Math.floor((Math.min(ay, by) - PAD) / G); y <= Math.floor((Math.max(ay, by) + PAD) / G); y++){
+        const k = x + '_' + y; let arr = grid.get(k); if(!arr){ arr = []; grid.set(k, arr); } arr.push(i);
+      }
+  }
+  const distM = (lat, lon) => {
+    const [px, py] = P(lat, lon);
+    let best = Infinity;
+    for(const i of (grid.get(Math.floor(px / G) + '_' + Math.floor(py / G)) || [])){
+      const d = segDist2(px, py, rxy[i - 1][0], rxy[i - 1][1], rxy[i][0], rxy[i][1]); if(d < best) best = d;
+    }
+    return Math.sqrt(best);
+  };
+
   const nodes = {}, ways = {}, pois = {};
-  for(const C of chunks){
-    const q = `[out:json][timeout:120];
-way["highway"](around:${MATCH_M},${C});
+  const PER = 12;   // obdélníků v jednom dotazu
+  for(let i = 0; i < bbs.length; i += PER){
+    const part = bbs.slice(i, i + PER);
+    const q = `[out:json][timeout:90];
+(${part.map(b => `way["highway"](${b});`).join('')});
 out body geom qt;
-(node["ford"]["ford"!="no"](around:25,${C});
- way["ford"]["ford"!="no"](around:25,${C});
- node["barrier"~"${BARRIER_RE}"](around:20,${C});
- node["railway"="level_crossing"](around:20,${C});
- node["amenity"="fuel"](around:70,${C});
- way["amenity"="fuel"](around:70,${C}););
+(${part.map(b => `node["ford"]["ford"!="no"](${b});way["ford"]["ford"!="no"](${b});node["barrier"~"${BARRIER_RE}"](${b});node["railway"="level_crossing"](${b});node["amenity"="fuel"](${b});way["amenity"="fuel"](${b});`).join('')});
 out center tags qt;`;
     const d = await overpass(q, ctx);
     (d.elements || []).forEach(el => {
       const t = el.tags || {};
       if(el.type === 'way' && t.highway && el.nodes && el.geometry){
+        if(ways[el.id]) return;
+        // jen cesty, které se trasy dotknou (do 20 m) – stejně jako dřív „around:20“
+        if(!el.geometry.some(g => g && distM(g.lat, g.lon) <= MATCH_M) && !nearBySegments(el.geometry, distM)) return;
         el.nodes.forEach((id, k) => { const g = el.geometry[k]; if(g) nodes[id] = [+g.lat.toFixed(6), +g.lon.toFixed(6)]; });
         const tags = {};
         ['highway','tracktype','surface','service','junction','bridge','ford'].forEach(k => { if(t[k]) tags[k] = t[k]; });
@@ -160,6 +212,8 @@ out center tags qt;`;
       } else if(el.tags){
         const lat = el.lat != null ? el.lat : el.center && el.center.lat, lon = el.lon != null ? el.lon : el.center && el.center.lon;
         if(lat == null) return;
+        const lim = t.amenity === 'fuel' ? 70 : t.ford ? 25 : 20;
+        if(distM(lat, lon) > lim) return;
         const tags = {};
         ['ford','barrier','railway','amenity','name'].forEach(k => { if(t[k]) tags[k] = t[k]; });
         pois[el.type + el.id] = { lat: +lat.toFixed(6), lon: +lon.toFixed(6), tags };
@@ -173,6 +227,15 @@ out center tags qt;`;
   out.ways = Object.keys(ways).map(id => ({ id: +id, nodes: ways[id].n, tags: ways[id].t }));
   out.pois = Object.values(pois);
   return out;
+}
+// cesta, která trasu jen kříží (žádný její uzel není do 20 m, ale úsek mezi uzly ano): kontrola středů úseků
+function nearBySegments(geom, distM){
+  for(let i = 1; i < geom.length; i++){
+    const a = geom[i - 1], b = geom[i]; if(!a || !b) continue;
+    const L = hav([a.lat, a.lon], [b.lat, b.lon]), n = Math.min(50, Math.ceil(L / 15));
+    for(let k = 1; k < n; k++){ const t = k / n; if(distM(a.lat + (b.lat - a.lat) * t, a.lon + (b.lon - a.lon) * t) <= MATCH_M) return true; }
+  }
+  return false;
 }
 async function buildTerrain(points, ctx){ return terrainFromOsm(points, await buildRouteOsm(points, ctx)); }
 // povrch trasy, brody a závory z dat buildRouteOsm (bez dalšího stahování)
