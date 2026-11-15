@@ -1082,33 +1082,11 @@ function computeClimbs(points){
   return { climbs, biggest, avgGrade: totLen ? totGain / totLen * 100 : 0, maxGrade, total: dist };
 }
 function fmtKm(m){ return m >= 1000 ? (m/1000).toFixed(1).replace('.', ',') + ' km' : Math.round(m/10)*10 + ' m'; }
-// Náročnost trasy (1 lehká … 4 velmi náročná) z kopců a povrchu:
-//  kopce = průměrný sklon výjezdů (3 % → 0, 12 % → 1) a nejprudší úsek (8 % → 0, 30 % → 1)
-//  povrch = podíl hlíny a ostatních cest (plná váha) a šotoliny (40 %); dokud není povrch známý, jen kopce
-const DIFF = ['Lehká', 'Střední', 'Náročná', 'Velmi náročná'];
-function difficulty(cl, t){
-  const cap = x => Math.max(0, Math.min(1, x));
-  const k = cl ? cap((cl.avgGrade - 3) / 9) * 0.6 + cap((cl.maxGrade - 8) / 22) * 0.4 : null;
-  const s = t && t.surface ? cap((t.surface.hlina || 0) + (t.surface.sotolina || 0) * 0.4 + (t.surface.nezname || 0) * 0.7) : null;
-  if(k == null && s == null) return null;
-  const v = k == null ? s : s == null ? k : 0.45 * k + 0.55 * s;
-  return v < 0.2 ? 0 : v < 0.4 ? 1 : v < 0.6 ? 2 : 3;
-}
-function renderDiffStat(cl, t){
-  const d = difficulty(cl, t);
-  return `<div class="stat" id="detail-diff"><b class="diff diff-${d == null ? 'x' : d}">${d == null ? '–' : DIFF[d]}</b><span>náročnost</span></div>`;
-}
-function renderClimbStats(cl, t){
+function renderClimbStats(cl){
   const avg = cl && cl.biggest ? cl.avgGrade.toFixed(0) + ' %' : (cl ? '0 %' : '–');
-  return `<div class="stat"><b>${avg}</b><span>Ø stoupání</span></div>${renderDiffStat(cl, t)}`;
+  const max = cl ? Math.round(cl.maxGrade) + ' %' : '–';
+  return `<div class="stat"><b>${avg}</b><span>Ø stoupání</span></div><div class="stat"><b>${max}</b><span>nejprudší úsek</span></div>`;
 }
-function renderClimbNote(cl){
-  if(!cl) return '';
-  if(!cl.biggest) return '<p class="climb-note">Bez výraznějších výjezdů.</p>';
-  const n = cl.climbs.length;
-  return `<p class="climb-note">${n} ${n === 1 ? 'výjezd' : n < 5 ? 'výjezdy' : 'výjezdů'} · nejprudší úsek ${Math.round(cl.maxGrade)} %</p>`;
-}
-
 // v4.35: povrch trasy, brody a závory (server je spočítá z OpenStreetMap a uloží)
 const SURF = [
   { k:'asfalt',   label:'Asfalt',            cls:'sf-asf' },
@@ -1135,7 +1113,7 @@ async function loadTerrain(routeId, tries){
   const box = document.getElementById('detail-terrain');
   if(!box) return;
   tries = tries || 0;
-  if(terrainCache[routeId]){ box.innerHTML = renderTerrainBox(terrainCache[routeId]); return; }   // náročnost už je v řádku spočítaná i s povrchem
+  if(terrainCache[routeId]){ box.innerHTML = renderTerrainBox(terrainCache[routeId]); return; }
   try{
     const res = await fetch(API_URL + '/api/routes/' + routeId + '/terrain');
     if(res.status === 202){
@@ -1148,8 +1126,6 @@ async function loadTerrain(routeId, tries){
     terrainCache[routeId] = j.data;
     if(activeRouteId !== routeId || !document.getElementById('detail-terrain')) return;
     document.getElementById('detail-terrain').innerHTML = renderTerrainBox(j.data);
-    const dEl = document.getElementById('detail-diff'), r = routesCache[routeId];
-    if(dEl && r) dEl.outerHTML = renderDiffStat(computeClimbs(r.points || []), j.data);
   }catch(e){
     if(activeRouteId !== routeId) return;
     const b = document.getElementById('detail-terrain');
@@ -1255,7 +1231,7 @@ async function openDetail(id){
       </div>` : ''}
     <div class="detail-stats">
       <div class="stat"><b>${Number(route.distance_km).toFixed(1)}</b><span>km</span></div>
-      ${renderClimbStats(climbs, terrainCache[route.id])}
+      ${renderClimbStats(climbs)}
     </div>
     <div class="gpx-actions">
       <button class="ghost-btn" id="download-gpx-btn" type="button">⬇ Stáhnout GPX</button>
@@ -1266,7 +1242,6 @@ async function openDetail(id){
     <div class="elev-profile">
       <h3>Výškový profil</h3>
       ${renderElevationProfile(route.points)}
-      ${renderClimbNote(climbs)}
     </div>
     <div class="photo-grid">${photoSlots}</div>
     ${currentUser && currentUser.role === 'admin' ? '<div class="admin-stats" id="admin-stats"><h3>Projetí trasy <span class="admin-tag">admin</span></h3><p class="hint">Načítám…</p></div>' : ''}
