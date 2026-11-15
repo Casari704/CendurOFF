@@ -29,7 +29,7 @@
   ];
   const HELP_PAGES = [
     { id:'merch', label:'Merch',          href:'merch.html' },
-    { id:'faq',   label:'FAQ – nápověda', href:'faq.html' }
+    { id:'faq',   label:'Nápověda', href:'faq.html' }
   ];
   // v2.9: Admin sekce není v Menu – je v okně uživatele (vedle „Odhlásit se“), jen pro adminy
   const ADMIN_PAGE = { id:'admin', label:'Admin sekce', href:'admin.html' };
@@ -132,7 +132,7 @@
   </div></div>
   <div class="tm-side">
     <button class="tm-s${page==='nastaveni' ? ' cur' : ''}" id="tm-account" type="button">Nastavení účtu</button>
-    <a class="tm-s${page==='faq' ? ' cur' : ''}" href="faq.html">FAQ</a>
+    <a class="tm-s${page==='faq' ? ' cur' : ''}" href="faq.html">Nápověda</a>
     <a class="tm-s${page==='merch' ? ' cur' : ''}" href="merch.html">Merch</a>
   </div>
 </div>`);

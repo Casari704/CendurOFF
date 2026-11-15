@@ -769,7 +769,7 @@ function showMobileBlock(){
   $('rb-main').innerHTML = '<div class="rb-mobile-msg"><h2>Roadbook editor je jen pro počítač</h2>' +
     '<p>Plánování roadbooku potřebuje velkou obrazovku a myš, proto ho na mobilu nejde použít. Otevři ho na počítači – doporučujeme prohlížeč <b>Google Chrome</b>.</p>' +
     '<p>Na mobilu jedeš podle hotového roadbooku v <b>Atlasu</b> – v detailu trasy tlačítko <b>📒 Roadbook</b>.</p>' +
-    '<div class="rb-mobile-actions"><a class="btn-rb go" href="index.html?atlas=1">Otevřít Atlas</a><a class="btn-rb" href="index.html">Zpět na úvod</a><a class="btn-rb" href="faq.html#rb-planner">Jak to funguje (FAQ)</a></div></div>';
+    '<div class="rb-mobile-actions"><a class="btn-rb go" href="index.html?atlas=1">Otevřít Atlas</a><a class="btn-rb" href="index.html">Zpět na úvod</a><a class="btn-rb" href="faq.html#rb-planner">Jak to funguje (Nápověda)</a></div></div>';
 }
 
 (async function boot(){
