@@ -19,9 +19,9 @@ const PROFILE_CACHE_KEY = 'cenduroff.planner.brouterProfiles';
 const MAX_EDIT_NODES = 400;   // kolik bodů nejvýš vytvoří import GPX (zbytek zůstane jako geometrie úseků)
 
 const ROUTE_TYPES = {
-  transport: { label:'Transportní', color:'#1E9A45' },
-  cenduro:   { label:'Cenduro',     color:'#E9851C' },
-  offroad:   { label:'Offroad',     color:'#E0241B' }
+  transport: { label:'Transportní', color:'#00C853' },
+  cenduro:   { label:'Cenduro',     color:'#FF8800' },
+  offroad:   { label:'Offroad',     color:'#FF1744' }
 };
 const COLORS = { route:'#1E64D6', straight:'#E9851C', raw:'#6A3FB5', error:'#D32F2F', loading:'#7A8A7A' };
 

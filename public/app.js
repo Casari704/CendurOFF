@@ -251,9 +251,9 @@ function routeMetaText(route){
 // Typy tras: barva na mapě + pořadí vrstev (vyšší z = kreslí se nad ostatními)
 // ---------------------------------------------------------------
 const ROUTE_TYPES = {
-  transport: { label:'Transportní', color:'#1E9A45', z:430 },
-  cenduro:   { label:'Cenduro',     color:'#E9851C', z:420 },
-  offroad:   { label:'Offroad',     color:'#E0241B', z:410 }
+  transport: { label:'Transportní', color:'#00C853', z:430 },
+  cenduro:   { label:'Cenduro',     color:'#FF8800', z:420 },
+  offroad:   { label:'Offroad',     color:'#FF1744', z:410 }
 };
 const ROUTE_TYPE_ORDER = ['transport','cenduro','offroad'];
 const SELECTED_PANE = 'route-selected';
