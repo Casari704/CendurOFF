@@ -1072,7 +1072,7 @@ body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !import
 a.rb-chip:hover{background:#E4DCC6;}
 
 /* v4.40: průhlednost tras (public/route-alpha.js) */
-.leaflet-pane[class*="leaflet-route-"], .leaflet-pl-route-pane, .leaflet-pl-others-pane, .leaflet-rec-track-pane,
+.leaflet-pane[class*="leaflet-route-"], .leaflet-pl-route-pane, .leaflet-pl-others-pane, .leaflet-rec-track-pane, .leaflet-cendurArrows-pane,
 #rb-map .leaflet-overlay-pane, #nv-mini .leaflet-overlay-pane, #nv-bigmap-map .leaflet-overlay-pane{opacity:var(--route-alpha, 1);}
 .ra-row{display:flex;gap:4px;padding:4px 8px 8px;}
 .ra-row button{flex:1;padding:7px 0;border:1px solid var(--line);border-radius:8px;background:var(--surface);
