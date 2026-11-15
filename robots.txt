@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /nastaveni.html
+Disallow: /roadbook-navi.html
+Disallow: /download/
+
+Sitemap: https://cenduroff.cz/sitemap.xml
