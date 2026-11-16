@@ -668,11 +668,19 @@ function isRouteMarked(id){
   return selectMode ? selectedIds.has(Number(id)) : Number(id)===Number(activeRouteId);
 }
 // Přesune čáru do jiné vrstvy mapy (Leaflet to umí jen přes odebrání a opětovné přidání).
+// v4.50: trasy se kreslí na plátno (canvas) s tolerancí kliknutí – na mobilu se na trasu trefíš
+// i kousek vedle čáry (dřív jen přesně na ni). Každá vrstva tras má své plátno.
+const ROUTE_HIT_PX = (window.matchMedia && matchMedia('(pointer: coarse)').matches) ? 16 : 6;
+const routeRenderers = {};
+function routeRenderer(pane){
+  return routeRenderers[pane] || (routeRenderers[pane] = L.canvas({ pane, tolerance: ROUTE_HIT_PX, padding: 0.3 }));
+}
 function setLayerPane(layer, pane){
   if(layer.options.pane === pane) return;
   const onMap = map.hasLayer(layer);
   if(onMap) map.removeLayer(layer);
   layer.options.pane = pane;
+  if(layer.options.renderer && routeRenderers[layer.options.renderer.options.pane]) layer.options.renderer = routeRenderer(pane);
   if(onMap) layer.addTo(map);
 }
 function applyRouteStyle(id){
@@ -705,7 +713,8 @@ function routeTipHtml(route){
 
 function drawRoute(route){
   const latlngs = route.points.map(p=>[p[0],p[1]]);
-  const line = L.polyline(latlngs, Object.assign({ pane:'route-' + typeOf(route) }, normalStyle(route.id)));
+  const pane = 'route-' + typeOf(route);
+  const line = L.polyline(latlngs, Object.assign({ pane, renderer: routeRenderer(pane) }, normalStyle(route.id)));
   // v4.44: bez bílého obtažení (s průhledností tras je pod čarou vidět cesta)
   line.addTo(map);
   line.bindTooltip(routeTipHtml(route), { sticky:true, className:'trail-tip' });
