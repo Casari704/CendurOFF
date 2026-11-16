@@ -2303,7 +2303,8 @@ function freeRender(){
     }
     if(!off && rb){
       if(moving && dir != null && Math.abs(RB.angleDiff(displayedHeading, dir)) > 110){
-        if(followed) routeNote = { title:'Jedeš proti směru roadbooku', tone:'warn', prio:5 };   // v4.52: jen u sledované trasy
+        // v4.53: v Atlasu se po trase jezdí oběma směry – bez varování, jen se neukazuje karta s instrukcí
+        // (na směru záleží až při jízdě podle roadbooku přes celou obrazovku, tam varování zůstává)
       } else {
         if(followed && guide()) freeGuide.update(rb.vis, p.s, currentSpeedKmh / 3.6, false);
         const nx = followed ? rb.vis.find(it=>it.s > p.s + 8) : null;   // v4.52: karta jen u sledované trasy

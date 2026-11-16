@@ -165,6 +165,7 @@ let curIdx = -1;
 let watchId = null, wakeLock = null, sim = null;
 let mini = null, miniMe = null, big = null, bigMe = null, miniArrows = null, bigArrows = null;
 let heading = null, speed = 0;
+let wrongDirN = 0, wrongDirOn = false;   // v4.53: jízda proti směru roadbooku
 let soundGuide = null;    // zvuky a hlas v navigaci (public/sound.js)
 let gpsBadge = null, posPredicted = false, progReal = null;
 let histPushed = false;
@@ -262,7 +263,8 @@ function stop(fromHistory){
   $('nv-bigmap').classList.remove('open');
   $('nv-guest').hidden = true;
   $('nv-off').classList.remove('open', 'keep');
-  if(rbStatus){ rbStatus.clear('manual'); }
+  if(rbStatus){ rbStatus.clear('manual'); rbStatus.clear('dir'); }
+  wrongDirN = 0; wrongDirOn = false;
   document.body.classList.remove('rb-ride-open');
   if(histPushed && !fromHistory){ histPushed = false; try{ history.back(); }catch(e){} }
   histPushed = false;
@@ -335,6 +337,19 @@ function onPosition(lat, lon){
     $('nv-off-text').textContent = 'MIMO TRASU · ' + RB.fmtDist(p.dist);
   }
   $('nv-off').classList.toggle('open', off);
+  // v4.53: proti směru roadbooku (jedu po trase, ale opačně než je roadbook) – po 3 polohách za sebou
+  if(rbStatus && !sim){
+    const rdir = !off ? RB.bearingBetween(R, prog, Math.min(R.total, prog + 30)) : null;
+    const diff = (heading != null && speed > 2 && rdir != null) ? Math.abs(RB.angleDiff(heading, rdir)) : null;
+    if(diff != null && diff > 110) wrongDirN = Math.min(5, wrongDirN + 1);
+    else if(diff != null && diff < 70) wrongDirN = Math.max(0, wrongDirN - 2);
+    else if(off) wrongDirN = 0;
+    const on = wrongDirN >= 3;
+    if(on !== wrongDirOn){
+      wrongDirOn = on;
+      if(on) rbStatus.set('dir', { title:'Jedeš proti směru roadbooku', tone:'warn', prio:5 }); else rbStatus.clear('dir');
+    }
+  }
   // na trase (do 25 m) se šipka přichytí na čáru
   if(!off && p.dist <= 25){ const q = RB.pointAt(R, p.s); updateMaps(q[0], q[1]); }
   else updateMaps(lat, lon);
