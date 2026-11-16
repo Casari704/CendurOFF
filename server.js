@@ -160,6 +160,19 @@ function computeStats(points) {
   }
   return { distanceKm: dist / 1000, elevGainM: gain };
 }
+// v4.49: trasa bez výšek (typicky záznam jízdy z telefonu) → výšky z modelu terénu (elevation.js)
+const elevation = require('./elevation');
+async function statsWithElevation(points) {
+  let pts = points;
+  try {
+    const f = await elevation.fillElevation(points, 15000);
+    if (f !== points && elevation.hasElevation(f)) pts = f;
+  } catch (e) { console.error('výšky při uložení:', e.message); }
+  const st = computeStats(pts);
+  if (pts !== points) st.elevGainM = elevation.gainOf(pts);
+  st.points = pts;
+  return st;
+}
 
 const ROUTE_TYPES = ['transport', 'cenduro', 'offroad'];
 
@@ -430,10 +443,11 @@ app.post('/api/routes', requireAuth, async (req, res) => {
     if (points.length < 2) return res.status(400).json({ error: 'GPX soubor neobsahuje použitelnou trasu.' });
     const routeType = req.body.routeType == null ? 'offroad' : String(req.body.routeType);
     if (!ROUTE_TYPES.includes(routeType)) return res.status(400).json({ error: 'Neznámý typ trasy.' });
-    const clean = points
+    let clean = points
       .map(p => [Number(p[0]), Number(p[1]), p[2] == null ? null : Number(p[2])])
       .filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
-    const stats = computeStats(clean);
+    const stats = await statsWithElevation(clean);
+    clean = stats.points;
     const result = await pool.query(
       `INSERT INTO routes (owner_id, name, description, points, distance_km, elev_gain_m, route_type, source)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
@@ -469,10 +483,11 @@ app.patch('/api/routes/:id', requireAuth, async (req, res) => {
 
     // volitelné: pokud přijde i nová sada bodů (znovu nahraná GPX), přepočítat i statistiky
     if (Array.isArray(req.body.points) && req.body.points.length >= 2) {
-      const clean = req.body.points
+      let clean = req.body.points
         .map(p => [Number(p[0]), Number(p[1]), p[2] == null ? null : Number(p[2])])
         .filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
-      const stats = computeStats(clean);
+      const stats = await statsWithElevation(clean);
+      clean = stats.points;
       const result = await pool.query(
         `UPDATE routes SET name=$1, description=$2, points=$3, distance_km=$4, elev_gain_m=$5, gpx_updated_at=now(),
            route_type=COALESCE($7, route_type)
@@ -714,6 +729,12 @@ try {
   require('./region-api').mount(app, { pool });
 } catch (e) {
   console.error('Region: modul se nepodařilo připojit:', e);
+}
+// Výšky k trasám bez nadmořské výšky (v4.49)
+try {
+  require('./elevation').mount(app, { pool });
+} catch (e) {
+  console.error('Výšky: modul se nepodařilo připojit:', e);
 }
 // Povrch tras, brody a závory z OpenStreetMap (v4.35)
 try {

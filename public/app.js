@@ -1850,13 +1850,15 @@ function onPosition(pos){
 
   freeUpdate(latlng);
   // v4.0: šipka přichycená ke sledované trase (když jsem na ní), jinak skutečná poloha
-  const shown = (navOn && freeSnapLL) ? freeSnapLL : latlng;
+  // v4.49: i k jakékoli jiné trase na mapě, když po ní zrovna jedu (do 15 m a jejím směrem)
+  const snapAny = navOn && !freeSnapLL ? snapToRoutes(latlng, pos.coords.accuracy, gpsCourse ? pos.coords.heading : null) : null;
+  const shown = (navOn && freeSnapLL) ? freeSnapLL : (snapAny || latlng);
   shownLatLng = shown;
   // v4.31: za jízdy v navigaci šipka i mapa plynule „dojíždějí“ mezi polohami (jako Mapy.com),
   // cíl je kousek dopředu podle rychlosti a kurzu, ať šipka nezaostává za skutečnou polohou
   if(navOn && gpsMarker && currentSpeedKmh > GLIDE_MIN_KMH){
     let target = shown;
-    const hdg = gpsCourse ? pos.coords.heading : (headingInitialized ? displayedHeading : null);
+    const hdg = gpsCourse ? pos.coords.heading : null;   // v4.49: jen podle GPS kurzu (kompas v zatáčce ujížděl do strany)
     if(hdg != null){
       const ahead = Math.min(GLIDE_AHEAD_MAX_M, (currentSpeedKmh / 3.6) * (fixGap / 1000) * GLIDE_AHEAD_FRACTION);
       target = offsetLatLng(shown, hdg, ahead);
@@ -1884,14 +1886,58 @@ function onPosition(pos){
 // v4.31: plynulý pohyb za jízdy – šipka (a mapa za ní) se posouvá každý snímek, ne skokem 1× za s
 // ---------------------------------------------------------------
 const GLIDE_MIN_KMH = 3;            // pod touto rychlostí bez animace (stání – nic neplave)
-const GLIDE_AHEAD_FRACTION = 0.5;   // o kolik intervalu dopředu cílit (0 = jen dojíždět, 1 = plná předpověď)
-const GLIDE_AHEAD_MAX_M = 25;       // předpověď nejvýš 25 m (v zatáčce se nepřestřelí)
+const GLIDE_AHEAD_FRACTION = 0.2;   // o kolik intervalu dopředu cílit (v4.49: z 0,5 – menší předpověď)
+const GLIDE_AHEAD_MAX_M = 8;        // předpověď nejvýš 8 m (v4.49: z 25 m)
 let lastFixTs = 0, glide = null;
 function offsetLatLng(ll, brgDeg, m){
   const R = 6371000, b = brgDeg * Math.PI / 180, la = ll[0] * Math.PI / 180, lo = ll[1] * Math.PI / 180, d = m / R;
   const la2 = Math.asin(Math.sin(la) * Math.cos(d) + Math.cos(la) * Math.sin(d) * Math.cos(b));
   const lo2 = lo + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(la), Math.cos(d) - Math.sin(la) * Math.sin(la2));
   return [la2 * 180 / Math.PI, lo2 * 180 / Math.PI];
+}
+// v4.49: přichycení šipky k trase, po které právě jedu (i když ji nesleduju). Mřížka 100 m s úsečkami
+// všech viditelných tras se postaví jednou a obnoví, když přibudou / ubudou trasy.
+let snapGrid = null, snapGridKey = '';
+function buildSnapGrid(){
+  const ids = Object.keys(routesCache).filter(id => { const r = routesCache[id]; return r && Array.isArray(r.points) && r.points.length > 1 && !(layersById[id] && !map.hasLayer(layersById[id])); });
+  const key = ids.join(',');
+  if(snapGrid && key === snapGridKey) return snapGrid;
+  const lat0 = lastLatLng ? lastLatLng[0] : 50, kx = 111320 * Math.cos(lat0 * Math.PI / 180), ky = 111320;
+  const grid = new Map(), G = 100;
+  ids.forEach(id => {
+    const pts = routesCache[id].points;
+    for(let i = 1; i < pts.length; i++){
+      const ax = pts[i-1][1] * kx, ay = pts[i-1][0] * ky, bx = pts[i][1] * kx, by = pts[i][0] * ky;
+      for(let x = Math.floor(Math.min(ax, bx) / G); x <= Math.floor(Math.max(ax, bx) / G); x++)
+        for(let y = Math.floor(Math.min(ay, by) / G); y <= Math.floor(Math.max(ay, by) / G); y++){
+          const k = x + '_' + y; let a = grid.get(k); if(!a){ a = []; grid.set(k, a); } a.push([ax, ay, bx, by]);
+        }
+    }
+  });
+  snapGrid = { grid, kx, ky, G }; snapGridKey = key;
+  return snapGrid;
+}
+const SNAP_ROUTE_M = 15;
+function snapToRoutes(latlng, acc, course){
+  if(acc != null && acc > 30) return null;   // při slabém signálu nepřichytávat
+  const g = buildSnapGrid(); if(!g) return null;
+  const px = latlng[1] * g.kx, py = latlng[0] * g.ky;
+  let best = null, bd = SNAP_ROUTE_M * SNAP_ROUTE_M;
+  for(let dx = -1; dx <= 1; dx++) for(let dy = -1; dy <= 1; dy++){
+    const a = g.grid.get((Math.floor(px / g.G) + dx) + '_' + (Math.floor(py / g.G) + dy)); if(!a) continue;
+    for(const sg of a){
+      const [ax, ay, bx, by] = sg, vx = bx - ax, vy = by - ay, L2 = vx * vx + vy * vy;
+      let t = L2 ? ((px - ax) * vx + (py - ay) * vy) / L2 : 0; t = Math.max(0, Math.min(1, t));
+      const qx = ax + t * vx, qy = ay + t * vy, d = (qx - px) ** 2 + (qy - py) ** 2;
+      if(d > bd) continue;
+      if(course != null && L2 > 1){   // jedu po úseku (tam nebo zpět), ne přes něj napříč
+        const brg = (Math.atan2(vx, vy) * 180 / Math.PI + 360) % 360, diff = Math.abs(angleDiff(course, brg));
+        if(diff > 35 && diff < 145) continue;
+      }
+      bd = d; best = [qy / g.ky, qx / g.kx];
+    }
+  }
+  return best;
 }
 function stopGlide(){ if(glide){ if(glide.raf) cancelAnimationFrame(glide.raf); if(glide.moved) map.fire('moveend'); } glide = null; }
 function glideTo(target, dur){
@@ -1993,6 +2039,8 @@ const FREE_OFF_M = 50, FREE_BACK_WIN = 200, FREE_FWD_WIN = 1500;
 let freeProg = null, freeProgId = null, freeWasOn = false;
 // v4.0: přichycení k trase a dopočet polohy po trase při výpadku GPS
 const FREE_SNAP_M = 25;
+const FREE_GIVEUP_M = 500, FREE_GIVEUP_MS = 60000;   // v4.49: kdy sledovanou trasu pustit
+let freeOffSince = 0;
 let freeSnapLL = null, freeR = null, shownLatLng = null;
 let freeProgReal = null, freePosPredicted = false;   // místo na trase z poslední SKUTEČNÉ polohy (základ dopočtu)
 const freePlainCache = {};
@@ -2053,6 +2101,15 @@ function freeDistM(route, la, lo, limit){
   }
   return Math.sqrt(best);
 }
+// v4.49: lišta Stopaře za jízdy pod hláškami nahoře (dřív ležela přes „Volná jízda“)
+function placeRecPanel(){
+  const rp = document.getElementById('rec-panel'), hud = document.getElementById('free-hud');
+  if(!rp) return;
+  if(!document.body.classList.contains('ride-ui') || !rp.classList.contains('open') || !hud || !hud.classList.contains('open') || !hud.offsetHeight){ rp.style.top = ''; return; }
+  const top = Math.round(hud.getBoundingClientRect().bottom + 8) + 'px';
+  if(rp.style.top !== top) rp.style.top = top;
+}
+window.addEventListener('resize', () => setTimeout(placeRecPanel, 300));
 function freeEnsureHud(){
   if(document.getElementById('free-hud')) return;
   document.getElementById('app-screen').insertAdjacentHTML('beforeend',
@@ -2253,7 +2310,7 @@ function freeRender(){
       : RB.project(R, lat, lon);
     if(p.dist > 40){ const g = RB.project(R, lat, lon); if(g.dist + 15 < p.dist) p = g; }
     const off = p.dist > FREE_OFF_M;
-    if(!off){ freeProg = p.s; freeWasOn = true; if(!freePosPredicted) freeProgReal = p.s; }
+    if(!off){ freeProg = p.s; freeWasOn = true; freeOffSince = 0; if(!freePosPredicted) freeProgReal = p.s; }
     // zvuky jen u trasy, kterou sleduju (vybraná klepnutím) – stejné jako v Roadbook NAVI
     const guide = () => {
       if(!window.CendurSound) return null;
@@ -2282,17 +2339,25 @@ function freeRender(){
     } else if(off && followed && freeWasOn){
       // vyjel jsem ze sledované trasy → upozornění (jemný tón + „Jsi mimo trasu“)
       routeNote = { title:'Mimo trasu · ' + RB.fmtDist(p.dist), tone:'bad', prio:5 };
+      // v4.49: daleko (500 m) nebo dlouho (1 min) mimo trasu → sledování trasy se samo vypne
+      if(!freeOffSince) freeOffSince = Date.now();
+      if(!freePosPredicted && (p.dist > FREE_GIVEUP_M || Date.now() - freeOffSince > FREE_GIVEUP_MS)){
+        freeOffSince = 0;
+        setTimeout(() => { if(freePickedId === id){ freePick(null); toast('Trasa opuštěna – pokračuje volná jízda.', 3500); } }, 0);
+      }
       if(rb && guide()) freeGuide.update(rb.vis, freeProg, currentSpeedKmh / 3.6, true);
     }
   }
   if(routeNote) freeStatus.set('route', routeNote); else freeStatus.clear('route');
   box.innerHTML = html;
+  placeRecPanel();
 }
 
 // Jedno tlačítko „Navigovat v Atlasu / Ukončit navigaci“ (dřív „Sleduji / Nesleduji polohu“):
 //  zapnuto  = sledovat polohu + mapa natočená podle směru jízdy + silnější čáry tras
 //  vypnuto  = mapa volně posouvatelná, sever nahoru, normální čáry (GPS a záznam běží dál)
 function setNavMode(on){
+  setTimeout(placeRecPanel, 60); setTimeout(placeRecPanel, 400);   // v4.49: lišta Stopaře podle režimu
   if(on){
     if(!requireLogin('navigaci')) return;
     if(!startGpsWatch()) return;
@@ -2710,6 +2775,7 @@ function updateRecUi(){
     recPanel.classList.toggle('open', active && !recPanelHidden);
     recPanel.classList.toggle('paused', rec.state==='paused');
   }
+  placeRecPanel();
   const st = document.getElementById('rec-state');
   if(st) st.textContent = rec.state==='paused' ? 'Pozastaveno' : 'Nahrávám';
   const pauseBtn = document.getElementById('rec-pause');
