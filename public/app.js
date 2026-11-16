@@ -1294,7 +1294,7 @@ async function openDetail(id){
     const rid = route.id;
     closeDetail();
     if(!navOn) setNavMode(true);
-    if(navOn){ freeAsked.add(rid); freePick(rid); }
+    if(navOn){ freeAsked.set(rid, 0); freePick(rid); }
   });
   // v4.3: odznak a motorka autora trasy (veřejný profil jezdce)
   if(route.owner_id && window.CendurRider){
@@ -2097,7 +2097,7 @@ function freeEnsureHud(){
     const id = freeCaughtId;
     if(id == null){ toast('Žádná trasa poblíž – přijeď k trase nebo na ni ťukni v mapě.', 2500); return; }
     const RB = window.CendurRB;
-    if(RB && freeSums && freeSums[id] && RB.stateOf(freeSums[id]) !== 'auto'){ freeAsked.add(id); freeOfferAsk(id); }
+    if(RB && freeSums && freeSums[id] && RB.stateOf(freeSums[id]) !== 'auto'){ freeAsked.set(id, 0); freeOfferAsk(id); }
     else freePick(id);
   });
 }
@@ -2167,7 +2167,7 @@ function startRoadbook(id){
   window.CendurRide.start({
     route: r, guest: !currentUser, user: currentUser,
     loginHref: null,
-    onEnd: () => { if(wasNav && currentUser){ setNavMode(true); if(navOn){ freeAsked.add(id); freePick(id); } } }
+    onEnd: () => { if(wasNav && currentUser){ setNavMode(true); if(navOn){ freeAsked.set(id, 0); freePick(id); } } }
   }).then(ok => { if(!ok && wasNav) setNavMode(true); });
 }
 // tlačítko „Přihlásit se“ v simulaci: ukončit simulaci, přihlásit a po přihlášení rovnou jet
@@ -2200,18 +2200,31 @@ async function renderDetailOffline(inner, route){
 }
 
 // v4.15: přijedu k trase s roadbookem → nabídka Atlas NAVI | Roadbook | Ne (jednou; znovu až po vzdálení na 200 m)
-const FREE_ASK_M = 40, FREE_ASK_RESET_M = 200;
-const freeAsked = new Set();
+// v4.54: nabídka se u trasy ukáže jednou; znovu až když od ní odjedu dál než 250 m a zůstanu
+// dál aspoň 30 s (souběžná cesta kolem trasy ji tak nespouští pořád dokola). Mezi dvěma nabídkami
+// (i u různých tras) aspoň 30 s.
+const FREE_ASK_M = 40, FREE_ASK_RESET_M = 250, FREE_ASK_AWAY_MS = 30000, FREE_ASK_GAP_MS = 30000;
+const freeAsked = new Map();   // id -> od kdy jsem od trasy daleko (0 = blízko)
+let freeAskLast = 0;
 function freeOffer(latlng){
   const RB = window.CendurRB;
   if(!RB || !freeSums || !navOn || !currentUser) return;
-  [...freeAsked].forEach(id => { const r = routesCache[id]; if(!r || freeDistM(r, latlng[0], latlng[1], FREE_ASK_RESET_M + 100) > FREE_ASK_RESET_M) freeAsked.delete(id); });
+  const now = Date.now();
+  [...freeAsked.keys()].forEach(id => {
+    const r = routesCache[id];
+    const far = !r || freeDistM(r, latlng[0], latlng[1], FREE_ASK_RESET_M + 100) > FREE_ASK_RESET_M;
+    if(!far){ freeAsked.set(id, 0); return; }
+    if(!freeAsked.get(id)) freeAsked.set(id, now);
+    else if(now - freeAsked.get(id) > FREE_ASK_AWAY_MS) freeAsked.delete(id);
+  });
+  if(now - freeAskLast < FREE_ASK_GAP_MS) return;
   if(freePickedId != null || freeCaughtId == null || freeAsked.has(freeCaughtId)) return;
   if((window.CendurHeader && CendurHeader.askOpen()) || (window.CendurRide && CendurRide.isOpen())) return;
   const id = freeCaughtId, r = routesCache[id], st = RB.stateOf(freeSums[id]);
   if(!r || !freeSums[id] || st === 'auto') return;
   if(freeDistM(r, latlng[0], latlng[1], 100) > FREE_ASK_M) return;
-  freeAsked.add(id);
+  freeAsked.set(id, 0);
+  freeAskLast = now;
   freeOfferAsk(id);
 }
 // nabídka Atlas NAVI | Roadbook | Ne – u trasy s roadbookem (sama při příjezdu i po ťuknutí na pruh nahoře)
@@ -2224,7 +2237,7 @@ function freeOfferAsk(id){
     choices: [
       { icon:'🧭', label:'Atlas NAVI', sub:'mapa, instrukce v rohu', cls:'atlas', fn: () => freePick(id) },
       { icon:'📒', label:'Roadbook', sub:'velké instrukce, počítadlo', cls:'rb', fn: () => startRoadbook(id) },
-      { label:'Ne', cls:'no', countdown:10 }
+      { label:'Ne', cls:'no', countdown:8 }
     ]
   });
 }
@@ -2438,14 +2451,17 @@ window.addEventListener('resize', ()=>{
 // Náklon se rozjíždí mezi 25 a 35 km/h (žádné cukání kolem hranice), tiltne se kolem šipky.
 // Když je mapa nakloněná, #map se zvětší, aby u horního okraje nebyla prázdná místa.
 // ---------------------------------------------------------------
-const TILT_MAX_DEG = 30;
+// v4.54: náklon 20° (dřív 30°) a delší perspektiva – při 30° musela být mapa kvůli horizontu
+// obří (~2300 × 2300 px, na telefonu přes 40 Mpx), grafika ji nestíhala držet: problikávání,
+// šedé díry v mapě, mizející ovládání, horký telefon
+const TILT_MAX_DEG = 20;
 const TILT_FROM_KMH = 25, TILT_TO_KMH = 35;
 let tiltCur = 0, tiltTarget = 0, tiltRaf = 0, tiltLayout = false, tiltLowSince = 0;
 function tiltForSpeed(kmh){
   const t = Math.min(1, Math.max(0, (kmh - TILT_FROM_KMH) / (TILT_TO_KMH - TILT_FROM_KMH)));
   return t * t * (3 - 2 * t) * TILT_MAX_DEG;
 }
-function tiltPerspective(){ return Math.round(Math.max(window.innerWidth, window.innerHeight) * 1.2); }
+function tiltPerspective(){ return Math.round(Math.max(window.innerWidth, window.innerHeight) * 1.6); }
 function updateTilt(kmh){
   const want = (headingMode === 'heading' && followMode) ? tiltForSpeed(kmh) : 0;
   tiltTarget = want;
