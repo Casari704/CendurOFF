@@ -28,8 +28,10 @@
     };
     map.on('zoomend', done);
     map._czTimer = setTimeout(done, 900);   // pojistka, kdyby zoomend nepřišel
-    // při sledování polohy (after) bez animace – šipka se hned vrátí na své místo
-    map.setZoom(z, typeof opt.after === 'function' ? { animate:false } : undefined);
+    // v4.48: vždy s animací – bez ní Leaflet zahodí všechny dlaždice a mapa na chvíli zešedne
+    // (problikávání). Při sledování polohy se přibližuje kolem šipky (opt.anchor), takže zůstane na místě.
+    const a = typeof opt.anchor === 'function' ? opt.anchor() : null;
+    if(a) map.setZoomAround(a, z); else map.setZoom(z);
   }
   function by(map, d, opt){
     opt = opt || {};

@@ -1597,13 +1597,22 @@ function followMarkerFraction(){ return window.innerWidth > window.innerHeight ?
 // v dolní třetině (FOLLOW_MARKER_Y_FRACTION) - ať je vidět víc mapy před sebou.
 // Posun se počítá ve směru aktuálního natočení mapy (v režimu "směr jízdy" tedy
 // ve směru jízdy), takže funguje správně i po otočení/zvětšení mapy.
-function setFollowView(latlng, animate){
+// v4.48: tichý posun mapy (bez událostí moveend) – pro plynulé dojíždění za jízdy. Událost moveend
+// spouští překreslení všech tras, dlaždic a vrstev; při 60 posunech za sekundu to žralo baterku.
+function quietPan(center){
+  const c = map.latLngToContainerPoint(center), half = map.getSize().divideBy(2);
+  const off = L.point(Math.round(c.x - half.x), Math.round(c.y - half.y));
+  if(!off.x && !off.y) return;
+  if(typeof map._rawPanBy === 'function'){ map._rawPanBy(off); map.fire('move'); }
+  else map.panBy(off, { animate:false });
+}
+function setFollowView(latlng, animate, quiet){
   const z = map.getZoom();
   // V režimu "směr jízdy" je #map čtverec vystředěný přímo na místo šipky (viz layoutMapForMode),
   // takže GPS bod stačí dát doprostřed mapy - leží pak přesně ve středu otáčení a při
   // natočení mapy zůstává na místě (žádné "excentrické" houpnutí a dojíždění).
   if(headingMode==='heading'){
-    map.setView(latlng, z, { animate: !!animate });
+    if(quiet) quietPan(latlng); else map.setView(latlng, z, { animate: !!animate });
     return;
   }
   // výška viditelné části mapy (v režimu "směr jízdy" je samotný #map větší než obrazovka)
@@ -1614,7 +1623,7 @@ function setFollowView(latlng, animate){
   const dx = Math.sin(theta) * k;
   const dy = Math.cos(theta) * k;
   const center = map.unproject(L.point(targetPx.x + dx, targetPx.y - dy), z);
-  map.setView(center, z, { animate: !!animate });
+  if(quiet) quietPan(center); else map.setView(center, z, { animate: !!animate });
 }
 
 let smoothedHeading = 0;      // úhel po nízkopásmovém filtru
@@ -1634,7 +1643,9 @@ const mapEl = document.getElementById('map');
 // po změně hned vrátí na své místo (i na otočené / nakloněné mapě)
 function zoomOpts(){
   // při ručním prohlížení (gesta v navigaci) se přibližuje kolem středu, na polohu se mapa vrátí sama
-  return { min:3, max:19, after: (followMode && lastLatLng && !navManualActive()) ? ()=> setFollowView(shownLatLng || lastLatLng, false) : null };
+  const follow = followMode && lastLatLng && !navManualActive();
+  return { min:3, max:19, after: follow ? ()=> setFollowView(shownLatLng || lastLatLng, false) : null,
+           anchor: follow && headingMode !== 'heading' && gpsMarker ? ()=> gpsMarker.getLatLng() : null };
 }
 
 // Fullscreen + satelitní tlačítko jsou (kvůli overflow:hidden na main.mapwrap)
@@ -1882,22 +1893,26 @@ function offsetLatLng(ll, brgDeg, m){
   const lo2 = lo + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(la), Math.cos(d) - Math.sin(la) * Math.sin(la2));
   return [la2 * 180 / Math.PI, lo2 * 180 / Math.PI];
 }
-function stopGlide(){ if(glide && glide.raf) cancelAnimationFrame(glide.raf); glide = null; }
+function stopGlide(){ if(glide){ if(glide.raf) cancelAnimationFrame(glide.raf); if(glide.moved) map.fire('moveend'); } glide = null; }
 function glideTo(target, dur){
   const cur = gpsMarker ? gpsMarker.getLatLng() : null;
   const from = cur ? [cur.lat, cur.lng] : target;
   stopGlide();
   // velký skok (nová poloha po výpadku) – bez animace
   if(map.distance(from, target) > 150){ ensureGpsMarker(target); if(followMode && !navManualActive()) setFollowView(target, false); return; }
-  const g = glide = { from, target, t0: performance.now(), dur: Math.max(200, dur), raf: 0 };
-  const step = () => {
+  const g = glide = { from, target, t0: performance.now(), dur: Math.max(200, dur), raf: 0, last: 0, moved: false };
+  // v4.48: snímek nejvýš každých ~45 ms (~20× za s) – oko plynulost pozná, baterka a teplota telefonu taky
+  const step = now => {
     if(glide !== g) return;
-    const k = Math.min(1, (performance.now() - g.t0) / g.dur);
+    if(map._animatingZoom || now - g.last < 45){ g.raf = requestAnimationFrame(step); return; }
+    g.last = now;
+    const k = Math.min(1, (now - g.t0) / g.dur);
     const p = [g.from[0] + (g.target[0] - g.from[0]) * k, g.from[1] + (g.target[1] - g.from[1]) * k];
     gpsMarker.setLatLng(p);
     if(gpsAccuracyCircle) gpsAccuracyCircle.setLatLng(p);
-    if(followMode && !navManualActive()) setFollowView(p, false);
-    if(k < 1) g.raf = requestAnimationFrame(step); else glide = null;
+    if(followMode && !navManualActive()){ setFollowView(p, false, true); g.moved = true; }
+    if(k < 1) g.raf = requestAnimationFrame(step);
+    else { glide = null; if(g.moved) map.fire('moveend'); }   // jednou za polohu GPS: dlaždice, trasy, vrstvy
   };
   g.raf = requestAnimationFrame(step);
 }

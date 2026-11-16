@@ -101,6 +101,7 @@
 
   // 3) dopočet při výpadku (běží každou sekundu)
   function tick(){
+    browserSwitch();
     if(!last) { status('wait'); return; }
     const age = Date.now() - last.t;
     if(age > LOST_MS && last.speed > PREDICT_MIN_SPEED){ status('lost'); return; }
@@ -130,6 +131,19 @@
         nativeOn = true;
       }
     }catch(e){ nativeOn = false; }
+    // v4.48: když polohu posílá GPS čip v aplikaci, poloha z prohlížeče se vůbec nezapíná – dvě
+    // polohové služby najednou zbytečně žraly baterku. Zapne se jen jako záloha, když čip mlčí.
+    if(nativeOn){ nativeSince = Date.now(); return; }
+    startBrowser();
+  }
+  let nativeSince = 0;
+  function browserSwitch(){
+    if(!nativeOn) return;
+    const now = Date.now(), quiet = now - Math.max(lastNativeAt, nativeSince);
+    if(browserWatch == null && quiet > 8000) startBrowser();                         // čip mlčí → záloha
+    else if(browserWatch != null && now - lastNativeAt < 2000){ navigator.geolocation.clearWatch(browserWatch); browserWatch = null; }   // čip zase posílá
+  }
+  function startBrowser(){
     if(browserWatch != null || !navigator.geolocation) return;
     browserWatch = navigator.geolocation.watchPosition(
       pos => {
