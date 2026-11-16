@@ -59,7 +59,8 @@ const TOP = 20;      // povrch trasy, kterou má uživatel otevřenou – před 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS route_terrain (route_id INTEGER PRIMARY KEY, hash TEXT NOT NULL, data TEXT NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
 CREATE TABLE IF NOT EXISTS osm_cell (cell TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
-CREATE TABLE IF NOT EXISTS route_osm (route_id INTEGER PRIMARY KEY, hash TEXT NOT NULL, gz BYTEA NOT NULL, bytes INTEGER NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`;
+CREATE TABLE IF NOT EXISTS route_osm (route_id INTEGER PRIMARY KEY, hash TEXT NOT NULL, gz BYTEA NOT NULL, bytes INTEGER NOT NULL DEFAULT 0, updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS osm_roads (tile TEXT PRIMARY KEY, gz BYTEA NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now());`;
 const TERRAIN_MAX_AGE_MS = 60 * 86400000;   // OSM se mění – jednou za 2 měsíce přepočítat na pozadí
 const CELL_MAX_AGE_MS = 30 * 86400000;
 const CELL = 0.1;
@@ -429,6 +430,58 @@ function mount(app, { pool }){
     }catch(e){
       console.error('osm blocks', e.message);
       res.status(503).json({ error: 'Data teď nejdou připravit (' + e.message + ').' });
+    }
+  });
+
+  // v4.52: síť cest po dlaždicích 0,02° (~ 1,4 × 2,2 km) pro přichycení šipky na cestu za jízdy.
+  // Formát: [[typ, lat0, lon0, dlat1, dlon1, …], …] – souřadnice v 1e-5° (~1 m), rozdíly od předchozího bodu.
+  const ROAD_RE = '^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service|road|track|path|bridleway)$';
+  const ROAD_T = { motorway:1, motorway_link:1, trunk:1, trunk_link:1, primary:2, primary_link:2, secondary:2, secondary_link:2, tertiary:3, tertiary_link:3,
+    unclassified:4, residential:4, living_street:4, road:4, service:5, track:6, path:7, bridleway:7 };
+  const roadJobs = new Map();
+  function roadTile(tile){
+    if(roadJobs.has(tile)) return roadJobs.get(tile);
+    const p = (async () => {
+      const [x, y] = tile.split('_').map(Number), S = 0.02;
+      const bb = `${(y * S).toFixed(3)},${(x * S).toFixed(3)},${((y + 1) * S).toFixed(3)},${((x + 1) * S).toFixed(3)}`;
+      const d = await overpass(`[out:json][timeout:60];way["highway"~"${ROAD_RE}"]["area"!="yes"](${bb});out geom qt;`, { prio: HIGH, what: 'cesty ' + tile });
+      const out = [];
+      (d.elements || []).forEach(el => {
+        if(!el.geometry || el.geometry.length < 2) return;
+        const t = ROAD_T[(el.tags || {}).highway] || 4, arr = [t];
+        let la = 0, lo = 0;
+        el.geometry.forEach((g, i) => { const a = Math.round(g.lat * 1e5), b = Math.round(g.lon * 1e5); arr.push(i ? a - la : a, i ? b - lo : b); la = a; lo = b; });
+        out.push(arr);
+      });
+      const gz = zlib.gzipSync(JSON.stringify(out));
+      await pool.query(`INSERT INTO osm_roads (tile, gz, updated_at) VALUES ($1, $2, now())
+                        ON CONFLICT (tile) DO UPDATE SET gz = EXCLUDED.gz, updated_at = now()`, [tile, gz]);
+      return gz;
+    })().finally(() => roadJobs.delete(tile));
+    roadJobs.set(tile, p);
+    return p;
+  }
+  app.get('/api/osm/roads/:tile', async (req, res) => {
+    const tile = String(req.params.tile);
+    if(!/^-?\d{1,5}_-?\d{1,5}$/.test(tile)) return res.status(400).json({ error: 'Neplatná dlaždice.' });
+    try{
+      await ensure();
+      const r = await pool.query('SELECT gz, updated_at FROM osm_roads WHERE tile = $1', [tile]);
+      let gz = r.rows[0] && r.rows[0].gz;
+      if(gz && Date.now() - new Date(r.rows[0].updated_at).getTime() > 90 * 86400000) roadTile(tile).catch(() => {});
+      if(!gz){
+        const job = roadTile(tile);
+        job.catch(e => console.error('cesty', tile, e.message));
+        gz = await Promise.race([job.catch(() => null), new Promise(r2 => setTimeout(() => r2(null), 20000))]);
+        if(!gz) return res.status(202).json({ status: 'pending' });
+      }
+      res.set('Content-Type', 'application/json; charset=utf-8');
+      res.set('Content-Encoding', 'gzip');
+      res.set('Cache-Control', 'public, max-age=86400');
+      res.send(gz);
+    }catch(e){
+      console.error('cesty', tile, e.message);
+      res.status(503).json({ error: 'Cesty teď nejdou načíst.' });
     }
   });
 

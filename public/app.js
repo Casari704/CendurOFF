@@ -1865,8 +1865,10 @@ function onPosition(pos){
 
   freeUpdate(latlng);
   // v4.0: šipka přichycená ke sledované trase (když jsem na ní), jinak skutečná poloha
-  // v4.49: i k jakékoli jiné trase na mapě, když po ní zrovna jedu (do 15 m a jejím směrem)
-  const snapAny = navOn && !freeSnapLL ? snapToRoutes(latlng, pos.coords.accuracy, gpsCourse ? pos.coords.heading : null) : null;
+  // v4.52: jinak na nejbližší cestu z OpenStreetMap, po které jedu (public/roadsnap.js) – GPS v telefonu
+  // uhýbá o metry do strany. (v4.49 přichytávala k jakékoli trase – ale trasa nahraná z GPS je sama vedle cesty.)
+  const snapAny = navOn && !freeSnapLL && !pos.predicted && window.CendurRoadSnap
+    ? CendurRoadSnap.snap(latlng, gpsCourse ? pos.coords.heading : null, pos.coords.accuracy) : null;
   const shown = (navOn && freeSnapLL) ? freeSnapLL : (snapAny || latlng);
   shownLatLng = shown;
   // v4.31: za jízdy v navigaci šipka i mapa plynule „dojíždějí“ mezi polohami (jako Mapy.com),
@@ -1909,50 +1911,6 @@ function offsetLatLng(ll, brgDeg, m){
   const la2 = Math.asin(Math.sin(la) * Math.cos(d) + Math.cos(la) * Math.sin(d) * Math.cos(b));
   const lo2 = lo + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(la), Math.cos(d) - Math.sin(la) * Math.sin(la2));
   return [la2 * 180 / Math.PI, lo2 * 180 / Math.PI];
-}
-// v4.49: přichycení šipky k trase, po které právě jedu (i když ji nesleduju). Mřížka 100 m s úsečkami
-// všech viditelných tras se postaví jednou a obnoví, když přibudou / ubudou trasy.
-let snapGrid = null, snapGridKey = '';
-function buildSnapGrid(){
-  const ids = Object.keys(routesCache).filter(id => { const r = routesCache[id]; return r && Array.isArray(r.points) && r.points.length > 1 && !(layersById[id] && !map.hasLayer(layersById[id])); });
-  const key = ids.join(',');
-  if(snapGrid && key === snapGridKey) return snapGrid;
-  const lat0 = lastLatLng ? lastLatLng[0] : 50, kx = 111320 * Math.cos(lat0 * Math.PI / 180), ky = 111320;
-  const grid = new Map(), G = 100;
-  ids.forEach(id => {
-    const pts = routesCache[id].points;
-    for(let i = 1; i < pts.length; i++){
-      const ax = pts[i-1][1] * kx, ay = pts[i-1][0] * ky, bx = pts[i][1] * kx, by = pts[i][0] * ky;
-      for(let x = Math.floor(Math.min(ax, bx) / G); x <= Math.floor(Math.max(ax, bx) / G); x++)
-        for(let y = Math.floor(Math.min(ay, by) / G); y <= Math.floor(Math.max(ay, by) / G); y++){
-          const k = x + '_' + y; let a = grid.get(k); if(!a){ a = []; grid.set(k, a); } a.push([ax, ay, bx, by]);
-        }
-    }
-  });
-  snapGrid = { grid, kx, ky, G }; snapGridKey = key;
-  return snapGrid;
-}
-const SNAP_ROUTE_M = 15;
-function snapToRoutes(latlng, acc, course){
-  if(acc != null && acc > 30) return null;   // při slabém signálu nepřichytávat
-  const g = buildSnapGrid(); if(!g) return null;
-  const px = latlng[1] * g.kx, py = latlng[0] * g.ky;
-  let best = null, bd = SNAP_ROUTE_M * SNAP_ROUTE_M;
-  for(let dx = -1; dx <= 1; dx++) for(let dy = -1; dy <= 1; dy++){
-    const a = g.grid.get((Math.floor(px / g.G) + dx) + '_' + (Math.floor(py / g.G) + dy)); if(!a) continue;
-    for(const sg of a){
-      const [ax, ay, bx, by] = sg, vx = bx - ax, vy = by - ay, L2 = vx * vx + vy * vy;
-      let t = L2 ? ((px - ax) * vx + (py - ay) * vy) / L2 : 0; t = Math.max(0, Math.min(1, t));
-      const qx = ax + t * vx, qy = ay + t * vy, d = (qx - px) ** 2 + (qy - py) ** 2;
-      if(d > bd) continue;
-      if(course != null && L2 > 1){   // jedu po úseku (tam nebo zpět), ne přes něj napříč
-        const brg = (Math.atan2(vx, vy) * 180 / Math.PI + 360) % 360, diff = Math.abs(angleDiff(course, brg));
-        if(diff > 35 && diff < 145) continue;
-      }
-      bd = d; best = [qy / g.ky, qx / g.kx];
-    }
-  }
-  return best;
 }
 function stopGlide(){ if(glide){ if(glide.raf) cancelAnimationFrame(glide.raf); if(glide.moved) map.fire('moveend'); } glide = null; }
 function glideTo(target, dur){
@@ -2345,10 +2303,10 @@ function freeRender(){
     }
     if(!off && rb){
       if(moving && dir != null && Math.abs(RB.angleDiff(displayedHeading, dir)) > 110){
-        routeNote = { title:'Jedeš proti směru roadbooku', tone:'warn', prio:5 };
+        if(followed) routeNote = { title:'Jedeš proti směru roadbooku', tone:'warn', prio:5 };   // v4.52: jen u sledované trasy
       } else {
         if(followed && guide()) freeGuide.update(rb.vis, p.s, currentSpeedKmh / 3.6, false);
-        const nx = rb.vis.find(it=>it.s > p.s + 8);
+        const nx = followed ? rb.vis.find(it=>it.s > p.s + 8) : null;   // v4.52: karta jen u sledované trasy
         if(nx) html = '<div class="fc-card">' + RB.tulipSVG(nx, 92) + '<div class="fc-d">' + RB.fmtDist(Math.max(0, nx.s - p.s)) + '</div><div class="fc-l">' + escapeHtml(RB.label(nx)) + '</div></div>';
       }
     } else if(off && followed && freeWasOn){
