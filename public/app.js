@@ -2394,6 +2394,11 @@ function startOrientation(){
     if(e.webkitCompassHeading != null) heading = e.webkitCompassHeading;          // iPhone
     else if(e.alpha != null && (isAbs || e.absolute === true)) heading = 360 - e.alpha;
     if(heading==null || isNaN(heading)) return;
+    // v4.55: kompas měří směr horní hrany telefonu v jeho přirozené poloze (na výšku). Když je
+    // obrazovka otočená (na šířku v držáku / v autě), musí se přičíst její otočení – jinak je
+    // šipka po zastavení o 90° vedle.
+    const scr = (screen.orientation && screen.orientation.angle != null) ? screen.orientation.angle : (+window.orientation || 0);
+    heading = ((heading + scr) % 360 + 360) % 360;
     // vyhlazení podle času (ne podle počtu událostí) – telefony je posílají 5× i 60× za sekundu
     const now = performance.now();
     const dt = lastCompassTs ? Math.min(1000, now - lastCompassTs) : 16;
