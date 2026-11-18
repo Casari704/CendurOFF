@@ -886,6 +886,9 @@ function renderStats(){
     link.hidden = !editing.id;
     if(editing.id) link.href = 'index.html?trasa=' + editing.id;
   }
+  // v4.56: „Odstranit trasu“ jen u uložené trasy, kterou smí uživatel upravovat (vlastník / admin)
+  const delBtn = document.getElementById('pl-delete-route');
+  if(delBtn) delBtn.hidden = !isOwnerOfEditing();
 }
 
 let draftTimer = null;
@@ -961,6 +964,24 @@ document.getElementById('pl-cross').addEventListener('click', ()=>{
   setCrossMode(true);
 });
 document.getElementById('pl-clear').addEventListener('click', ()=>{ closeSheet(); clearAll(); });
+// v4.56: trvalé smazání uložené trasy (stejné jako „Smazat trasu“ v detailu v Atlasu; smazaná trasa jde do archivu admina)
+document.getElementById('pl-delete-route').addEventListener('click', async ()=>{
+  if(!isOwnerOfEditing()) return;
+  const id = editing.id, name = editing.name || 'trasa';
+  if(!confirm('Opravdu chceš odstranit trasu "' + name + '" z CendurOFF? Zmizí z Atlasu i z plánovače.')) return;
+  try{
+    await api('/api/routes/' + id, { method:'DELETE' });
+  }catch(e){ toast(e.message || 'Trasu se nepodařilo odstranit.'); return; }
+  closeSheet();
+  segs.forEach(sg=>sg.req++);
+  wps = []; segs = []; editing = null;
+  changed();
+  dirty = false;
+  try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
+  loadRouteList();
+  drawOthers();
+  toast('Trasa "' + name + '" byla odstraněna.', 4500);
+});
 document.addEventListener('keydown', e=>{
   if(e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
   if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='z' && !e.shiftKey){ e.preventDefault(); undo(); }

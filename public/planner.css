@@ -151,6 +151,10 @@ body.auth-pending #app-screen{visibility:hidden;}
   border:1.5px solid var(--moss-dark);border-radius:8px;background:none;color:var(--moss-dark);
   font:700 0.9rem 'Roboto',sans-serif;cursor:pointer;}
 .pl-grid button:hover,.pl-file-btn:hover{background:var(--moss-dark);color:#fff;}
+/* v4.56: Odstranit trasu – tmavě červený text, ať je jasné, že trasu smaže */
+.pl-grid button.pl-danger{color:#8b1111;border-color:#8b1111;}
+.pl-grid button.pl-danger:hover{background:#8b1111;color:#fff;}
+.pl-grid button.pl-danger[hidden]{display:none;}
 .pl-h{font-size:0.95rem;margin:16px 0 6px;padding-top:12px;border-top:1px solid var(--line);}
 .pl-h small{font-weight:400;color:var(--ink-soft);}
 .pl-pref-seg{display:flex;border:1.5px solid var(--moss-dark);border-radius:8px;overflow:hidden;margin-bottom:8px;}
