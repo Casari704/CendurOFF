@@ -6,12 +6,16 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const { Pool } = require('pg');
+const security = require('./security');
 
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-only-secret-change-me';
 const MAX_PHOTO_BYTES = 3 * 1024 * 1024; // 3 MB per photo
 const MAX_PHOTOS_PER_ROUTE = 3;
 
+if (!process.env.JWT_SECRET) {
+  console.error('POZOR: proměnná JWT_SECRET není nastavená – používá se veřejně známé výchozí tajemství. Nastav ji v Railway (Variables) na dlouhý náhodný text.');
+}
 if (!process.env.DATABASE_URL) {
   console.error('Chybí proměnná prostředí DATABASE_URL. Přidej do Railway projektu PostgreSQL plugin.');
 }
@@ -124,14 +128,19 @@ async function initDb() {
 }
 
 const app = express();
+app.set('trust proxy', 1);   // za proxy Railway: req.ip je skutečná adresa návštěvníka (limity)
 
 // ---------------------------------------------------------------
 // NASTAVENÍ CORS (POVOLENÍ PRO VERCEL FRONTEND)
 // ---------------------------------------------------------------
-app.use(cors({
-  origin: true, // Povolí požadavky ze všech domén (Vercel, localhost atd.)
-  credentials: true // DŮLEŽITÉ: Umožňuje předávání cookies mezi Vercelem a Railway
-}));
+// v4.58: jen naše weby (cenduroff.cz, GitHub Pages, localhost); další jdou přidat proměnnou CORS_ORIGINS
+const ALLOWED_ORIGINS = security.originList(process.env);
+const blockedSeen = new Set();
+function logBlockedOrigin(origin) {
+  if (!blockedSeen.has(origin)) { blockedSeen.add(origin); console.warn('CORS: zablokována adresa ' + origin + ' (povol ji v proměnné CORS_ORIGINS, pokud je to tvůj web)'); }
+}
+app.use(cors(security.corsOptions(ALLOWED_ORIGINS, logBlockedOrigin)));
+app.use(security.originGuard(ALLOWED_ORIGINS, logBlockedOrigin));
 
 app.use(express.json({ limit: '8mb' })); // GPX body dorazí jako JSON pole bodů
 app.use(cookieParser());
@@ -427,7 +436,9 @@ app.get('/api/routes/:id', optionalAuth, async (req, res) => {
     );
     Object.assign(route, await ratingSummary(route.id, req.user ? req.user.id : null));
     const reviews = await reviewsForRoute(route.id);
-    res.json({ route, photos: photosResult.rows, reviews });
+    // v4.58: do webu se pustí jen bezpečné obrázky (starší záznamy s podezřelým obsahem se vynechají)
+    const photos = photosResult.rows.filter(p => security.isSafeDataUrl(p.data_url));
+    res.json({ route, photos, reviews });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Trasu se nepodařilo načíst.' });
@@ -638,7 +649,10 @@ app.post('/api/routes/:id/photos', requireAuth, upload.single('photo'), async (r
     if (countResult.rows[0].n >= MAX_PHOTOS_PER_ROUTE) {
       return res.status(400).json({ error: 'Trasa už má maximální počet fotek (3).' });
     }
-    const dataUrl = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    // v4.58: typ se pozná z obsahu souboru (ne z hlavičky od klienta) a smí být jen obrázek
+    const imgType = security.detectImageType(req.file.buffer);
+    if (!imgType) return res.status(400).json({ error: 'Nahrát jde jen obrázek (JPEG, PNG, WebP nebo GIF).' });
+    const dataUrl = `data:${imgType};base64,${req.file.buffer.toString('base64')}`;
     const makeMain = countResult.rows[0].n === 0;
     const inserted = await pool.query(
       'INSERT INTO photos (route_id, data_url, is_main, user_id) VALUES ($1,$2,$3,$4) RETURNING id, data_url, is_main, user_id',
@@ -705,6 +719,22 @@ app.delete('/api/routes/:id', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Trasu se nepodařilo smazat.' });
   }
 });
+
+// ---------------------------------------------------------------
+// v4.58: mapová data (OSM, benzínky/CHKO, povrch a roadbook z OSM) – nepřihlášený smí omezeně,
+// po vyčerpání limitu se mu ukáže přihlášení (frontend pozná odpověď s needsLogin).
+// ---------------------------------------------------------------
+function isLoggedIn(req) {
+  const t = tokenFrom(req);
+  if (!t) return false;
+  try { jwt.verify(t, JWT_SECRET); return true; } catch (e) { return false; }
+}
+const mapDataLimit = security.anonLimiter({ windowMs: 60 * 60 * 1000, max: 400, isLoggedIn });
+app.use('/api/osm/status', requireAuth, (req, res, next) => isAdmin(req) ? next() : res.status(403).json({ error: 'Jen pro admina.' }));   // spouští dotazy na cizí servery
+app.use('/api/osm', mapDataLimit);
+app.use('/api/region', mapDataLimit);
+app.use('/api/routes/:id/osm', mapDataLimit);
+app.use('/api/routes/:id/terrain', mapDataLimit);
 
 // ---------------------------------------------------------------
 // Roadbook (v2.0) – samostatný modul s vlastní tabulkou a endpointy /api/roadbooks/...

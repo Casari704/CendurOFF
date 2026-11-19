@@ -11,6 +11,7 @@
 // pokud je načtený, jinak se na Overpass ptá samo.
 // ---------------------------------------------------------------
 (function(){
+  const authInit = o => (window.CendurAuthInit ? window.CendurAuthInit(o) : (o || {}));
   const RB = {};
   const D2R = Math.PI / 180;
 
@@ -409,7 +410,8 @@ out center tags qt;`;
     const t0 = Date.now();
     for(;;){
       if(opts.signal && opts.signal.aborted) throw abortErr();
-      const res = await fetch(api + '/api/routes/' + routeId + '/osm', { signal: opts.signal });
+      const res = await fetch(api + '/api/routes/' + routeId + '/osm', authInit({ signal: opts.signal }));
+      if(res.status === 429 && window.CendurLoginNeeded) window.CendurLoginNeeded(res);
       if(res.status === 202){
         if(Date.now() - t0 > 300000) throw new Error('server data zatím nepřipravil');
         if(opts.onWait) opts.onWait(Math.round((Date.now() - t0) / 1000));

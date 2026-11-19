@@ -322,6 +322,8 @@ function requireLogin(what){
   } else showLoginOverlay(what);
   return false;
 }
+// v4.58: když server vyčerpá nepřihlášenému limit na mapová data, nabídne se přihlášení (viz errors.js)
+window.CendurAskLogin = () => requireLogin('další mapová data');
 function showLoginOverlay(what){
   const ls = document.getElementById('login-screen');
   const why = document.getElementById('login-why');
@@ -1114,7 +1116,8 @@ async function loadTerrain(routeId, tries){
   tries = tries || 0;
   if(terrainCache[routeId]){ box.innerHTML = renderTerrainBox(terrainCache[routeId]); return; }
   try{
-    const res = await fetch(API_URL + '/api/routes/' + routeId + '/terrain');
+    const res = await fetch(API_URL + '/api/routes/' + routeId + '/terrain', withAuth());
+    if(res.status === 429 && window.CendurLoginNeeded) window.CendurLoginNeeded(res);
     if(res.status === 202){
       if(tries < 60) setTimeout(()=>{ if(activeRouteId === routeId) loadTerrain(routeId, tries + 1); }, 5000);
       else box.innerHTML = '<h3>Povrch trasy</h3><p class="hint">Mapová data se zatím nepodařilo zpracovat, zkus detail otevřít později.</p>';
@@ -1190,7 +1193,7 @@ async function openDetail(id){
       return `<div class="photo-slot"><span class="empty-plus">·</span></div>`;
     }
     return `<div class="photo-slot">
-        <img class="photo-thumb" data-index="${i}" src="${p.data_url}" alt="Fotka trasy ${escapeHtml(route.name)}" title="Zvětšit fotku">
+        <img class="photo-thumb" data-index="${i}" src="${escapeHtml(p.data_url)}" alt="Fotka trasy ${escapeHtml(route.name)}" title="Zvětšit fotku">
         ${p.is_main ? '<span class="main-badge">HLAVNÍ</span>' : ''}
         ${isOwner || (currentUser && p.user_id === currentUser.id) ? `<button class="delete-photo-btn" data-photo="${p.id}" title="Smazat fotku">×</button>` : ''}
         ${p.user_id && p.user_id !== route.owner_id && p.user_display ? `<span class="photo-by">📷 ${escapeHtml(p.user_display)}</span>` : ''}
@@ -1592,6 +1595,7 @@ document.getElementById('confirm-upload').addEventListener('click', async ()=>{
 // ---------------------------------------------------------------
 let gpsMarker=null, gpsAccuracyCircle=null, watchId=null;
 let followMode=false, headingMode='north', lastLatLng=null, orientationBound=false;
+let orientAbs=null, orientRel=null;   // v4.58: odběry kompasu (jdou odpojit po ukončení navigace)
 
 // --- Nastavení směrové navigace (naladěno pro motorku / pomalé technické pasáže) ---
 const HEADING_SPEED_THRESHOLD_KMH = 5;     // nad touto rychlostí bereme směr z GPS kurzu, pod ní z kompasu telefonu
@@ -1977,6 +1981,19 @@ function onGpsStatus(st){
   if(!gpsBadge) return;
   if(navOn) gpsBadge.update(st); else gpsBadge.hide();
 }
+// v4.58: úplné vypnutí GPS (odběr polohy, kompas, šipka na mapě) – volá se po ukončení navigace
+function stopGpsWatch(){
+  if(gpsW){ try{ gpsW.stop(); }catch(e){} gpsW = null; }
+  watchId = null;
+  stopOrientation();
+  if(gpsBadge) gpsBadge.hide();
+  if(map){
+    if(gpsMarker){ map.removeLayer(gpsMarker); }
+    if(gpsAccuracyCircle){ map.removeLayer(gpsAccuracyCircle); }
+  }
+  gpsMarker = null; gpsAccuracyCircle = null;
+  currentSpeedKmh = 0;
+}
 function startGpsWatch(){
   if(!navigator.geolocation && !(window.CendurApp && window.CendurApp.startGps)){ toast('Prohlížeč nepodporuje GPS polohu.'); return false; }
   if(watchId!=null) return true;
@@ -2162,7 +2179,7 @@ function startRoadbook(id){
   if(window.CendurSound) CendurSound.unlock();
   // Atlas NAVI během jízdy podle roadbooku stojí (žádné dvojí zvuky a počítání); Stopař běží dál
   const wasNav = navOn;
-  if(navOn) setNavMode(false);
+  if(navOn) setNavMode(false, { suspend:true });
   closeDetail();
   window.CendurRide.start({
     route: r, guest: !currentUser, user: currentUser,
@@ -2343,7 +2360,10 @@ function freeRender(){
 // Jedno tlačítko „Navigovat v Atlasu / Ukončit navigaci“ (dřív „Sleduji / Nesleduji polohu“):
 //  zapnuto  = sledovat polohu + mapa natočená podle směru jízdy + silnější čáry tras
 //  vypnuto  = mapa volně posouvatelná, sever nahoru, normální čáry (GPS a záznam běží dál)
-function setNavMode(on){
+// v4.58: opts.suspend = jen dočasně (jízda podle roadbooku) – GPS a Stopař se nechají běžet.
+// Jinak „Ukončit navigaci“ ukončí i Stopaře (záznam se nabídne k uložení) a vypne GPS i kompas.
+function setNavMode(on, opts){
+  const fullEnd = !on && !(opts && opts.suspend);
   setTimeout(placeRecPanel, 60); setTimeout(placeRecPanel, 400);   // v4.49: lišta Stopaře podle režimu
   if(on){
     if(!requireLogin('navigaci')) return;
@@ -2351,6 +2371,7 @@ function setNavMode(on){
     navOn = true;
     followMode = true;
     enableCompass();
+    requestWakeLock();
     headingMode = 'heading';
   } else {
     navOn = false;
@@ -2372,6 +2393,15 @@ function setNavMode(on){
   // čáry tras a záznamu podle režimu
   Object.keys(layersById).forEach(applyRouteStyle);
   if(recLine) recLine.setStyle({ weight: routeWeight('rec') });
+  if(fullEnd) endRideSession();
+}
+// v4.58: konec navigace = konec jízdy. Záznam Stopaře se nezahodí – zobrazí se okno Uložit / Zahodit / Pokračovat.
+// Pak se vypne GPS a displej smí zhasnout (nic nebrání spánku a baterie se šetří).
+function endRideSession(){
+  if(rec.state !== 'idle'){
+    if(rec.points.length < 2) recClear(); else openRideDialog();
+  }
+  if(rec.state !== 'recording'){ stopGpsWatch(); releaseWakeLock(); }
 }
 
 // v3.9.1: společné klepnutí (public/zoom.js) – spolehlivé i v rukavicích
@@ -2406,8 +2436,17 @@ function startOrientation(){
     const a = 1 - Math.exp(-dt / HEADING_COMPASS_TAU_MS);
     feedHeading(heading, a, HEADING_UPDATE_THRESHOLD_DEG_COMPASS, HEADING_MIN_UPDATE_MS_COMPASS);
   };
-  window.addEventListener('deviceorientationabsolute', e => handler(e, true), true);
-  window.addEventListener('deviceorientation', e => handler(e, false), true);
+  orientAbs = e => handler(e, true);
+  orientRel = e => handler(e, false);
+  window.addEventListener('deviceorientationabsolute', orientAbs, true);
+  window.addEventListener('deviceorientation', orientRel, true);
+}
+// v4.58: po ukončení navigace se kompas odpojí (senzor zbytečně běžel a bral baterii)
+function stopOrientation(){
+  if(orientAbs) window.removeEventListener('deviceorientationabsolute', orientAbs, true);
+  if(orientRel) window.removeEventListener('deviceorientation', orientRel, true);
+  orientAbs = orientRel = null;
+  orientationBound = false;
 }
 
 // V režimu "směr jízdy" se mapa otáčí. #map je čtverec, jehož STŘED leží přesně na místě
@@ -2624,7 +2663,7 @@ function releaseWakeLock(){
   if(wakeLock){ wakeLock.release(); wakeLock = null; }
 }
 document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState === 'visible' && currentUser) requestWakeLock();
+  if(document.visibilityState === 'visible' && currentUser && (navOn || rec.state === 'recording')) requestWakeLock();
 });
 
 // ---------------------------------------------------------------
@@ -2818,6 +2857,7 @@ function recPause(){
   stopRecTimer();
   recPersist();
   updateRecUi();
+  if(!navOn){ stopGpsWatch(); releaseWakeLock(); }
 }
 function recResume(){
   if(rec.state!=='paused') return;
@@ -2843,6 +2883,7 @@ function recClear(){
   recLine = null;
   try{ localStorage.removeItem(REC_STORAGE_KEY); }catch(e){}
   updateRecUi();
+  if(!navOn){ stopGpsWatch(); releaseWakeLock(); }
 }
 
 // voláno z onPosition() při každé nové GPS poloze
@@ -3044,7 +3085,6 @@ async function enterApp(){
   positionFloatingMapButtons();
   setTimeout(positionFloatingMapButtons, 100);
   await loadRoutes();
-  requestWakeLock();
   // „+ Nahrát trasu“ z GPX planneru → index.html?nahrat=1
   try{
     const u = new URL(location.href);

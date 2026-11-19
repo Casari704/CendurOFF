@@ -1,3 +1,6 @@
+-- REFERENČNÍ KOPIE. Server (server.js a *-api.js) si tabulky zakládá a upravuje sám při startu,
+-- tenhle soubor se nespouští. Při změně struktury se řiď kódem serveru, ne tímto souborem.
+
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
   username TEXT UNIQUE NOT NULL,

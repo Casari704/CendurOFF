@@ -42,5 +42,32 @@
     if(r && r.offline) return;                                    // bez signálu
     report(r && r.message ? r.message : String(r), r && r.stack);
   });
+  // v4.58: server omezuje nepřihlášené na mapová data; po vyčerpání limitu odpoví 429 s needsLogin
+  // a web nabídne přihlášení (nejvýš jednou za minutu). Vrací true, když šlo o tohle omezení.
+  let loginAskedAt = 0;
+  async function loginNeeded(res){
+    try{
+      if(!res || res.status !== 429) return false;
+      const j = await res.clone().json().catch(() => null);
+      if(!j || !j.needsLogin) return false;
+      if(Date.now() - loginAskedAt > 60000){
+        loginAskedAt = Date.now();
+        if(typeof window.CendurAskLogin === 'function') window.CendurAskLogin(j.error);
+        else if(window.CendurHeader && window.CendurHeader.ask) window.CendurHeader.ask({
+          title: 'Přihlas se pro další mapová data', msg: j.error || 'Pro další mapová data se přihlas.',
+          yes: { label: 'Přihlásit se', fn: () => { location.href = 'index.html?login=1'; } }
+        });
+      }
+      return true;
+    }catch(e){ return false; }
+  }
+  window.CendurLoginNeeded = loginNeeded;
+  // v4.58: požadavky na mapová data posílají přihlášení (token) – přihlášený člen pak limit nemá
+  window.CendurAuthInit = function(o){
+    const init = Object.assign({ credentials:'include' }, o);
+    let t = null; try{ t = localStorage.getItem('cenduroff.token'); }catch(e){}
+    if(t) init.headers = Object.assign({}, init.headers, { Authorization:'Bearer ' + t });
+    return init;
+  };
   window.CendurErrors = { report };
 })();

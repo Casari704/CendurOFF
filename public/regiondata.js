@@ -5,6 +5,7 @@
 // - mapa pak jen ukazuje, co je zrovna v záběru -> rychlé i bez signálu
 // ---------------------------------------------------------------
 (function(){
+  const authInit = o => (window.CendurAuthInit ? window.CendurAuthInit(o) : (o || {}));
   // obdélník kolem ČR (48.55–51.06 s. š., 12.09–18.86 v. d.) rozšířený o ~100 km
   // (100 km ≈ 0.9° zeměpisné šířky, ≈ 1.4° délky v našich šířkách)
   const REGION = { s:47.65, w:10.70, n:51.96, e:20.26 };
@@ -88,7 +89,8 @@
     const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = ctl ? setTimeout(()=>ctl.abort(), 90000) : null;
     try{
-      const res = await fetch(API() + '/api/region/' + kind, { signal: ctl ? ctl.signal : undefined });
+      const res = await fetch(API() + '/api/region/' + kind, authInit({ signal: ctl ? ctl.signal : undefined }));
+      if(res.status === 429 && window.CendurLoginNeeded) window.CendurLoginNeeded(res);
       if(!res.ok) throw new Error('server ' + res.status);
       const j = await res.json();
       if(!j || !Array.isArray(j.data) || !j.data.length) throw new Error('prázdná data');

@@ -6,6 +6,7 @@
 // Cesty po dlaždicích 0,02° ze serveru (/api/osm/roads/x_y), v paměti nejvýš ~30 dlaždic.
 // ---------------------------------------------------------------
 (function(){
+  const authInit = o => (window.CendurAuthInit ? window.CendurAuthInit(o) : (o || {}));
   const S = 0.02, MAX_M = 20, KEEP = 30;
   const tiles = new Map();        // tile -> { segs:[[ax,ay,bx,by,wayId,type]], t } | 'loading' | { retryAt }
   let lastWay = null, kx = 0, lat0 = null;
@@ -18,7 +19,8 @@
   async function load(tile){
     tiles.set(tile, 'loading');
     try{
-      const res = await fetch(api() + '/api/osm/roads/' + tile);
+      const res = await fetch(api() + '/api/osm/roads/' + tile, authInit());
+      if(res.status === 429 && window.CendurLoginNeeded) window.CendurLoginNeeded(res);
       if(res.status === 202){ tiles.set(tile, { retryAt: Date.now() + 15000 }); return; }
       if(!res.ok) throw new Error('server ' + res.status);
       const ways = await res.json(), segs = [];

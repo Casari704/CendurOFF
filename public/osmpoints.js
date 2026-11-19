@@ -6,6 +6,7 @@
 // - v4.39: ukazují se od přiblížení 10 jako benzínky; do přiblížení 12 jen jako tečky (rychlé i při tisících bodů)
 // ---------------------------------------------------------------
 (function(){
+  const authInit = o => (window.CendurAuthInit ? window.CendurAuthInit(o) : (o || {}));
   const MIN_ZOOM = 10, ICON_ZOOM = 13, MAX_BLOCKS = 12, KEEP_DAYS = 14;
   const DOT = { f:'#1E88E5', b:'#C62828' };
   const KINDS = {
@@ -70,7 +71,8 @@
     for(let i = 0; i < need.length; i += 4){
       const part = need.slice(i, i + 4);
       try{
-        const res = await fetch(api + '/api/osm/blocks?ids=' + part.map(p => p.c).join(','));
+        const res = await fetch(api + '/api/osm/blocks?ids=' + part.map(p => p.c).join(','), authInit());
+        if(res.status === 429 && window.CendurLoginNeeded) window.CendurLoginNeeded(res);
         if(!res.ok) throw new Error('server ' + res.status);
         const j = await res.json();
         part.forEach(p => {
