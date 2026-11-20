@@ -2283,7 +2283,7 @@ async function destFetch(from){
     if(dest !== d) return;
     d.pts = pts; d.R = RB.prepareRoute(pts, false); d.prog = 0; d.offSince = 0; d.notified = false;
     if(d.line) d.line.remove();
-    d.line = L.polyline(pts.map(p => [p[0], p[1]]), { pane:'dest-pane', color:'#ff6a00', weight:6, opacity:.9, lineCap:'round', lineJoin:'round', interactive:false }).addTo(map);
+    d.line = L.polyline(pts.map(p => [p[0], p[1]]), { pane:'dest-pane', color:'#1E64D6', weight:6, opacity:.9, lineCap:'round', lineJoin:'round', interactive:false }).addTo(map);
   }catch(e){
     if(dest !== d) return;
     if(/position not mapped|island/.test(String(e.message))){ destClear(); toast('Sem se cesta najít nedá.', 3500); return; }

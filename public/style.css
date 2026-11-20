@@ -947,8 +947,8 @@ body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !import
   font-family:'Exo 2',sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.3);max-width:100%;box-sizing:border-box;}
 .cs-atlas .cs-item b{font-size:1.05rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .cs-atlas .cs-item span{font-size:0.74rem;color:#F5B700;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
-.cs-atlas .cs-item[data-key="mode"]{pointer-events:auto;cursor:pointer;touch-action:manipulation;min-height:44px;justify-content:center;}
-.cs-atlas .cs-item[data-key="mode"]:active{transform:scale(.97);}
+.cs-atlas .cs-item[data-key="mode"],.cs-atlas .cs-item[data-key="dest"]{pointer-events:auto;cursor:pointer;touch-action:manipulation;min-height:44px;justify-content:center;}
+.cs-atlas .cs-item[data-key="mode"]:active,.cs-atlas .cs-item[data-key="dest"]:active{transform:scale(.97);}
 .cs-atlas .cs-blue{background:#1E64D6;}
 .cs-atlas .cs-blue span{color:#fff;}
 .cs-atlas .cs-warn{color:#F5B700;border:2px solid #F5B700;}
@@ -1080,6 +1080,6 @@ a.rb-chip:hover{background:#E4DCC6;}
 .ra-row button.on{background:var(--moss);border-color:var(--moss);color:#fff;}
 
 /* v4.59: cíl navigace (dlouhý stisk v mapě) */
-.dest-pin span{display:block;width:26px;height:26px;box-sizing:border-box;background:#ff6a00;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,.55)}
+.dest-pin span{display:block;width:26px;height:26px;box-sizing:border-box;background:#1E64D6;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,.55)}
 .dest-pin{background:none;border:0}
 .dest-probe{background:none;border:0;pointer-events:none}

@@ -72,7 +72,9 @@
     heading = isFinite(heading) && heading >= 0 ? heading : null;
     t = t || Date.now();
     const now = Date.now();
-    if(acc > ACC_WEAK_MAX){ status('weak', { accuracy: acc }); return; }
+    // v4.59.1: úplně první poloha se vezme i nepřesná (počítač určuje polohu z Wi-Fi / IP s přesností
+    // kilometrů) – jinak by na počítači nebyla šipka ani navigace k cíli. Nepřesné se zahazují až při už známé poloze.
+    if(acc > ACC_WEAK_MAX && last && now - last.t < 60000){ status('weak', { accuracy: acc }); return; }
     const good = acc <= ACC_GOOD;
     // 1) nepřesná poloha, když jsme ještě nedávno měli dobrou → zahodit (šipka stojí / dopočítává se)
     if(!good && lastGoodAt && now - lastGoodAt < WEAK_GRACE_MS){ status('weak', { accuracy: acc }); return; }
