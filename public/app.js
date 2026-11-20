@@ -2185,7 +2185,9 @@ const DEST_LP_MS = 600, DEST_LP_MOVE = 10, DEST_MAX_KMH = 15;
 const DEST_OFF_M = 60, DEST_OFF_MS = 20000, DEST_MIN_GAP_MS = 20000, DEST_ARRIVE_M = 30;
 const DEST_KMH = { teren: 15, silnice: 40 };   // odhad času do cíle
 let dest = null, destTmpPin = null, destTimer = 0, destLastCall = 0, destLpFired = 0;
-function destPinIcon(){ return L.divIcon({ className:'dest-pin', html:'<span></span>', iconSize:[26,26], iconAnchor:[13,31] }); }
+// cíl: kolečko s černobílou kostkovanou vlajkou (střed kolečka = cíl)
+const DEST_FLAG_SVG = '<svg viewBox="0 0 32 32" width="34" height="34"><defs><clipPath id="dfc"><circle cx="16" cy="16" r="14"/></clipPath></defs><circle cx="16" cy="16" r="14" fill="#fff"/><g clip-path="url(#dfc)" fill="#111"><rect x="0" y="0" width="8" height="8"/><rect x="16" y="0" width="8" height="8"/><rect x="8" y="8" width="8" height="8"/><rect x="24" y="8" width="8" height="8"/><rect x="0" y="16" width="8" height="8"/><rect x="16" y="16" width="8" height="8"/><rect x="8" y="24" width="8" height="8"/><rect x="24" y="24" width="8" height="8"/></g><circle cx="16" cy="16" r="14" fill="none" stroke="#fff" stroke-width="2.5"/><circle cx="16" cy="16" r="15" fill="none" stroke="#111" stroke-width="1"/></svg>';
+function destPinIcon(){ return L.divIcon({ className:'dest-pin', html:DEST_FLAG_SVG, iconSize:[34,34], iconAnchor:[17,17] }); }
 function destMakePin(ll){ return L.marker(ll, { icon:destPinIcon(), interactive:false, keyboard:false, zIndexOffset:1000 }).addTo(map); }
 
 // kam v mapě ukazuje prst: mapa může být otočená a nakloněná (jízdní režim), takže se bod

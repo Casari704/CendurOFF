@@ -5,4 +5,4 @@
 window.CENDUROFF_API_URL = 'https://api.cenduroff.cz';
 
 // Verze webu (zobrazí se v Nastavení účtu). Zvyšuj spolu s VERSION v sw.js.
-window.CENDUROFF_WEB_VERSION = '4.59.1';
+window.CENDUROFF_WEB_VERSION = '4.59.2';

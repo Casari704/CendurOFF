@@ -1080,6 +1080,6 @@ a.rb-chip:hover{background:#E4DCC6;}
 .ra-row button.on{background:var(--moss);border-color:var(--moss);color:#fff;}
 
 /* v4.59: cíl navigace (dlouhý stisk v mapě) */
-.dest-pin span{display:block;width:26px;height:26px;box-sizing:border-box;background:#1E64D6;border:3px solid #fff;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,.55)}
 .dest-pin{background:none;border:0}
+.dest-pin svg{display:block;filter:drop-shadow(0 1px 3px rgba(0,0,0,.6))}
 .dest-probe{background:none;border:0;pointer-events:none}
