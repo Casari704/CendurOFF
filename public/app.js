@@ -2108,6 +2108,7 @@ function freeEnsureHud(){
   freeStatus = window.CendurStatus.create(document.getElementById('free-hud'), { prepend:true, className:'cs-atlas' });
   // v4.15.2: ťuknutí na pruh režimu – vybraná trasa → volná jízda; „na trase …“ → trasu vybrat (u roadbooku nabídka)
   document.getElementById('free-hud').addEventListener('click', e => {
+    if(navOn && e.target.closest('.cs-item[data-key="dest"]')){ e.stopPropagation(); destCancel(); return; }
     if(!navOn || !e.target.closest('.cs-item[data-key="mode"]')) return;
     e.stopPropagation();
     if(freePickedId != null){ freePick(null); return; }
@@ -2128,6 +2129,7 @@ async function freeStart(){
   if(lastLatLng) freeUpdate(lastLatLng); else freeRender();
 }
 function freeStop(){
+  destClear(true);
   freeSnapLL = null; freeR = null;
   const old = freeActiveId();
   freeCaughtId = null; freePickedId = null;
@@ -2135,6 +2137,7 @@ function freeStop(){
   freeRender();
 }
 function freePick(id){
+  if(id != null) destClear(true);   // v4.59: vybraná trasa nahradí navigaci k cíli
   const old = freeActiveId();
   freePickedId = id;
   freeProg = null; freeProgReal = null; freeProgId = null; freeWasOn = false;   // nové sledování – poloha na trase znovu od místa, kde jsem
@@ -2168,7 +2171,166 @@ function freeUpdate(latlng){
   if(now != null) freeLoadRb(now);   // načte se jen jednou (a jen když trasa roadbook má)
   freeRender();
   freeOffer(latlng);
+  destUpdate(latlng);
 }
+// ---------------------------------------------------------------
+// v4.59: navigace k bodu v mapě (dlouhý stisk → „Navigovat sem“)
+//  - cestu najde public/routing.js (Mapy.com, jinak OpenStreetMap); nic se neukládá
+//  - mimo cestu déle než 20 s → přepočet z místa, kde jsem (s odpočtem ve společném sloupci hlášek)
+//  - lišta „Cíl“ nahoře: ťuknutí = zrušit; na místě (30 m) se navigace sama ukončí zvukem
+//  - nad 15 km/h se dlouhý stisk ignoruje; řidič se nemá co hrabat v mapě
+//  - Atlas NAVI / Roadbook nabídka u tras funguje dál; zvolená trasa cíl nahradí, „Ne“ ho nechá
+// ---------------------------------------------------------------
+const DEST_LP_MS = 600, DEST_LP_MOVE = 10, DEST_MAX_KMH = 15;
+const DEST_OFF_M = 60, DEST_OFF_MS = 20000, DEST_MIN_GAP_MS = 20000, DEST_ARRIVE_M = 30;
+const DEST_KMH = { teren: 15, silnice: 40 };   // odhad času do cíle
+let dest = null, destTmpPin = null, destTimer = 0, destLastCall = 0, destLpFired = 0;
+function destPinIcon(){ return L.divIcon({ className:'dest-pin', html:'<span></span>', iconSize:[26,26], iconAnchor:[13,31] }); }
+function destMakePin(ll){ return L.marker(ll, { icon:destPinIcon(), interactive:false, keyboard:false, zIndexOffset:1000 }).addTo(map); }
+
+// kam v mapě ukazuje prst: mapa může být otočená a nakloněná (jízdní režim), takže se bod
+// nejdřív odhadne stejným přepočtem jako posun mapy a pak se zpřesní změřením, kde se značka opravdu vykreslí
+function destLatLngAt(cx, cy){
+  const probe = L.marker(map.getCenter(), { icon:L.divIcon({ className:'dest-probe', iconSize:[2,2], iconAnchor:[1,1] }), interactive:false, keyboard:false, opacity:0 }).addTo(map);
+  const where = ll => { probe.setLatLng(ll); const r = probe.getElement().getBoundingClientRect(); return { x:r.left + r.width / 2, y:r.top + r.height / 2 }; };
+  const tilt = tiltCur * Math.PI / 180, h = mapRotDeg * Math.PI / 180;
+  const step = (ll, dx, dy, sign) => {
+    if(tilt > 0.01) dy = dy / Math.max(0.5, Math.cos(tilt));
+    const c = Math.cos(sign * h), s = Math.sin(sign * h);
+    const cp = map.latLngToContainerPoint(ll);
+    return map.containerPointToLatLng(L.point(cp.x + dx * c - dy * s, cp.y + dx * s + dy * c));
+  };
+  let ll = map.getCenter();
+  try{
+    for(let i = 0; i < 6; i++){
+      const m = where(ll), dx = cx - m.x, dy = cy - m.y;
+      if(Math.hypot(dx, dy) < 3) break;
+      // kdyby byl znaménko otočení opačné, vyhraje to, které se trefí blíž
+      const a = step(ll, dx, dy, 1), b = step(ll, dx, dy, -1);
+      const ma = where(a), mb = where(b);
+      ll = Math.hypot(cx - ma.x, cy - ma.y) <= Math.hypot(cx - mb.x, cy - mb.y) ? a : b;
+    }
+  }finally{ probe.remove(); }
+  return ll;
+}
+
+function destTmpPinOff(){ if(destTmpPin){ destTmpPin.remove(); destTmpPin = null; } }
+function destLongPress(x, y){
+  if(currentSpeedKmh > DEST_MAX_KMH) return;   // za jízdy ticho
+  if((window.CendurHeader && CendurHeader.askOpen()) || (window.CendurRide && CendurRide.isOpen())) return;
+  if(!requireLogin('navigaci')) return;
+  const p = destLatLngAt(x, y), pt = [p.lat, p.lng];
+  destLpFired = Date.now();
+  try{ if(navigator.vibrate) navigator.vibrate(30); }catch(e){}
+  destTmpPinOff();
+  destTmpPin = destMakePin(pt);
+  CendurHeader.ask({
+    title: 'Navigovat sem',
+    msg: pt[0].toFixed(5) + ', ' + pt[1].toFixed(5),
+    choices: [
+      { label:'Navigovat sem offroadem', sub:'po stezkách a značených cestách', cls:'atlas', fn: () => { destTmpPinOff(); destStart(pt, 'teren'); } },
+      { label:'Navigovat sem po cestách', sub:'po silnicích, nejkratší cesta', cls:'rb', fn: () => { destTmpPinOff(); destStart(pt, 'silnice'); } },
+      { label:'Zrušit', cls:'no', fn: destTmpPinOff }
+    ],
+    onClose: destTmpPinOff
+  });
+}
+(function destLongPressInit(){
+  const wrap = mapEl.parentElement;
+  let timer = 0, p0 = null, pid = null;
+  const clear = () => { clearTimeout(timer); timer = 0; p0 = null; pid = null; };
+  wrap.addEventListener('pointerdown', e => {
+    if(e.target.closest('#route-list, #detail-panel, .leaflet-control, .leaflet-popup, .map-btn, #free-hud, #selection-bar, button, a')) return;
+    if(e.pointerType === 'mouse' && e.button !== 0) return;
+    if(p0){ clear(); return; }   // druhý prst = štípání, ne dlouhý stisk
+    p0 = { x:e.clientX, y:e.clientY }; pid = e.pointerId;
+    timer = setTimeout(() => { const q = p0; clear(); if(q) destLongPress(q.x, q.y); }, DEST_LP_MS);
+  });
+  wrap.addEventListener('pointermove', e => { if(p0 && e.pointerId === pid && Math.hypot(e.clientX - p0.x, e.clientY - p0.y) > DEST_LP_MOVE) clear(); });
+  wrap.addEventListener('pointerup', clear);
+  wrap.addEventListener('pointercancel', clear);
+  // po dlouhém stisku nesmí „dojezd“ ťuknutí nic vybrat; systémová nabídka (kontextové menu) se nepouští
+  wrap.addEventListener('click', e => { if(Date.now() - destLpFired < 600){ e.stopPropagation(); e.preventDefault(); } }, true);
+  wrap.addEventListener('contextmenu', e => { if(e.target.closest('#map')) e.preventDefault(); });
+})();
+
+function destStart(pt, mode){
+  destClear(true);
+  if(!navOn){ setNavMode(true); if(!navOn) return; }
+  if(!map.getPane('dest-pane')){ const pn = map.createPane('dest-pane'); pn.style.zIndex = 450; pn.style.pointerEvents = 'none'; }
+  dest = { ll: pt, mode, pts: null, R: null, prog: 0, offSince: 0, busy: false, pin: destMakePin(pt), line: null, notified: false };
+  if(!destTimer) destTimer = setInterval(destTick, 1000);
+  destTick();
+}
+function destClear(silent){
+  if(destTimer){ clearInterval(destTimer); destTimer = 0; }
+  if(dest){ if(dest.pin) dest.pin.remove(); if(dest.line) dest.line.remove(); dest = null; }
+  if(freeStatus){ freeStatus.clear('dest'); freeStatus.clear('destoff'); }
+}
+function destCancel(){ if(!dest) return; destClear(); toast('Zrušeno', 1800); }
+function destArrive(){
+  destClear(true);
+  try{ if(window.CendurSound) CendurSound.announce('gong', ''); }catch(e){}
+  try{ if(navigator.vibrate) navigator.vibrate([120, 80, 120]); }catch(e){}
+}
+async function destFetch(from){
+  const d = dest, RB = window.CendurRB;
+  if(!d || d.busy || !RB || !window.CendurRouting) return;
+  if(Date.now() - destLastCall < DEST_MIN_GAP_MS) return;   // kredity: nejvýš jedno hledání za 20 s
+  d.busy = true; destLastCall = Date.now();
+  try{
+    const pts = await CendurRouting.find({ lat:from[0], lng:from[1] }, { lat:d.ll[0], lng:d.ll[1] }, d.mode);
+    if(dest !== d) return;
+    d.pts = pts; d.R = RB.prepareRoute(pts, false); d.prog = 0; d.offSince = 0; d.notified = false;
+    if(d.line) d.line.remove();
+    d.line = L.polyline(pts.map(p => [p[0], p[1]]), { pane:'dest-pane', color:'#ff6a00', weight:6, opacity:.9, lineCap:'round', lineJoin:'round', interactive:false }).addTo(map);
+  }catch(e){
+    if(dest !== d) return;
+    if(/position not mapped|island/.test(String(e.message))){ destClear(); toast('Sem se cesta najít nedá.', 3500); return; }
+    if(!d.notified){ d.notified = true; toast('Cestu se nepodařilo najít, zkouším znovu.', 3500); }
+  }finally{ if(dest === d) d.busy = false; }
+}
+// při každé poloze: dojel jsem? jsem na cestě?
+function destUpdate(ll){
+  const d = dest, RB = window.CendurRB;
+  if(!d || !RB) return;
+  if(haversine(ll, d.ll) < DEST_ARRIVE_M){ destArrive(); return; }
+  if(d.R){
+    let p = RB.project(d.R, ll[0], ll[1], Math.max(0, d.prog - FREE_BACK_WIN), Math.min(d.R.total, d.prog + FREE_FWD_WIN));
+    if(p.dist > 40){ const g = RB.project(d.R, ll[0], ll[1]); if(g.dist + 15 < p.dist) p = g; }
+    if(p.dist <= DEST_OFF_M){ d.prog = p.s; d.offSince = 0; }
+    else if(!d.offSince) d.offSince = Date.now();
+  }
+  destRender();
+}
+function destTick(){
+  const d = dest;
+  if(!d) return;
+  if(!navOn){ destClear(true); return; }
+  if(lastLatLng && !d.busy){
+    if(!d.pts) destFetch(lastLatLng);
+    else if(d.offSince && Date.now() - d.offSince >= DEST_OFF_MS) destFetch(lastLatLng);   // přepočet z místa, kde jsem
+  }
+  destRender();
+}
+function destFmtTime(min){ return min >= 60 ? Math.floor(min / 60) + ' h ' + String(min % 60).padStart(2, '0') + ' min' : min + ' min'; }
+function destRender(){
+  const d = dest, RB = window.CendurRB;
+  if(!d || !freeStatus) return;
+  let title;
+  if(!d.pts) title = 'Cíl · hledám cestu…';
+  else {
+    const left = Math.max(0, d.R.total - d.prog);
+    const min = Math.max(1, Math.round(left / 1000 / (DEST_KMH[d.mode] || 15) * 60));
+    title = 'Cíl · ' + (RB ? RB.fmtDist(left) : Math.round(left) + ' m') + ' · ' + destFmtTime(min);
+  }
+  freeStatus.set('dest', { title, sub:'ťukni = zrušit', tone:'blue', prio:8 });
+  if(d.offSince){
+    const s = Math.ceil((DEST_OFF_MS - (Date.now() - d.offSince)) / 1000);
+    freeStatus.set('destoff', { title: s > 0 ? 'Přepočítávám… ' + s + ' s' : 'Přepočítávám…', tone:'warn', prio:6 });
+  } else freeStatus.clear('destoff');
+}
+
 // ---------------------------------------------------------------
 // v4.26: jízda podle roadbooku přes celou obrazovku přímo v Atlasu (public/rb-ride.js)
 //  přihlášený: skutečná jízda podle GPS; nepřihlášený: jen simulace s hláškou a přihlášením
@@ -2176,6 +2338,7 @@ function freeUpdate(latlng){
 function startRoadbook(id){
   const r = routesCache[id];
   if(!r || !window.CendurRide) return;
+  destClear(true);
   if(window.CendurSound) CendurSound.unlock();
   // Atlas NAVI během jízdy podle roadbooku stojí (žádné dvojí zvuky a počítání); Stopař běží dál
   const wasNav = navOn;
