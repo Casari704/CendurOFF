@@ -233,7 +233,7 @@
     const cs = document.createElement('div'); cs.className = 'k-comments'; cs.hidden = true; art.appendChild(cs);
     const d = new Date(p.created_at);
     const sum = cardSum(p.photos && p.photos.length ? API() + '/api/posts/photo/' + p.photos[0] : '', '<b>' + d.getDate() + '</b><small>' + MON[d.getMonth()] + '</small>', p.title,
-      [['Autor', (p.nick || 'smazaný účet') + roleTag(p.role)], ['Přidáno', fmtDate(p.created_at)], ['Komentáře', String(p.comments || 0), 'k-ccnt']],
+      [['Autor', (p.nick || 'smazaný účet') + roleTag(p.role) + ' · ' + d.getDate() + '. ' + (d.getMonth() + 1) + '. ' + d.getFullYear()], ['Komentáře', String(p.comments || 0), 'k-ccnt']],
       String(p.text || '').replace(/\s+/g, ' ').slice(0, 140));
     return collapseCard(art, sum);
   }

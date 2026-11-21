@@ -173,3 +173,14 @@ select.k-in{background:#fff;}
 .k-nx{margin-top:3px;font-size:0.88rem;color:var(--ink-soft);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;}
 .k-nth.ph small{text-align:center;padding:0 4px;line-height:1.2;}
 .k-nth.ph:has(> small:only-child){font-size:0.8rem;}
+
+/* kompaktnější karty na telefonu */
+.k-nt > b{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+@media (max-width:480px){
+  .k-post{padding:12px;}
+  .k-esum{gap:10px;}
+  .k-nth{width:88px;height:66px;}
+  .k-nth.ph b{font-size:1.5rem;}
+  .k-nt > b{font-size:1rem;}
+  .k-nl{font-size:0.86rem;}
+}
