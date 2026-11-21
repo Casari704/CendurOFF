@@ -373,14 +373,37 @@
         if(askTimer) clearInterval(askTimer);
         askTimer = setInterval(() => { left--; if(left > 0){ show(); return; } askClose(false); if(c.fn) c.fn(); }, 1000);
       } });
-    askEl.classList.toggle('c-ask-multi', !!chs.length);
-    askEl.querySelector('.c-ask-row').hidden = !!chs.length;
+    // v4.85: řádky s titulkem a dvojicí tlačítek – rows:[{ title, sub, buttons:[{ label, cls, fn }] }] (+ závěrečné „Zrušit“ = cancel)
+    const rows = Array.isArray(askOpts.rows) ? askOpts.rows : [];
+    if(rows.length){
+      ch.hidden = false; ch.innerHTML = '';
+      rows.forEach(r => {
+        const w = document.createElement('div'); w.className = 'c-ask-rw';
+        const h = document.createElement('div'); h.className = 'c-ask-rw-h';
+        const t = document.createElement('b'); t.textContent = r.title || ''; h.appendChild(t);
+        if(r.sub){ const s = document.createElement('small'); s.textContent = r.sub; h.appendChild(s); }
+        w.appendChild(h);
+        const bs = document.createElement('div'); bs.className = 'c-ask-rw-b';
+        (r.buttons || []).forEach(c => {
+          const b = document.createElement('button'); b.type = 'button'; b.className = 'c-ask-rwb' + (c.cls ? ' ' + c.cls : ''); b.textContent = c.label || '';
+          b.addEventListener('click', () => { if(Date.now() - askAt < 350) return; askClose(false); if(c.fn) c.fn(); });
+          bs.appendChild(b);
+        });
+        w.appendChild(bs); ch.appendChild(w);
+      });
+      const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'c-ask-rwc'; cb.textContent = (askOpts.cancel && askOpts.cancel.label) || 'Zrušit';
+      cb.addEventListener('click', () => { askClose(true); });
+      ch.appendChild(cb);
+    }
+    askEl.classList.toggle('c-ask-rows', !!rows.length);
+    askEl.classList.toggle('c-ask-multi', !!chs.length || !!rows.length);
+    askEl.querySelector('.c-ask-row').hidden = !!chs.length || !!rows.length;
     const y = askEl.querySelector('.c-ask-yes'), n = askEl.querySelector('.c-ask-no');
     y.textContent = askOpts.yes ? askOpts.yes.label : 'OK';
     n.hidden = !askOpts.no; n.textContent = askOpts.no ? askOpts.no.label : '';
     askEl.querySelector('.c-ask-row').classList.toggle('one', !askOpts.no);
     askEl.hidden = false; askAt = Date.now();
-    try{ (chs.length ? ch.firstChild : y).focus({ preventScroll:true }); }catch(e){}
+    try{ ((chs.length || rows.length) ? ch.querySelector('button') : y).focus({ preventScroll:true }); }catch(e){}
   }
   const askOpen = () => !!(askEl && !askEl.hidden);
 

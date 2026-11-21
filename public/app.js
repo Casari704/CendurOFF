@@ -1238,6 +1238,7 @@ async function openDetail(id){
       <button type="button" class="go-atlas" id="detail-go-atlas">▶ <span class="t">Navigovat<small>Atlas NAVI</small></span></button>
       <button type="button" class="go-rb" id="detail-go-rb" hidden>📒 <span class="t">Roadbook<small>Roadbook NAVI</small></span></button>
     </div>
+    <button type="button" class="detail-reach" id="detail-go-reach">Dojet na trasu <span aria-hidden="true">›</span></button>
     <div class="detail-off" id="detail-off" hidden></div>
     <div class="detail-owner">Přidal(a) ${escapeHtml(route.owner_display)} · ${fmtDate(route.created_at)}${route.gpx_updated_at ? `<br>GPX aktualizováno dne: ${fmtDateShort(route.gpx_updated_at)}` : ''}</div>
     ${route.description ? `<div class="detail-desc" id="detail-desc-text">${escapeHtml(route.description)}${route.description_by && route.description_by !== route.owner_id && route.description_by_display ? `<div class="desc-by">Popis doplnil(a) ${escapeHtml(route.description_by_display)}</div>` : ''}</div>` : ''}
@@ -1329,6 +1330,8 @@ async function openDetail(id){
     if(!navOn) setNavMode(true);
     if(navOn){ freeAsked.set(rid, 0); freePick(rid); }
   });
+  // v4.85: Dojet na trasu – k začátku, na konec nebo na nejbližší bod trasy (terénem / po cestách)
+  inner.querySelector('#detail-go-reach').addEventListener('click', () => reachRoute(route));
   // v4.3: odznak a motorka autora trasy (veřejný profil jezdce)
   if(route.owner_id && window.CendurRider){
     fetch(API_URL + '/api/riders/' + encodeURIComponent(route.owner_id)).then(r => r.ok ? r.json() : null).then(p => {
@@ -2280,11 +2283,51 @@ function destLongPress(x, y){
   wrap.addEventListener('contextmenu', e => { if(e.target.closest('#map')) e.preventDefault(); });
 })();
 
-function destStart(pt, mode){
+
+// v4.85: Dojet na trasu – cíl je začátek, konec nebo nejbližší bod trasy; cesta k němu terénem / po silnicích
+function routeLatLngs(id){
+  const l = layersById[id]; if(!l || !l.getLatLngs) return [];
+  const out = []; const walk = a => a.forEach(x => Array.isArray(x) ? walk(x) : out.push([x.lat, x.lng]));
+  walk(l.getLatLngs()); return out;
+}
+function reachPosition(){
+  return new Promise(res => {
+    if(lastLatLng) return res(lastLatLng);
+    if(!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(p => res([p.coords.latitude, p.coords.longitude]), () => res(null), { enableHighAccuracy:true, timeout:7000, maximumAge:30000 });
+  });
+}
+async function reachRoute(route){
+  if(!currentUser){ requireLogin('navigaci'); return; }
+  const pts = routeLatLngs(route.id);
+  if(pts.length < 2){ toast('Trasa nemá body, ke kterým by šlo dojet.'); return; }
+  if(!lastLatLng) toast('Zjišťuji polohu…', 2500);
+  const me = await reachPosition();
+  const km = m => (m / 1000).toFixed(1).replace('.', ',') + ' km';
+  const first = pts[0], last = pts[pts.length - 1];
+  let near = null;
+  if(me){
+    let best = Infinity;
+    pts.forEach(p => { const d = haversine(me, p); if(d < best){ best = d; near = p; } });
+    if(best < 100){ toast('Už jsi na trase.', 3000); return; }
+    near = { pt:near, d:best };
+  }
+  const go = (pt, label) => ({ teren:() => { closeDetail(); destStart(pt, 'teren', label); }, silnice:() => { closeDetail(); destStart(pt, 'silnice', label); } });
+  const row = (title, pt, label, d) => {
+    const g = go(pt, label);
+    return { title, sub: d != null ? km(d) + ' vzdušně' : '', buttons:[ { label:'Terénem', cls:'atlas', fn:g.teren }, { label:'Po cestách', cls:'rb', fn:g.silnice } ] };
+  };
+  const rows = [ row('Začátek trasy', first, 'začátek trasy', me ? haversine(me, first) : null) ];
+  if(near) rows.push(row('Nejbližší bod trasy', near.pt, 'nejbližší bod trasy', near.d));
+  rows.push(row('Konec trasy', last, 'konec trasy', me ? haversine(me, last) : null));
+  CendurHeader.ask({ title:'Dojet na trasu', msg: route.name + (me ? '' : ' · poloha zatím není k dispozici, vzdálenosti se neukážou'), rows });
+}
+
+function destStart(pt, mode, label){
   destClear(true);
   if(!navOn){ setNavMode(true); if(!navOn) return; }
   if(!map.getPane('dest-pane')){ const pn = map.createPane('dest-pane'); pn.style.zIndex = 450; pn.style.pointerEvents = 'none'; }
-  dest = { ll: pt, mode, pts: null, R: null, prog: 0, offSince: 0, busy: false, pin: destMakePin(pt), line: null, notified: false };
+  dest = { ll: pt, mode, label: label || '', pts: null, R: null, prog: 0, offSince: 0, busy: false, pin: destMakePin(pt), line: null, notified: false };
   if(!destTimer) destTimer = setInterval(destTick, 1000);
   destTick();
 }
@@ -2344,11 +2387,12 @@ function destRender(){
   const d = dest, RB = window.CendurRB;
   if(!d || !freeStatus) return;
   let title;
-  if(!d.pts) title = 'Cíl · hledám cestu…';
+  const lb = d.label ? d.label + ' · ' : '';
+  if(!d.pts) title = 'Cíl · ' + lb + 'hledám cestu…';
   else {
     const left = Math.max(0, d.R.total - d.prog);
     const min = Math.max(1, Math.round(left / 1000 / (DEST_KMH[d.mode] || 15) * 60));
-    title = 'Cíl · ' + (RB ? RB.fmtDist(left) : Math.round(left) + ' m') + ' · ' + destFmtTime(min);
+    title = 'Cíl · ' + lb + (RB ? RB.fmtDist(left) : Math.round(left) + ' m') + ' · ' + destFmtTime(min);
   }
   freeStatus.set('dest', { title, sub:'ťukni = zrušit', tone:'blue', prio:8 });
   if(d.offSince){

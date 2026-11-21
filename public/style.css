@@ -1107,3 +1107,26 @@ body.ride-ui #menu-btn .menu-grid{width:calc(var(--rb) * 0.54);height:calc(var(-
 
 /* v4.78.1: dokud je v jízdním režimu otevřený seznam tras nebo detail, tlačítka nad nimi se schovají (jako ostatní tlačítka pod panelem) */
 body.ride-ui.panel-open #menu-btn, body.ride-ui.panel-open #satellite-btn{ display:none; }
+
+/* v4.85: okno „Dojet na trasu“ – řádky s dvojicí tlačítek */
+.c-ask-rows .c-ask-box{max-width:460px;}
+.c-ask-rows .c-ask-choices{flex-direction:column;gap:14px;}
+.c-ask-rw{display:flex;flex-direction:column;gap:6px;}
+.c-ask-rw-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;}
+.c-ask-rw-h b{font-family:'Exo 2',sans-serif;font-size:1.02rem;padding:0;}
+.c-ask-rw-h small{font-size:0.8rem;color:#6A6E58;white-space:nowrap;}
+.c-ask-rw-b{display:flex;gap:8px;}
+.c-ask-rwb{flex:1 1 0;min-height:52px;border-radius:11px;border:2px solid #111;background:#fff;color:#fff;font-family:'Exo 2',sans-serif;font-weight:700;font-size:1.02rem;cursor:pointer;}
+.c-ask-rwb.atlas{background:var(--moss,#4F7048);border-color:var(--moss,#4F7048);}
+.c-ask-rwb.rb{background:#111;border-color:#111;}
+.c-ask-rwb:active{transform:scale(.98);}
+.c-ask-rwc{min-height:44px;border:none;background:transparent;color:#6A6E58;font-family:'Exo 2',sans-serif;font-weight:700;font-size:1rem;cursor:pointer;}
+@media (orientation:landscape) and (max-height:560px){
+  .c-ask-rows .c-ask-box{max-width:min(620px,100%);max-height:96vh;overflow:auto;}
+  .c-ask-rows .c-ask-choices{flex-direction:column;gap:8px;}
+  .c-ask-rwb{min-height:44px;}
+}
+/* tlačítko „Dojet na trasu“ v detailu trasy */
+.detail-reach{appearance:none;display:flex;align-items:center;justify-content:space-between;width:100%;min-height:50px;margin:0 0 6px;padding:0 16px;border-radius:12px;border:2px solid var(--moss,#4F7048);background:#fff;color:var(--moss-dark,#2F4A22);font-family:'Exo 2',sans-serif;font-weight:700;font-size:1.02rem;cursor:pointer;}
+.detail-reach:active{transform:scale(.99);}
+.detail-reach span{font-size:1.4rem;line-height:1;}
