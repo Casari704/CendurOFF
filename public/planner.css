@@ -203,3 +203,13 @@ body.pl-cross-mode #map{cursor:crosshair;}
   #pl-mapctl .map-btn-square{width:46px;height:46px;font-size:1.3rem;}
 }
 #pl-clear{grid-column:1 / -1;}
+
+/* v4.94: spodní lišta plánovače nesmí zajíždět pod spodní okraj / zaoblené rohy displeje */
+@media (max-width:760px){
+  #pl-quickbar{bottom:calc(env(safe-area-inset-bottom, 0px) + 12px);left:calc(env(safe-area-inset-left, 0px) + 8px);right:calc(env(safe-area-inset-right, 0px) + 8px);}
+}
+@media (max-height:520px) and (orientation:landscape){
+  #pl-quickbar{bottom:calc(env(safe-area-inset-bottom, 0px) + 14px);}
+  #pl-mapctl{right:calc(env(safe-area-inset-right, 0px) + 8px);}
+}
+.planner-page .leaflet-bottom{bottom:0;}
