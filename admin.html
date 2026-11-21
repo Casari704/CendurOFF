@@ -9,22 +9,24 @@
 <title>CendurOFF Admin sekce</title>
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.61">
-<link rel="stylesheet" href="public/faq.css?v=4.61">
+<link rel="stylesheet" href="public/style.css?v=4.61.1">
+<link rel="stylesheet" href="public/faq.css?v=4.61.1">
 <style>
   .a-wrap{max-width:1800px;margin:0 auto;padding:24px 20px 60px;}   /* v4.61: na velkém monitoru širší tabulky */
   .a-wrap h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);}
   .a-wrap h2{font-size:1.3rem;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid var(--ink);display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;}
   .a-wrap h2 small{font-family:'Roboto',sans-serif;font-weight:500;font-size:0.85rem;color:var(--ink-soft);}
-  .a-box{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;}
+  .a-box{overflow:auto;max-height:510px;background:var(--surface);border:1px solid var(--line);border-radius:10px;}
   table.a-t{width:100%;border-collapse:collapse;font-size:0.9rem;}
   .a-t th,.a-t td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;white-space:nowrap;}
   .a-t th{font-family:'Exo 2',sans-serif;font-size:0.8rem;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-soft);cursor:pointer;user-select:none;}
   .a-t th.num,.a-t td.num{text-align:right;}
+  .a-t thead th{position:sticky;top:0;z-index:3;background:var(--surface);box-shadow:0 1px 0 var(--line);}
   .a-t td.name{white-space:normal;min-width:180px;font-weight:600;}
   /* v4.61: tabulka uživatelů – přezdívka vlevo a tlačítka vpravo zůstávají vidět při posunu do strany */
   #a-users thead th:first-child,#a-users tbody tr:not(.det) td:first-child{position:sticky;left:0;z-index:2;background:var(--surface);box-shadow:1px 0 0 var(--line);}
   #a-users thead th:last-child,#a-users tbody tr:not(.det) td:last-child{position:sticky;right:0;z-index:2;background:var(--surface);box-shadow:-1px 0 0 var(--line);}
+  #a-users thead th:first-child,#a-users thead th:last-child{z-index:4;top:0;}
   #a-users tbody tr.a-pend td:first-child,#a-users tbody tr.a-pend td:last-child{background:#FFF8E5;}
   .a-t tr.row{cursor:pointer;}
   .a-t tr.row:hover td{background:rgba(79,112,72,0.06);}
@@ -109,11 +111,11 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.61"></script>
-<script src="public/errors.js?v=4.61"></script>
-<script src="public/rider.js?v=4.61"></script>
-<script src="public/header.js?v=4.61"></script>
-<script src="public/pwa.js?v=4.61"></script>
+<script src="public/config.js?v=4.61.1"></script>
+<script src="public/errors.js?v=4.61.1"></script>
+<script src="public/rider.js?v=4.61.1"></script>
+<script src="public/header.js?v=4.61.1"></script>
+<script src="public/pwa.js?v=4.61.1"></script>
 <script>
 (function(){
   const API_URL = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
