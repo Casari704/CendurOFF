@@ -202,3 +202,4 @@ body.pl-cross-mode #map{cursor:crosshair;}
   #pl-mapctl{top:6px;right:8px;gap:4px;}
   #pl-mapctl .map-btn-square{width:46px;height:46px;font-size:1.3rem;}
 }
+#pl-clear{grid-column:1 / -1;}

@@ -49,7 +49,7 @@
       <span class="brand">CendurOFF <span class="brand-sub">${current.label}</span></span>
     </a>
     <div class="site-actions">
-      ${page==='atlas' || page==='planovac' ? '<button class="btn solid hdr-up" id="open-upload" type="button">+ Nahrát<span class="hdr-up-l"> trasu</span></button>' : ''}
+      ${page==='atlas' || page==='planovac' ? '<button class="btn solid hdr-up" id="open-upload" type="button">+ Nahrát<span class="hdr-up-l">${page==='planovac' ? ' GPX' : ' trasu'}</span></button>' : ''}
       <button class="btn hdr-back" id="hdr-back" type="button" aria-label="Zpět na úvodní dlaždice">← Zpět</button>
       <button class="btn" id="open-about" type="button" hidden>O projektu</button>
       <button class="btn user-btn hdr-wide" id="user-chip" type="button" hidden></button>
@@ -189,9 +189,13 @@
     if(a.classList.contains('cur')){ e.preventDefault(); closeTiles(); }
   }));
   // v4.18: „+ Nahrát trasu“ v GPX planneru otevře nahrání v Atlasu (stejné okno jako v Atlasu)
+  // v4.92: v plánovači „+ Nahrát GPX“ otevře soubor z zařízení do plánovače (neukládá se, dokud neklepneš na Uložit)
   if(page !== 'atlas'){
     const up = document.getElementById('open-upload');
-    if(up) up.addEventListener('click', ()=>{ location.href = 'index.html?nahrat=1'; });
+    if(up) up.addEventListener('click', ()=>{
+      const f = page === 'planovac' && document.getElementById('pl-gpx-file');
+      if(f) f.click(); else location.href = 'index.html?nahrat=1';
+    });
   }
   // v3.2: Nastavení účtu = samostatná stránka nastaveni.html
   document.getElementById('tm-account').addEventListener('click', ()=>{
