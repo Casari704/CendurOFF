@@ -413,7 +413,7 @@
 
 
   // ---------- Akce (v4.69) ----------
-  const ev = { loaded:false, editId:0, photo:null, old:null, pastOff:0 };
+  const ev = { loaded:false, editId:0, files:[], old:[], pastOff:0 };
   const dayOf = s => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); return new Date(+m[1], +m[2] - 1, +m[3]); };
   const whenFmt = e => {
     const a = dayOf(e.date_from), b = dayOf(e.date_to || e.date_from);
@@ -426,11 +426,11 @@
   function mapLink(place, name){ return 'index.html?misto=' + encodeURIComponent(place) + (name ? '&nazev=' + encodeURIComponent(name) : ''); }
   function eventEl(e, past){
     const art = document.createElement('article'); art.className = 'k-post k-event'; art.dataset.eid = e.id; art.id = 'sraz-' + e.id;
-    art.dataset.ev = JSON.stringify({ title:e.title, has_photo:e.has_photo, photo_v:e.photo_v, date_from:e.date_from, date_to:e.date_to, place:e.place, description:e.description, url:e.url });
+    art.dataset.ev = JSON.stringify({ title:e.title, photos:e.photos || [], date_from:e.date_from, date_to:e.date_to, place:e.place, description:e.description, url:e.url });
     // souhrn (vždy vidět): náhled, název, termín, místo, počet přihlášených; klepnutím se karta rozbalí
     const sum = document.createElement('div'); sum.className = 'k-ni k-esum'; sum.setAttribute('role', 'button'); sum.tabIndex = 0; sum.setAttribute('aria-expanded', 'false');
     const th = document.createElement('span'); th.className = 'k-nth';
-    if(e.has_photo){ const im = document.createElement('img'); im.loading = 'lazy'; im.decoding = 'async'; im.alt = ''; im.src = API() + '/api/events/photo/' + e.id + '?v=' + (e.photo_v || 0); th.appendChild(im); }
+    if(e.photos && e.photos.length){ const im = document.createElement('img'); im.loading = 'lazy'; im.decoding = 'async'; im.alt = ''; im.src = API() + '/api/events/photo/' + e.photos[0]; th.appendChild(im); }
     else { const d = dayOf(e.date_from); th.classList.add('ph'); th.innerHTML = '<b>' + d.getDate() + '</b><small>' + MON[d.getMonth()] + '</small>'; }
     const tx = document.createElement('span'); tx.className = 'k-nt';
     const h = document.createElement('b'); h.textContent = e.title; tx.appendChild(h);
@@ -455,10 +455,13 @@
     det.appendChild(meta);
     if(e.description){ const t = document.createElement('div'); t.className = 'k-ptext'; t.textContent = e.description; det.appendChild(t); }
     if(e.url){ const p = document.createElement('p'); p.className = 'k-elink'; const a = document.createElement('a'); a.href = e.url; a.target = '_blank'; a.rel = 'noopener nofollow'; a.textContent = e.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60); p.appendChild(a); det.appendChild(p); }
-    if(e.has_photo){
-      const g = document.createElement('div'); g.className = 'k-pgal one';
-      const a = document.createElement('a'); a.href = API() + '/api/events/photo/' + e.id + '?v=' + (e.photo_v || 0); a.className = 'k-ph'; a.dataset.photo = '1';
-      const im = document.createElement('img'); im.loading = 'lazy'; im.decoding = 'async'; im.alt = e.title; im.src = a.href; a.appendChild(im); g.appendChild(a); det.appendChild(g);
+    if(e.photos && e.photos.length){
+      const g = document.createElement('div'); g.className = 'k-pgal' + (e.photos.length === 1 ? ' one' : '');
+      e.photos.forEach(id => {
+        const a = document.createElement('a'); a.href = API() + '/api/events/photo/' + id; a.className = 'k-ph'; a.dataset.photo = '1';
+        const im = document.createElement('img'); im.loading = 'lazy'; im.decoding = 'async'; im.alt = e.title; im.src = a.href; a.appendChild(im); g.appendChild(a);
+      });
+      det.appendChild(g);
     }
     const bar = document.createElement('div'); bar.className = 'k-ebar2';
     if(!past){
@@ -513,9 +516,10 @@
     loadEvents();
   }
   function eClose(){
-    const f = eEl('k-eform'); f.hidden = true; f.reset(); ev.photo = null; ev.old = null; ev.editId = 0;
+    const f = eEl('k-eform'); f.hidden = true; f.reset(); ev.files = []; ev.old = []; ev.editId = 0;
     f.querySelector('.k-err').textContent = ''; f.querySelector('.k-thumbs').innerHTML = '';
     f.querySelector('.k-files').hidden = false; f.querySelector('button[type=submit]').textContent = 'Přidat akci';
+    f.querySelector('.k-fhint').textContent = 'Nejvýš 3 fotky, první je hlavní';
   }
   (function(){
     const f = eEl('k-eform');
@@ -523,21 +527,33 @@
     eEl('k-ecancel').addEventListener('click', eClose);
     eEl('k-epast').addEventListener('click', () => { eEl('k-epast').hidden = true; loadPast(false); });
     eEl('k-epast-more').addEventListener('click', () => loadPast(true));
-    // jedna fotka: nová nahradí současnou; × odebere (novou i současnou)
+    // až 3 fotky, první je hlavní (náhled karty)
     function drawEThumb(){
       const th = f.querySelector('.k-thumbs'); th.innerHTML = '';
-      const src = ev.photo || (ev.old ? API() + '/api/events/photo/' + ev.old.id + '?v=' + ev.old.v : null);
-      if(!src) return;
-      const w = document.createElement('div'); w.className = 'k-th';
-      const im = document.createElement('img'); im.src = src; im.alt = '';
-      const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Odebrat fotku');
-      x.addEventListener('click', () => { if(ev.photo) ev.photo = null; else ev.old = null; drawEThumb(); });
-      w.appendChild(im); w.appendChild(x); th.appendChild(w);
+      const add = (src, attr, i) => {
+        const w = document.createElement('div'); w.className = 'k-th';
+        const im = document.createElement('img'); im.src = src; im.alt = '';
+        const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.dataset[attr] = i; x.setAttribute('aria-label', 'Odebrat fotku');
+        w.appendChild(im); w.appendChild(x); th.appendChild(w);
+      };
+      ev.old.forEach((id, i) => add(API() + '/api/events/photo/' + id, 'rmold', i));
+      ev.files.forEach((u, i) => add(u, 'rm', i));
+      const n = ev.old.length + ev.files.length;
+      f.querySelector('.k-fhint').textContent = n ? n + ' / 3 (první je hlavní)' : 'Nejvýš 3 fotky, první je hlavní';
     }
-    f.photo.addEventListener('change', async () => {
+    f.querySelector('.k-thumbs').addEventListener('click', e => {
+      const b = e.target.closest('[data-rm],[data-rmold]'); if(!b) return;
+      if(b.dataset.rmold != null) ev.old.splice(Number(b.dataset.rmold), 1); else ev.files.splice(Number(b.dataset.rm), 1);
+      drawEThumb();
+    });
+    f.photos.addEventListener('change', async () => {
       const err = f.querySelector('.k-err'); err.textContent = '';
-      const file = f.photo.files[0]; f.photo.value = ''; if(!file) return;
-      try{ ev.photo = await shrink(file); drawEThumb(); }catch(e){ err.textContent = e.message; }
+      const list = Array.from(f.photos.files); f.photos.value = '';
+      for(const file of list){
+        if(ev.old.length + ev.files.length >= 3){ err.textContent = 'Nejvýš 3 fotky.'; break; }
+        try{ ev.files.push(await shrink(file)); }catch(e){ err.textContent = e.message; }
+      }
+      drawEThumb();
     });
     f.addEventListener('submit', async e => {
       e.preventDefault();
@@ -545,8 +561,9 @@
       err.textContent = ''; btn.disabled = true;
       try{
         const body = { title:f.title.value, dateFrom:f.dfrom.value, dateTo:f.dto.value, place:f.place.value, description:f.description.value, url:f.url.value };
-        if(ev.editId){ if(ev.photo) body.photo = ev.photo; else if(!ev.old) body.removePhoto = true; await send('PUT', '/api/events/' + ev.editId, body); }
-        else{ if(ev.photo) body.photo = ev.photo; await send('POST', '/api/events', body); }
+        body.photos = ev.files;
+        if(ev.editId){ body.keep = ev.old; await send('PUT', '/api/events/' + ev.editId, body); }
+        else await send('POST', '/api/events', body);
         eClose(); await loadEvents();
       }catch(e2){ err.textContent = e2.message; }
       finally{ btn.disabled = false; }
@@ -591,7 +608,7 @@
       if(ed){
         const d = JSON.parse(art.dataset.ev); eClose();
         f.title.value = d.title; f.dfrom.value = d.date_from; f.dto.value = d.date_to && d.date_to !== d.date_from ? d.date_to : ''; f.place.value = d.place; f.description.value = d.description || ''; f.url.value = d.url || '';
-        ev.editId = Number(ed.dataset.eedit); ev.old = d.has_photo ? { id:ev.editId, v:d.photo_v || 0 } : null; ev.photo = null; drawEThumb(); f.querySelector('button[type=submit]').textContent = 'Uložit změny';
+        ev.editId = Number(ed.dataset.eedit); ev.old = (d.photos || []).slice(); ev.files = []; drawEThumb(); f.querySelector('button[type=submit]').textContent = 'Uložit změny';
         f.hidden = false; f.scrollIntoView({ block:'nearest' }); f.title.focus(); return;
       }
       const dl = e.target.closest('[data-edel]');

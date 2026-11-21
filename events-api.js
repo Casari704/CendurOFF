@@ -1,21 +1,19 @@
 // ---------------------------------------------------------------
 // CendurOFF Komunita – Akce (v4.69)
-// Akce (sraz, vyjížďka…) = kdy, kde, popis, volitelně odkaz a jedna fotka; členové potvrzují účast.
+// Akce (sraz, vyjížďka…) = kdy, kde, popis, volitelně odkaz a až 3 fotky (první je hlavní); členové potvrzují účast.
 // Čtení je veřejné, přidávat smí každý přihlášený, upravit/smazat autor nebo moderátor.
 //   GET    /api/events                    – nadcházející akce (a ty, co právě probíhají)
 //   GET    /api/events?past=1&offset=N    – proběhlé, 10 na stránku, nejnovější první
-//   GET    /api/events/photo/:id          – fotka
+//   GET    /api/events/photo/:id          – fotka (id fotky)
 //   GET    /api/events/:id/going          – kdo se zúčastní (přezdívky)
-//   POST   /api/events                    – { title, dateFrom, dateTo (volitelné), place, description, url, photo(data URL) }
-//   PUT    /api/events/:id                – { title, dateFrom, dateTo, place, description, url }
+//   POST   /api/events                    – { title, dateFrom, dateTo (volitelné), place, description, url, photos:[data URL ×3] }
+//   PUT    /api/events/:id                – { title, dateFrom, dateTo, place, description, url, keep:[id fotek], photos:[nové] }
 //   DELETE /api/events/:id
 //   POST   /api/events/:id/join, DELETE /api/events/:id/join – potvrdit / zrušit účast
 // ---------------------------------------------------------------
-const { detectImageType } = require('./security');
-const { decodePhotos } = require('./photo-util');
+const { decodePhotos, syncPhotos } = require('./photo-util');
 
-const MAX_PHOTO_BYTES = 1500000;
-const DATA_URL = /^data:image\/(jpeg|png|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/;
+const MAX_PHOTOS = 3;
 const PAGE = 10;
 
 function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
@@ -42,6 +40,18 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
         await pool.query(`ALTER TABLE events ALTER COLUMN starts_at DROP NOT NULL`);
         await pool.query(`UPDATE events SET date_from = (starts_at AT TIME ZONE 'Europe/Prague')::date, date_to = (starts_at AT TIME ZONE 'Europe/Prague')::date WHERE date_from IS NULL AND starts_at IS NOT NULL`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_from ON events(date_from)`);
+        // v4.77: až 3 fotky u akce; dřívější jediná fotka se jednorázově přesune do event_photos
+        await pool.query(`CREATE TABLE IF NOT EXISTS event_photos (
+          id SERIAL PRIMARY KEY,
+          event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+          pos INTEGER NOT NULL DEFAULT 0,
+          mime TEXT NOT NULL,
+          data BYTEA NOT NULL
+        )`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_event_photos_event ON event_photos(event_id)`);
+        await pool.query(`WITH old AS (SELECT id, photo_mime, photo FROM events WHERE photo IS NOT NULL),
+          ins AS (INSERT INTO event_photos (event_id, pos, mime, data) SELECT id, 0, photo_mime, photo FROM old)
+          UPDATE events SET photo = NULL, photo_mime = NULL WHERE id IN (SELECT id FROM old)`);
         await pool.query(`CREATE TABLE IF NOT EXISTS event_rsvps (
           event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
           user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -56,7 +66,7 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
   const whenReady = (req, res, next) => ensure().then(() => next(), () => res.status(500).json({ error: 'Akce nejsou připravené.' }));
 
   const clean = (s, n) => String(s == null ? '' : s).replace(/\r\n/g, '\n').trim().slice(0, n);
-  const SELECT = `SELECT e.id, e.title, e.date_from::text AS date_from, e.date_to::text AS date_to, e.place, e.description, e.url, e.user_id, (e.photo_mime IS NOT NULL) AS has_photo, COALESCE(floor(extract(epoch from e.photo_at))::bigint, 0) AS photo_v,
+  const SELECT = `SELECT e.id, e.title, e.date_from::text AS date_from, e.date_to::text AS date_to, e.place, e.description, e.url, e.user_id, ARRAY(SELECT p.id FROM event_photos p WHERE p.event_id = e.id ORDER BY p.pos, p.id) AS photos,
                          u.display_name AS nick, u.role,
                          (SELECT COUNT(*)::int FROM event_rsvps r WHERE r.event_id = e.id) AS going,
                          EXISTS(SELECT 1 FROM event_rsvps r WHERE r.event_id = e.id AND r.user_id = $1) AS joined
@@ -97,7 +107,7 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
 
   app.get('/api/events/photo/:id', whenReady, async (req, res) => {
     try {
-      const r = await pool.query('SELECT photo_mime AS mime, photo AS data FROM events WHERE id = $1 AND photo IS NOT NULL', [Number(req.params.id)]);
+      const r = await pool.query('SELECT mime, data FROM event_photos WHERE id = $1', [Number(req.params.id)]);
       if (!r.rows[0]) return res.status(404).end();
       res.set({ 'Content-Type': r.rows[0].mime, 'Cache-Control': 'public, max-age=31536000, immutable', 'X-Content-Type-Options': 'nosniff' });
       res.send(r.rows[0].data);
@@ -115,24 +125,19 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
   app.post('/api/events', whenReady, requireAuth, async (req, res) => {
     try {
       const p = parse(req.body || {}); if (p.error) return res.status(400).json({ error: p.error });
-      let mime = null, buf = null;
-      const d = req.body.photo;
-      if (d) {
-        const m = DATA_URL.exec(String(d));
-        if (!m) return res.status(400).json({ error: 'Fotka není platný obrázek.' });
-        buf = Buffer.from(m[2], 'base64');
-        mime = detectImageType(buf);
-        if (!mime) return res.status(400).json({ error: 'Fotka není platný obrázek.' });
-        if (buf.length > MAX_PHOTO_BYTES) return res.status(400).json({ error: 'Fotka je příliš velká (nejvýš 1,5 MB).' });
-      }
+      const list0 = Array.isArray(req.body.photos) ? req.body.photos : [];
+      if (list0.length > MAX_PHOTOS) return res.status(400).json({ error: 'Nejvýš ' + MAX_PHOTOS + ' fotky.' });
+      const dec = decodePhotos(list0); if (dec.error) return res.status(400).json({ error: dec.error });
       const now = Date.now();
       const list = (hits.get(req.user.id) || []).filter(t => now - t < 3600000);
       if (list.length >= 5) return res.status(429).json({ error: 'Přidáváš moc akcí, zkus to později.' });
       list.push(now); hits.set(req.user.id, list);
       if (hits.size > 5000) hits.clear();
       const ins = await pool.query(
-        'INSERT INTO events (user_id, title, date_from, date_to, place, description, url, photo_mime, photo, photo_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, CASE WHEN $9::bytea IS NULL THEN NULL ELSE now() END) RETURNING id',
-        [req.user.id, p.v.title, p.v.dateFrom, p.v.dateTo, p.v.place, p.v.description, p.v.url, mime, buf]);
+        'INSERT INTO events (user_id, title, date_from, date_to, place, description, url) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+        [req.user.id, p.v.title, p.v.dateFrom, p.v.dateTo, p.v.place, p.v.description, p.v.url]);
+      let pos = 0;
+      for (const b of dec.bufs) await pool.query('INSERT INTO event_photos (event_id, pos, mime, data) VALUES ($1,$2,$3,$4)', [ins.rows[0].id, pos++, b.type, b.buf]);
       res.status(201).json({ id: ins.rows[0].id });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Akci se nepodařilo uložit.' }); }
   });
@@ -149,12 +154,8 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
       const ev = await own(req, res); if (!ev) return;
       const b = req.body || {};
       const p = parse(b); if (p.error) return res.status(400).json({ error: p.error });
-      if (b.photo) {          // nová fotka nahradí starou
-        const dec = decodePhotos([b.photo]); if (dec.error) return res.status(400).json({ error: dec.error });
-        await pool.query('UPDATE events SET photo_mime = $2, photo = $3, photo_at = now() WHERE id = $1', [ev.id, dec.bufs[0].type, dec.bufs[0].buf]);
-      } else if (b.removePhoto) {
-        await pool.query('UPDATE events SET photo_mime = NULL, photo = NULL WHERE id = $1', [ev.id]);
-      }
+      const perr = await syncPhotos(pool, 'event_photos', 'event_id', ev.id, b, MAX_PHOTOS);
+      if (perr) return res.status(400).json({ error: perr });
       await pool.query('UPDATE events SET title=$2, date_from=$3, date_to=$4, place=$5, description=$6, url=$7 WHERE id=$1', [ev.id, p.v.title, p.v.dateFrom, p.v.dateTo, p.v.place, p.v.description, p.v.url]);
       res.json({ ok: true });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Akci se nepodařilo upravit.' }); }

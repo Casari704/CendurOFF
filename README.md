@@ -38,7 +38,7 @@ admin-api.js          archiv smazaných tras, projetí, správa uživatelů
 profile-api.js        profil jezdce, odznaky, hlášení chyb
 chat-api.js           skupinový chat v Komunitě (jen přihlášení)
 posts-api.js          články v Komunitě: Aktuality (admin) a Články (reporter a výš), komentáře pod články
-events-api.js         Akce v Komunitě: přehled 5 nejbližších akcí, přidání akce, potvrzení účasti
+events-api.js         Akce v Komunitě: přehled 5 nejbližších akcí, přidání akce, potvrzení účasti (až 3 fotky)
 places-api.js         Místa v Komunitě: zajímavá místa (POI) s fotkami, kategoriemi a komentáři
 photo-util.js         společné ověření a úprava fotek (články, místa, akce)
 backup-api.js         záloha a obnova databáze (jen admin)
