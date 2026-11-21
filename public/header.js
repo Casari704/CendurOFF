@@ -132,8 +132,8 @@
     ${T('tm-rp','roadbook','roadbook-planner.html','<span class="tm-n">2</span>Roadbook editor','vytvoř k trase roadbook · jen na PC')}
   </div></div>
   <div class="tm-side">
-    <button class="tm-s${page==='nastaveni' ? ' cur' : ''}" id="tm-account" type="button">Nastavení účtu</button>
     <a class="tm-s${page==='komunita' ? ' cur' : ''}" href="komunita.html">Komunita</a>
+    <button class="tm-s${page==='nastaveni' ? ' cur' : ''}" id="tm-account" type="button">Nastavení účtu</button>
     <a class="tm-s${page==='faq' ? ' cur' : ''}" href="faq.html">Nápověda</a>
     <a class="tm-s${page==='merch' ? ' cur' : ''}" href="merch.html">Merch</a>
   </div>
