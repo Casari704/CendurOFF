@@ -185,3 +185,6 @@ body.auth-pending #app-screen{visibility:hidden;}
 .pl-crossbar[hidden]{display:none;}
 .pl-crossbar button{min-height:40px;padding:0 14px;border-radius:9px;border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;font:inherit;cursor:pointer;}
 body.pl-cross-mode #map{cursor:crosshair;}
+
+.pl-cutbar{max-width:calc(100% - 24px);flex-wrap:wrap;justify-content:center;}
+.pl-cutbar span{flex:1 1 100%;text-align:center;font-size:0.88rem;}
