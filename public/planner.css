@@ -191,3 +191,14 @@ body.pl-cross-mode #map{cursor:crosshair;}
 #pl-join-ok{background:#4F7048;color:#fff;border-color:#4F7048;}
 
 #pl-download,.pl-grid button.pl-danger{grid-column:1 / -1;}
+
+/* v4.91: telefon na šířku – spodní lišta nesmí být přes celou šířku, ovládání mapy menší a nepřekrývá lištu */
+@media (max-height:520px) and (orientation:landscape){
+  #pl-quickbar{left:50%;right:auto;transform:translateX(-50%);bottom:6px;gap:6px;}
+  #pl-quickbar .pl-seg{flex:none;}
+  #pl-quickbar .pl-seg button{flex:none;width:84px;height:46px;padding:0 4px;}
+  #pl-quickbar .pl-qb{height:46px;}
+  #pl-quickbar .map-btn-square.pl-qb,#pl-quickbar .pl-qb-save{width:46px;min-width:46px;}
+  #pl-mapctl{top:6px;right:8px;gap:4px;}
+  #pl-mapctl .map-btn-square{width:46px;height:46px;font-size:1.3rem;}
+}
