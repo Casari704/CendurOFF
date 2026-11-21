@@ -35,6 +35,10 @@
     const tools = document.getElementById('route-tools');
     if(tools) tools.insertAdjacentHTML('afterbegin', `
       <div id="route-master">
+        <label class="master-row" id="master-mine" title="Skrýt trasy ostatních" hidden>
+          <span class="visibility-toggle"><input type="checkbox" id="master-mine-cb"><span class="visibility-box"></span></span>
+          <span class="master-txt">Zobrazit pouze moje trasy<small id="master-mine-n"></small></span>
+        </label>
         <label class="master-row" id="master-show" title="Zobrazit všechny / žádné trasy na mapě">
           <span class="visibility-toggle"><input type="checkbox" id="master-show-cb" checked><span class="visibility-box"></span></span>
           <span class="master-txt">Zobrazit na mapě<small id="master-show-n"></small></span>
@@ -696,7 +700,7 @@ async function loadRoutes(){
   selectedIds.forEach(rid=>{ if(!routesCache[rid]) selectedIds.delete(rid); });
   Object.keys(layersById).forEach(applyRouteStyle);
   updateSelectionBar();
-  syncMasters();
+  applyMyOnly();
 }
 
 const ROUTE_COLOR_SELECTED = '#1E64D6';
@@ -834,10 +838,35 @@ async function multiDlGuard(){
   return false;
 }
 // hlavní zaškrtávátka „vše / nic“ (zobrazení na mapě, výběr ke stažení)
+// v4.88: filtr „pouze moje trasy“ – cizí trasy zmizí ze seznamu i z mapy
+let myOnly = false;
+try{ myOnly = localStorage.getItem('cenduroff_my_only') === '1'; }catch(e){}
+function isMine(id){ const r = routesCache[id]; return !!(r && currentUser && Number(r.owner_id) === Number(currentUser.id)); }
+function listedIds(){ return Object.keys(routesCache).filter(id => !(myOnly && currentUser && !isMine(id))); }
+function applyMyOnly(){
+  const on = myOnly && !!currentUser;
+  Object.keys(routesCache).forEach(id => {
+    const item = document.querySelector(`.route-item[data-route-id="${id}"]`);
+    const hide = on && !isMine(id);
+    if(item) item.hidden = hide;
+    const l = layersById[id], cb = item && item.querySelector('.route-visibility-checkbox');
+    if(!l) return;
+    if(hide){
+      if(map.hasLayer(l)) map.removeLayer(l);
+      if(selectedIds.has(Number(id))){ selectedIds.delete(Number(id)); if(item) item.classList.remove('picked'); }
+    } else if(cb && cb.checked && !map.hasLayer(l)) l.addTo(map);
+  });
+  const mc = document.getElementById('master-mine-cb');
+  if(mc) mc.checked = on;
+  Object.keys(layersById).forEach(applyRouteStyle);
+  syncMasters();
+}
 function syncMasters(){
   const show = document.getElementById('master-show-cb'), dl = document.getElementById('master-dl-cb');
   if(!show) return;
-  const ids = Object.keys(routesCache);
+  const ids = listedIds();
+  const mine = document.getElementById('master-mine');
+  if(mine){ mine.hidden = !currentUser; const all = Object.keys(routesCache); document.getElementById('master-mine-n').textContent = currentUser ? all.filter(isMine).length + ' z ' + all.length : ''; }
   const vis = ids.filter(id => layersById[id] && map.hasLayer(layersById[id])).length;
   show.checked = ids.length > 0 && vis === ids.length;
   show.indeterminate = vis > 0 && vis < ids.length;
@@ -851,7 +880,7 @@ function syncMasters(){
   document.querySelectorAll('.route-dl-checkbox').forEach(cb => { const it = cb.closest('.route-item'); cb.checked = !!it && selectedIds.has(Number(it.dataset.routeId)); });
 }
 function setAllVisible(on){
-  Object.keys(routesCache).forEach(id => {
+  listedIds().forEach(id => {
     const l = layersById[id]; if(!l) return;
     if(on && !map.hasLayer(l)) l.addTo(map);
     if(!on && map.hasLayer(l)) map.removeLayer(l);
@@ -862,7 +891,7 @@ function setAllVisible(on){
 }
 function setAllSelected(on){
   selectedIds.clear();
-  if(on) Object.keys(routesCache).forEach(id => selectedIds.add(Number(id)));
+  if(on) listedIds().forEach(id => selectedIds.add(Number(id)));
   document.querySelectorAll('.route-item').forEach(it => it.classList.toggle('picked', selectedIds.has(Number(it.dataset.routeId))));
   if(on) setAllVisible(true);   // vybrané trasy musí být na mapě vidět
   Object.keys(layersById).forEach(applyRouteStyle);
@@ -900,6 +929,11 @@ function selectedTracks(){
 selectToggleBtn.addEventListener('click', async ()=>{
   if(selectMode){ setSelectMode(false); return; }
   if(await multiDlGuard()) setSelectMode(true);
+});
+document.getElementById('master-mine-cb').addEventListener('change', e=>{
+  myOnly = e.target.checked;
+  try{ localStorage.setItem('cenduroff_my_only', myOnly ? '1' : '0'); }catch(err){}
+  applyMyOnly();
 });
 document.getElementById('master-show-cb').addEventListener('change', e=> setAllVisible(e.target.checked));
 document.getElementById('master-dl-cb').addEventListener('change', e=> setAllSelected(e.target.checked));

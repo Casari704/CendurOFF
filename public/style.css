@@ -1152,3 +1152,5 @@ body.ride-ui.panel-open #menu-btn, body.ride-ui.panel-open #satellite-btn{ displ
 #route-master.selecting .visibility-toggle.dl{display:inline-flex;}
 #route-list.selecting .route-item .visibility-toggle:not(.dl){opacity:.5;}
 
+.route-item[hidden]{display:none;}
+.master-row[hidden]{display:none;}
