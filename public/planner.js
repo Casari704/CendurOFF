@@ -166,6 +166,7 @@ let wps = [];        // [{ lat, lng, ele, small }]
 let segs = [];       // [{ mode, pts:[[lat,lng,ele]] | null, error, loading, req }]
 let editing = null;  // upravovaná trasa z CendurOFF: { id, name, description, route_type, owner_id }
 let currentUser = null;
+const joinedHidden = new Set();   // v4.87: připojené trasy se v podkladu plánovače už nekreslí
 function isAdminUser(){ return !!(currentUser && currentUser.role === 'admin'); }
 // upravovat (otevřít v plánovači a přepsat) smí jen vlastník trasy nebo admin
 function canEditRoute(ownerId){ return !!currentUser && (Number(ownerId) === Number(currentUser.id) || isAdminUser()); }
@@ -180,7 +181,8 @@ function snapshot(){
     wps: wps.map(w=>Object.assign({}, w)),
     // pts se nikdy nemění "na místě" (vždy nové pole), proto stačí mělká kopie
     segs: segs.map(s=>({ mode:s.mode, pts:s.pts, error:!!s.error, needsRoute: s.mode==='route' && (s.loading || !s.pts) })),
-    editing: editing ? Object.assign({}, editing) : null
+    editing: editing ? Object.assign({}, editing) : null,
+    hidden: Array.from(joinedHidden)
   };
 }
 function pushUndo(){
@@ -195,6 +197,8 @@ function restore(snap){
   segs.forEach(s=>{ s.req = (s.req||0) + 1; });
   segs = snap.segs.map(s=>{ const n = newSeg(s.mode, s.needsRoute ? null : s.pts); n.error = s.error; return n; });
   editing = snap.editing ? Object.assign({}, snap.editing) : null;
+  joinedHidden.clear(); (snap.hidden || []).forEach(x=>joinedHidden.add(x));
+  drawOthers();
   segs.forEach(s=>{ if(s.mode==='route' && (!s.pts || s.needsRoute)) requestRoute(s); });
   changed();
 }
@@ -473,6 +477,7 @@ map.on('popupopen', ()=>{ popupOpen = true; });
 map.on('popupclose', ()=>{ popupOpen = false; lastPopupClose = Date.now(); });
 
 map.on('click', e=>{
+  if(joinMode) return;
   if(cutoutMode){ cutoutAt(e.latlng); return; }
   if(crossMode){ crossAt(e.latlng); return; }
   if(popupOpen || Date.now() - lastPopupClose < 350) return;
@@ -596,6 +601,7 @@ crossBar.querySelector('button').addEventListener('click', ()=> setCrossMode(fal
 document.addEventListener('keydown', e=>{ if(e.key === 'Escape' && crossMode) setCrossMode(false); });
 function setCrossMode(on){
   if(on && cutoutMode) setCutoutMode(false);
+  if(on && joinMode) setJoinMode(false);
   crossMode = !!on;
   crossBar.hidden = !crossMode;
   document.body.classList.toggle('pl-cross-mode', crossMode);
@@ -686,10 +692,11 @@ document.addEventListener('keydown', e=>{ if(e.key === 'Escape' && cutoutMode) s
 function cutoutMsg(){ document.getElementById('pl-cutout-msg').textContent = cutoutFirst ? '✂ Klepni na konec úseku, který se vyřízne' : '✂ Klepni na začátek úseku, který chceš vyříznout'; }
 function setCutoutMode(on){
   if(on && crossMode) setCrossMode(false);
+  if(on && joinMode) setJoinMode(false);
   cutoutMode = !!on; cutoutFirst = null;
   if(cutoutMark){ map.removeLayer(cutoutMark); cutoutMark = null; }
   cutoutBar.hidden = !cutoutMode;
-  document.body.classList.toggle('pl-cross-mode', cutoutMode || crossMode);
+  document.body.classList.toggle('pl-cross-mode', cutoutMode || crossMode || joinMode);
   if(cutoutMode) cutoutMsg();
 }
 function cutoutFind(ll){
@@ -731,6 +738,92 @@ function cutoutAt(ll){
   toast('Úsek vyříznut' + (removed ? ' (' + removed + ' bodů smazáno)' : '') + '. (Vrátíš tlačítkem Zpět.)', 4000);
 }
 
+// ---------------------------------------------------------------
+// v4.87: Připojit další trasu – klepneš na trasu v mapě, plánovač ji napojí na nejbližší konce
+// (podle potřeby ji otočí) a nabídne potvrzení. Původní trasy se nemění; uloží se jen nová spojená.
+// ---------------------------------------------------------------
+var joinMode = false, joinCand = null, joinOpts = [], joinIdx = 0, joinPrev = null;
+const joinBar = document.createElement('div');
+joinBar.className = 'pl-crossbar pl-joinbar'; joinBar.hidden = true;
+joinBar.innerHTML = '<span id="pl-join-msg"></span><span class="pl-join-btns"><button type="button" id="pl-join-ok" hidden>Připojit</button><button type="button" id="pl-join-alt" hidden>Jiné napojení</button><button type="button" id="pl-join-cancel">Zrušit</button></span>';
+map.getContainer().appendChild(joinBar);
+L.DomEvent.disableClickPropagation(joinBar);
+document.getElementById('pl-join-cancel').addEventListener('click', ()=> setJoinMode(false));
+document.getElementById('pl-join-ok').addEventListener('click', joinApply);
+document.getElementById('pl-join-alt').addEventListener('click', ()=>{ joinIdx = (joinIdx + 1) % joinOpts.length; joinPreview(); });
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape' && joinMode) setJoinMode(false); });
+function setJoinMode(on){
+  if(on){ if(crossMode) setCrossMode(false); if(cutoutMode) setCutoutMode(false); }
+  joinMode = !!on; joinCand = null; joinOpts = [];
+  if(joinPrev){ map.removeLayer(joinPrev); joinPrev = null; }
+  joinBar.hidden = !joinMode;
+  document.getElementById('pl-join-ok').hidden = true;
+  document.getElementById('pl-join-alt').hidden = true;
+  document.body.classList.toggle('pl-cross-mode', cutoutMode || crossMode || joinMode);
+  if(joinMode) document.getElementById('pl-join-msg').textContent = '＋ Klepni na trasu, kterou chceš připojit';
+  drawOthers();
+}
+const joinKm = m => m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1).replace('.', ',') + ' km';
+function joinPick(r){
+  if(editing && Number(editing.id) === Number(r.id)){ toast('To je trasa, kterou právě upravuješ.', 3000); return; }
+  if(!canEditRoute(r.owner_id)){ toast(currentUser ? 'Připojit můžeš jen své trasy.' : 'Pro připojení trasy se přihlas v Atlasu.', 4000); return; }
+  const pts = (r.points || []).filter(p=>Number.isFinite(p[0]) && Number.isFinite(p[1]));
+  if(pts.length < 2){ toast('Trasa nemá dost bodů.'); return; }
+  const A0 = wps[0], A1 = wps[wps.length - 1], B0 = pts[0], B1 = pts[pts.length - 1];
+  const d = (a, b) => map.distance([a.lat, a.lng], [b[0], b[1]]);
+  // end: konec plánu / začátek plánu ; rev: připojená trasa otočená
+  joinOpts = [
+    { end:true,  rev:false, d:d(A1, B0), txt:'konec plánu → začátek trasy' },
+    { end:true,  rev:true,  d:d(A1, B1), txt:'konec plánu → konec trasy (otočená)' },
+    { end:false, rev:false, d:d(A0, B1), txt:'konec trasy → začátek plánu' },
+    { end:false, rev:true,  d:d(A0, B0), txt:'začátek trasy (otočená) → začátek plánu' }
+  ].sort((x, y)=> x.d - y.d);
+  joinCand = { r, pts }; joinIdx = 0;
+  joinPreview();
+}
+function joinPreview(){
+  if(joinPrev){ map.removeLayer(joinPrev); joinPrev = null; }
+  const o = joinOpts[joinIdx], pts = joinCand.pts;
+  const g = L.layerGroup().addTo(map);
+  const ll = pts.map(p=>[p[0], p[1]]);
+  L.polyline(ll, { pane:'pl-route', color:'#F5B700', weight:7, opacity:.95, interactive:false }).addTo(g);
+  // spojnice mezi napojenými konci
+  const a = o.end ? wps[wps.length - 1] : wps[0];
+  const b = o.end ? (o.rev ? ll[ll.length - 1] : ll[0]) : (o.rev ? ll[0] : ll[ll.length - 1]);
+  L.polyline([[a.lat, a.lng], b], { pane:'pl-route', color:'#F5B700', weight:4, dashArray:'6 8', interactive:false }).addTo(g);
+  joinPrev = g;
+  map.fitBounds(L.latLngBounds(ll.concat([[a.lat, a.lng]])), { padding:[60,60], maxZoom:16 });
+  document.getElementById('pl-join-msg').textContent = '„' + (joinCand.r.name || 'trasa') + '“ · ' + o.txt + ', mezera ' + joinKm(o.d);
+  document.getElementById('pl-join-ok').hidden = false;
+  document.getElementById('pl-join-alt').hidden = false;
+}
+function joinApply(){
+  if(!joinCand) return;
+  const o = joinOpts[joinIdx], r = joinCand.r;
+  let pts = joinCand.pts.map(p=>[p[0], p[1], p[2]==null || isNaN(p[2]) ? null : Number(p[2])]);
+  if(o.rev) pts.reverse();
+  let tol = 12, idx = simplifyIndices(pts, tol);
+  while(idx.length > MAX_EDIT_NODES && tol < 2000){ tol *= 1.6; idx = simplifyIndices(pts, tol); }
+  const nw = idx.map((k,j)=>({ lat:pts[k][0], lng:pts[k][1], ele:pts[k][2], small: j>0 && j<idx.length-1 }));
+  const nsegs = [];
+  for(let j=0;j<idx.length-1;j++) nsegs.push(newSeg('raw', pts.slice(idx[j], idx[j+1]+1)));
+  pushUndo();
+  const link = newSeg(o.d < 15 ? 'straight' : settings.drawMode);
+  if(o.end){ wps = wps.concat(nw); segs = segs.concat([link], nsegs); }
+  else { wps = nw.concat(wps); segs = nsegs.concat([link], segs); }
+  if(link.mode === 'route') requestRoute(link);
+  // původní trasy zůstávají v CendurOFF beze změny; spojená se uloží jako nová
+  if(editing && editing.id) joinedHidden.add(Number(editing.id));
+  joinedHidden.add(Number(r.id));
+  const base = (editing && editing.name) || '';
+  editing = { id:null, name:(base ? base + ' + ' : '') + (r.name || ''), description:'', route_type:(editing && editing.route_type) || r.route_type || '' };
+  setJoinMode(false);
+  dirty = true;
+  changed();
+  fitToRoute();
+  toast('Trasa připojena. Původní trasy zůstaly beze změny, uloží se jen nová. (Vrátíš tlačítkem Zpět.)', 5000);
+}
+
 function reverseRoute(){
   if(wps.length < 2) return;
   pushUndo();
@@ -750,6 +843,7 @@ function clearAll(){
   if(!wps.length && !editing) return;
   if(!confirm('Vymazat celou trasu z plánovače? (Krok jde vrátit tlačítkem Zpět.)')) return;
   pushUndo();
+  joinedHidden.clear();
   segs.forEach(s=>s.req++);
   wps = []; segs = []; editing = null;
   changed();
@@ -783,6 +877,7 @@ function loadPoints(points, meta){
                  .map(p=>[p[0], p[1], p[2]==null || isNaN(p[2]) ? null : Number(p[2])]);
   if(points.length < 2) throw new Error('Trasa nemá dost bodů.');
   pushUndo();
+  joinedHidden.clear();
   segs.forEach(s=>s.req++);
   // zjednodušení na rozumný počet bodů k tažení; mezi nimi zůstává původní geometrie
   let tol = 12, idx = simplifyIndices(points, tol);
@@ -833,6 +928,7 @@ function renderSegs(){
     const hit = L.polyline(latlngs, { pane:'pl-route', weight:22, opacity:0, bubblingMouseEvents:false }).addTo(segLayer);
     hit.on('click', e=>{
       L.DomEvent.stopPropagation(e);
+      if(joinMode) return;
       if(cutoutMode){ cutoutAt(e.latlng); return; }
       if(crossMode){ crossAt(e.latlng); return; }
       const idx = segLines.findIndex(x=>x.hit===hit);
@@ -855,7 +951,7 @@ function renderWps(){
       if(i < segs.length && segLines[i]) segLines[i].line.setLatLngs([ll, [wps[i+1].lat, wps[i+1].lng]]);
     });
     m.on('dragend', e=> moveWaypoint(i, e.target.getLatLng()));
-    m.on('click', ()=>{ if(cutoutMode){ cutoutAt(m.getLatLng()); return; } if(crossMode){ crossAt(m.getLatLng()); return; } openWpPopup(i, m); });
+    m.on('click', ()=>{ if(joinMode) return; if(cutoutMode){ cutoutAt(m.getLatLng()); return; } if(crossMode){ crossAt(m.getLatLng()); return; } openWpPopup(i, m); });
   });
 }
 
@@ -1032,6 +1128,12 @@ document.getElementById('pl-cutout').addEventListener('click', ()=>{
   if(segs.length < 1){ toast('Nejdřív potřebuješ trasu.'); return; }
   setCutoutMode(true);
 });
+document.getElementById('pl-join').addEventListener('click', ()=>{
+  closeSheet();
+  if(wps.length < 2){ toast('Nejdřív potřebuješ trasu, ke které se druhá připojí.'); return; }
+  if(!currentUser){ toast('Pro připojení trasy se přihlas v Atlasu.', 4000); return; }
+  setJoinMode(true);
+});
 // v4.56: trvalé smazání uložené trasy (stejné jako „Smazat trasu“ v detailu v Atlasu; smazaná trasa jde do archivu admina)
 document.getElementById('pl-delete-route').addEventListener('click', async ()=>{
   if(!isOwnerOfEditing()) return;
@@ -1124,18 +1226,19 @@ async function loadRouteList(){
 }
 function drawOthers(){
   othersLayer.clearLayers();
-  if(!settings.showRoutes) return;
+  if(!settings.showRoutes && !joinMode) return;
   allRoutes.forEach(r=>{
-    if(editing && Number(editing.id)===Number(r.id)) return; // upravovaná trasa se kreslí jako plán
+    if(editing && Number(editing.id)===Number(r.id)) return;
+    if(joinedHidden.has(Number(r.id))) return; // upravovaná trasa se kreslí jako plán
     const color = (ROUTE_TYPES[r.route_type] || ROUTE_TYPES.offroad).color;
     const ll = r.points.map(p=>[p[0],p[1]]);
     const line = L.polyline(ll, { pane:'pl-others', color, weight:4, opacity:0.7, interactive:false }).addTo(othersLayer);
     // v3.4: trasy, které smím upravit, jdou otevřít klepnutím přímo na mapě
-    if(!canEditRoute(r.owner_id)) return;
+    if(!canEditRoute(r.owner_id) && !joinMode) return;
     const hit = L.polyline(ll, { pane:'pl-others', color:'#000', weight:18, opacity:0, bubblingMouseEvents:false }).addTo(othersLayer);
     hit.on('mouseover', ()=> line.setStyle({ weight:7, opacity:1 }));
     hit.on('mouseout', ()=> line.setStyle({ weight:4, opacity:0.7 }));
-    hit.on('click', e=>{ L.DomEvent.stopPropagation(e); openOtherPopup(r, e.latlng); });
+    hit.on('click', e=>{ L.DomEvent.stopPropagation(e); if(joinMode){ if(!joinCand || joinOpts.length) joinPick(r); return; } openOtherPopup(r, e.latlng); });
   });
 }
 function openOtherPopup(r, latlng){

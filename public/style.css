@@ -1151,3 +1151,4 @@ body.ride-ui.panel-open #menu-btn, body.ride-ui.panel-open #satellite-btn{ displ
 .visibility-toggle.dl input:checked + .visibility-box,.visibility-toggle.dl input:indeterminate + .visibility-box{background:#1E64D6;border-color:#1E64D6;}
 #route-master.selecting .visibility-toggle.dl{display:inline-flex;}
 #route-list.selecting .route-item .visibility-toggle:not(.dl){opacity:.5;}
+
