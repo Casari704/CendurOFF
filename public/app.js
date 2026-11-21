@@ -3264,6 +3264,35 @@ window.addEventListener('beforeunload', (e)=>{
 // ---------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------
+// v4.76: místo z Komunity (Místa, Akce) označené v Atlasu; text bez souřadnic se dohledá přes Mapy.com
+let sharedPin = null;
+async function showSharedPlace(bod, misto, nazev){
+  let pt = null;
+  const m = bod && bod.split(',').map(Number);
+  if(m && m.length === 2 && isFinite(m[0]) && isFinite(m[1]) && Math.abs(m[0]) <= 90 && Math.abs(m[1]) <= 180) pt = m;
+  else if(misto){
+    try{
+      const key = (window.CendurMaps && CendurMaps.MAPY_KEY) || '';
+      const r = await fetch('https://api.mapy.com/v1/geocode?lang=cs&limit=1&query=' + encodeURIComponent(misto) + '&apikey=' + key);
+      const j = await r.json(), pos = j && j.items && j.items[0] && j.items[0].position;
+      if(pos) pt = [pos.lat, pos.lon];
+    }catch(e){}
+  }
+  if(!pt){ toast('Místo „' + (misto || bod) + '“ se nepodařilo najít na mapě.', 5000); return; }
+  map.setView(pt, 15);
+  if(sharedPin) sharedPin.remove();
+  sharedPin = destMakePin(pt);
+  CendurHeader.ask({
+    title: nazev || 'Místo',
+    msg: misto && !bod ? misto : pt[0].toFixed(5) + ', ' + pt[1].toFixed(5),
+    choices: [
+      { label:'Navigovat sem offroadem', sub:'po stezkách a značených cestách', cls:'atlas', fn: () => { if(requireLogin('navigaci')) destStart(pt, 'teren'); } },
+      { label:'Navigovat sem po cestách', sub:'po silnicích, nejkratší cesta', cls:'rb', fn: () => { if(requireLogin('navigaci')) destStart(pt, 'silnice'); } },
+      { label:'Zavřít', cls:'no', fn: () => {} }
+    ]
+  });
+}
+
 async function enterApp(){
   appEntered = true;
   document.getElementById('login-screen').style.display='none';
@@ -3288,6 +3317,14 @@ async function enterApp(){
     if(u.searchParams.get('nahrat')){
       u.searchParams.delete('nahrat'); history.replaceState(null, '', u);
       document.getElementById('open-upload')?.click();
+    }
+  }catch(e){}
+  // v4.76: „na mapě“ z Komunity → index.html?bod=lat,lon (nebo ?misto=text) &nazev=… : mapa přeletí na místo a označí ho
+  try{
+    const u = new URL(location.href), bod = u.searchParams.get('bod'), misto = u.searchParams.get('misto'), nazev = u.searchParams.get('nazev') || '';
+    if(bod || misto){
+      ['bod','misto','nazev'].forEach(k => u.searchParams.delete(k)); history.replaceState(null, '', u);
+      showSharedPlace(bod, misto, nazev);
     }
   }catch(e){}
   if(rec.state==='idle' && currentUser) restoreRecording();

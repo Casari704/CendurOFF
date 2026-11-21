@@ -423,7 +423,7 @@
   };
   const eEl = id => document.getElementById(id);
   const goingTxt = n => n === 0 ? 'Zatím nikdo' : n + (n === 1 ? ' účastník' : n < 5 ? ' účastníci' : ' účastníků');
-  function mapLink(place){ return 'https://mapy.com/cs/zakladni?q=' + encodeURIComponent(place); }
+  function mapLink(place, name){ return 'index.html?misto=' + encodeURIComponent(place) + (name ? '&nazev=' + encodeURIComponent(name) : ''); }
   function eventEl(e, past){
     const art = document.createElement('article'); art.className = 'k-post k-event'; art.dataset.eid = e.id; art.id = 'sraz-' + e.id;
     art.dataset.ev = JSON.stringify({ title:e.title, has_photo:e.has_photo, photo_v:e.photo_v, date_from:e.date_from, date_to:e.date_to, place:e.place, description:e.description, url:e.url });
@@ -443,7 +443,7 @@
     const det = document.createElement('div'); det.className = 'k-edet'; det.hidden = true; art.appendChild(det);
     const pl = document.createElement('div'); pl.className = 'k-eplace';
     pl.appendChild(document.createTextNode(e.place + ' · '));
-    const ml = document.createElement('a'); ml.href = mapLink(e.place); ml.target = '_blank'; ml.rel = 'noopener'; ml.textContent = 'na mapě'; pl.appendChild(ml);
+    const ml = document.createElement('a'); ml.href = mapLink(e.place, e.title); ml.textContent = 'na mapě'; pl.appendChild(ml);
     det.appendChild(pl);
     const meta = document.createElement('div'); meta.className = 'k-pmeta';
     meta.textContent = 'Přidal ' + (e.nick || 'smazaný účet') + roleTag(e.role);
@@ -614,13 +614,16 @@
   // ---------- Místa (v4.70) ----------
   const PCATS = { vyhlidka:'Vyhlídka', obcerstveni:'Občerstvení', terenni:'Terénní zajímavost', pamatka:'Památka', priroda:'Příroda', opustene:'Opuštěné místo', ostatni:'Ostatní' };
   const pl = { loaded:false, cat:'', oldest:0, editId:0, files:[], old:[] };
-  function pmapLink(p){ return 'https://mapy.com/cs/zakladni?q=' + encodeURIComponent(p.lat != null ? p.lat + ',' + p.lon : p.locality); }
+  function pmapLink(p){
+    const nm = '&nazev=' + encodeURIComponent(p.name || '');
+    return p.lat != null ? 'index.html?bod=' + p.lat + ',' + p.lon + nm : 'index.html?misto=' + encodeURIComponent(p.locality) + nm;
+  }
   function placeEl(p){
     const art = document.createElement('article'); art.className = 'k-post k-place'; art.dataset.pid = p.id; art.dataset.photos = JSON.stringify(p.photos || []);
     art.dataset.pl = JSON.stringify({ name:p.name, category:p.category, locality:p.locality, lat:p.lat, lon:p.lon, description:p.description, url:p.url });
     const loc = document.createElement('div'); loc.className = 'k-eplace';
     if(p.locality) loc.appendChild(document.createTextNode(p.locality + ' · '));
-    const ml = document.createElement('a'); ml.href = pmapLink(p); ml.target = '_blank'; ml.rel = 'noopener'; ml.textContent = 'na mapě'; loc.appendChild(ml);
+    const ml = document.createElement('a'); ml.href = pmapLink(p); ml.textContent = 'na mapě'; loc.appendChild(ml);
     if(p.lat != null){ const c = document.createElement('span'); c.className = 'k-coords'; c.textContent = ' · ' + Number(p.lat).toFixed(5) + ', ' + Number(p.lon).toFixed(5); loc.appendChild(c); }
     art.appendChild(loc);
     const meta = document.createElement('div'); meta.className = 'k-pmeta';
