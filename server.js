@@ -108,6 +108,8 @@ async function initDb() {
   // v4.60: reset hesla – dočasné heslo od admina (nutno změnit) a žádost „Zapomněl jsem heslo“
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_requested_at TIMESTAMPTZ`);
+  // v4.64: smí psát fotoreportáže v Komunitě (nastavuje admin)
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS can_report BOOLEAN NOT NULL DEFAULT false`);
   await pool.query(`CREATE TABLE IF NOT EXISTS user_logins (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_logins_user ON user_logins(user_id, created_at)`);
 
@@ -775,6 +777,12 @@ try {
   require('./profile-api').mount(app, { pool, requireAuth, optionalAuth, isAdmin });
 } catch (e) {
   console.error('Profil/chyby: modul se nepodařilo připojit:', e);
+}
+// Články v Komunitě – aktuality a fotoreportáže (v4.64)
+try {
+  require('./posts-api').mount(app, { pool, requireAuth, optionalAuth, isAdmin });
+} catch (e) {
+  console.error('Články: modul se nepodařilo připojit:', e);
 }
 // Skupinový chat v Komunitě (v4.63)
 try {

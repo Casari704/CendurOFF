@@ -49,7 +49,7 @@ function mount(app, { pool, requireAuth, isAdmin }) {
   app.get('/api/admin/users', whenReady, requireAuth, adminOnly, async (req, res) => {
     try {
       const r = await pool.query(`
-        SELECT u.id, u.username, u.display_name, u.role, u.is_approved, u.created_at, u.last_login_at, u.last_seen_at, u.must_change_password, u.reset_requested_at,
+        SELECT u.id, u.username, u.display_name, u.role, u.is_approved, u.created_at, u.last_login_at, u.last_seen_at, u.must_change_password, u.reset_requested_at, u.can_report,
                (SELECT COUNT(*)::int FROM routes x WHERE x.owner_id = u.id AND x.deleted_at IS NULL) AS routes,
                (SELECT COUNT(*)::int FROM routes x WHERE x.owner_id = u.id AND x.deleted_at IS NOT NULL) AS routes_archived,
                (SELECT COUNT(*)::int FROM route_rides rr WHERE rr.user_id = u.id) AS rides,
@@ -106,6 +106,17 @@ function mount(app, { pool, requireAuth, isAdmin }) {
       if (!r.rows[0]) return res.status(404).json({ error: 'Uživatel nenalezen.' });
       res.json({ ok: true, moved: r.rows[0].moved });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Účet se nepodařilo smazat.' }); }
+  });
+
+  // ---------------- v4.64: kdo smí psát fotoreportáže ----------------
+  app.post('/api/admin/users/:id/reporter', whenReady, requireAuth, adminOnly, async (req, res) => {
+    try {
+      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS can_report BOOLEAN NOT NULL DEFAULT false');
+      const allowed = !!(req.body && req.body.allowed);
+      const r = await pool.query('UPDATE users SET can_report = $2 WHERE id = $1 AND is_approved = true RETURNING id, display_name, can_report', [Number(req.params.id), allowed]);
+      if (!r.rows[0]) return res.status(404).json({ error: 'Uživatel nenalezen.' });
+      res.json({ ok: true, can_report: r.rows[0].can_report });
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Oprávnění se nepodařilo změnit.' }); }
   });
 
   // ---------------- v4.60: reset hesla ----------------

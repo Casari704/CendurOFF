@@ -79,6 +79,7 @@
     tabs.forEach(t => { const on = t.dataset.tab === id; t.classList.toggle('active', on); t.setAttribute('aria-selected', on ? 'true' : 'false'); if(on) t.scrollIntoView({ block:'nearest', inline:'center' }); });
     panels.forEach(p => { p.hidden = p.id !== id; });
     chatActive(id === 'chat' && !!me);
+    if(loaded && (id === 'aktuality' || id === 'fotoreporty')) openPosts(id);
   }
   window.addEventListener('hashchange', showTab);
 
@@ -156,6 +157,145 @@
       const row = msgsEl.querySelector('[data-id="' + b.dataset.del + '"]'); if(row) row.remove();
     }catch(err){ errEl.textContent = err.message; }
   });
+
+
+  // ---------- články: Aktuality a Fotoreportáže (v4.64) ----------
+  const MAXP = { aktuality:4, fotoreporty:12 };
+  const posts = {};   // kind -> { loaded, oldest, more, perm, files:[dataURL], editId }
+  const MONTHS = ['ledna','února','března','dubna','května','června','července','srpna','září','října','listopadu','prosince'];
+  function fmtDate(iso){ const d = new Date(iso); return d.getDate() + '. ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
+  async function send(method, path, body){
+    const o = { method, credentials:'include', headers:{ 'Content-Type':'application/json' } };
+    try{ const t = localStorage.getItem('cenduroff.token'); if(t) o.headers.Authorization = 'Bearer ' + t; }catch(e){}
+    if(body) o.body = JSON.stringify(body);
+    const res = await fetch(API() + path, o);
+    const data = await res.json().catch(() => null);
+    if(!res.ok) throw new Error((data && data.error) || 'Něco se pokazilo.');
+    return data;
+  }
+  function postEl(kind, p){
+    const art = document.createElement('article'); art.className = 'k-post'; art.dataset.id = p.id;
+    const h = document.createElement('h3'); h.textContent = p.title; art.appendChild(h);
+    const meta = document.createElement('div'); meta.className = 'k-pmeta';
+    meta.textContent = (p.nick || 'smazaný účet') + (p.role === 'admin' ? ' (admin)' : '') + ' · ' + fmtDate(p.created_at) + (p.updated_at ? ' · upraveno' : '');
+    if(me && (me.role === 'admin' || p.user_id === meId)){
+      const ed = document.createElement('button'); ed.type = 'button'; ed.className = 'k-del k-edit'; ed.textContent = 'Upravit'; ed.dataset.edit = p.id;
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'k-del'; del.textContent = 'Smazat'; del.dataset.delpost = p.id;
+      meta.appendChild(ed); meta.appendChild(del);
+    }
+    art.appendChild(meta);
+    const t = document.createElement('div'); t.className = 'k-ptext'; t.textContent = p.text; art.appendChild(t);
+    if(p.photos && p.photos.length){
+      const g = document.createElement('div'); g.className = 'k-pgal' + (p.photos.length === 1 ? ' one' : '');
+      p.photos.forEach(id => {
+        const a = document.createElement('a'); a.href = API() + '/api/posts/photo/' + id; a.className = 'k-ph'; a.dataset.photo = '1';
+        const im = document.createElement('img'); im.loading = 'lazy'; im.decoding = 'async'; im.alt = p.title; im.src = a.href;
+        a.appendChild(im); g.appendChild(a);
+      });
+      art.appendChild(g);
+    }
+    return art;
+  }
+  async function loadPosts(kind, more){
+    const st = posts[kind], box = document.getElementById('k-posts-' + kind), btn = document.getElementById('k-more-' + kind);
+    try{
+      const d = await api('/api/posts?kind=' + kind + (more && st.oldest ? '&before=' + st.oldest : ''));
+      if(!more) box.innerHTML = '';
+      d.posts.forEach(p => { box.appendChild(postEl(kind, p)); st.oldest = p.id; });
+      if(!box.children.length) box.innerHTML = '<p class="k-empty">Zatím tu nic není.</p>';
+      btn.hidden = !d.more;
+    }catch(e){ if(!more) fail(box, e); }
+  }
+  async function openPosts(kind){
+    if(!posts[kind]) posts[kind] = { files:[], oldest:0, editId:0 };
+    const st = posts[kind];
+    if(!st.loaded){
+      st.loaded = true;
+      loadPosts(kind, false);
+      if(me){ try{ const perm = await api('/api/posts/perm'); st.perm = !!perm[kind]; }catch(e){ st.perm = false; } }
+      document.getElementById('k-bar-' + kind).hidden = !st.perm;
+    }
+  }
+  // zmenšení fotky v prohlížeči (max 1600 px, JPEG) – šetří data i místo na serveru
+  async function shrink(file){
+    const bmp = await createImageBitmap(file).catch(() => null);
+    if(!bmp) throw new Error('Soubor ' + file.name + ' nejde otevřít jako obrázek.');
+    const sc = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * sc); c.height = Math.round(bmp.height * sc);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    if(bmp.close) bmp.close();
+    let q = 0.82, url = c.toDataURL('image/jpeg', q);
+    while(url.length > 1900000 && q > 0.4){ q -= 0.1; url = c.toDataURL('image/jpeg', q); }
+    return url;
+  }
+  function drawThumbs(kind){
+    const f = document.getElementById('k-form-' + kind), st = posts[kind];
+    const th = f.querySelector('.k-thumbs'); th.innerHTML = '';
+    st.files.forEach((u, i) => {
+      const w = document.createElement('div'); w.className = 'k-th';
+      const im = document.createElement('img'); im.src = u; im.alt = '';
+      const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.dataset.rm = i; x.setAttribute('aria-label', 'Odebrat fotku');
+      w.appendChild(im); w.appendChild(x); th.appendChild(w);
+    });
+    f.querySelector('.k-fhint').textContent = st.files.length ? st.files.length + ' / ' + MAXP[kind] : 'Nejvýš ' + MAXP[kind] + ' fotek';
+  }
+  function closeForm(kind){
+    const f = document.getElementById('k-form-' + kind), st = posts[kind];
+    f.hidden = true; f.reset(); st.files = []; st.editId = 0; f.querySelector('.k-err').textContent = '';
+    f.querySelector('.k-files').hidden = false; f.querySelector('button[type=submit]').textContent = 'Publikovat';
+    drawThumbs(kind);
+  }
+  ['aktuality', 'fotoreporty'].forEach(kind => {
+    const f = document.getElementById('k-form-' + kind), box = document.getElementById('k-posts-' + kind);
+    document.getElementById('k-more-' + kind).addEventListener('click', () => loadPosts(kind, true));
+    document.querySelector('[data-new="' + kind + '"]').addEventListener('click', () => { closeForm(kind); f.hidden = false; drawThumbs(kind); f.title.focus(); });
+    f.querySelector('[data-cancel]').addEventListener('click', () => closeForm(kind));
+    f.photos.addEventListener('change', async () => {
+      const st = posts[kind], err = f.querySelector('.k-err'); err.textContent = '';
+      const list = Array.from(f.photos.files); f.photos.value = '';
+      for(const file of list){
+        if(st.files.length >= MAXP[kind]){ err.textContent = 'Nejvýš ' + MAXP[kind] + ' fotek.'; break; }
+        try{ st.files.push(await shrink(file)); }catch(e){ err.textContent = e.message; }
+      }
+      drawThumbs(kind);
+    });
+    f.querySelector('.k-thumbs').addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if(!b) return; posts[kind].files.splice(Number(b.dataset.rm), 1); drawThumbs(kind); });
+    f.addEventListener('submit', async e => {
+      e.preventDefault();
+      const st = posts[kind], err = f.querySelector('.k-err'), btn = f.querySelector('button[type=submit]');
+      err.textContent = ''; btn.disabled = true;
+      try{
+        if(st.editId) await send('PUT', '/api/posts/' + st.editId, { title:f.title.value, text:f.text.value });
+        else await send('POST', '/api/posts', { kind, title:f.title.value, text:f.text.value, photos:st.files });
+        closeForm(kind); st.oldest = 0; await loadPosts(kind, false);
+      }catch(e2){ err.textContent = e2.message; }
+      finally{ btn.disabled = false; }
+    });
+    box.addEventListener('click', async e => {
+      const st = posts[kind];
+      const ph = e.target.closest('[data-photo]');
+      if(ph){ e.preventDefault(); lightbox(ph.href); return; }
+      const ed = e.target.closest('[data-edit]');
+      if(ed){
+        const art = ed.closest('.k-post'); closeForm(kind);
+        f.title.value = art.querySelector('h3').textContent; f.text.value = art.querySelector('.k-ptext').textContent;
+        st.editId = Number(ed.dataset.edit); f.querySelector('.k-files').hidden = true; f.querySelector('button[type=submit]').textContent = 'Uložit změny';
+        f.hidden = false; f.scrollIntoView({ block:'nearest' }); f.title.focus(); return;
+      }
+      const dl = e.target.closest('[data-delpost]');
+      if(dl){
+        const go = async () => { try{ await send('DELETE', '/api/posts/' + dl.dataset.delpost); const a = dl.closest('.k-post'); if(a) a.remove(); if(!box.children.length) box.innerHTML = '<p class="k-empty">Zatím tu nic není.</p>'; }catch(e2){ alert(e2.message); } };
+        if(window.CendurHeader && window.CendurHeader.ask) window.CendurHeader.ask({ title:'Smazat článek?', msg:'Článek i s fotkami zmizí.', yes:{ label:'Smazat', fn:go } });
+        else if(confirm('Smazat článek?')) go();
+      }
+    });
+  });
+  function lightbox(src){
+    const o = document.createElement('div'); o.className = 'k-lb'; o.innerHTML = '<img alt="">'; o.firstChild.src = src;
+    const close = () => { o.remove(); document.removeEventListener('keydown', key); };
+    const key = ev => { if(ev.key === 'Escape') close(); };
+    o.addEventListener('click', close); document.addEventListener('keydown', key); document.body.appendChild(o);
+  }
 
   showTab();
   load().then(() => { loaded = true; showTab(); });
