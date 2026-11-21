@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------
 // CendurOFF – Komunita (komunita.html), v4.62: TOP uživatelé a TOP trasy
-// Data: /api/community/users a /api/community/routes (jen pro přihlášené členy)
+// Data: /api/community/users a /api/community/routes (veřejné)
 // ---------------------------------------------------------------
 (function(){
   const API = () => window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
@@ -17,12 +17,7 @@
     if(!res.ok){ const err = new Error((data && data.error) || 'Něco se pokazilo.'); err.status = res.status; throw err; }
     return data;
   }
-  function needLogin(box){
-    box.innerHTML = '<p class="k-login k-empty">Žebříčky jsou jen pro přihlášené členy. <a href="index.html?next=' + encodeURIComponent('komunita.html') + '">Přihlásit se</a></p>';
-  }
-  function fail(box, e){
-    if(e.status === 401 || e.status === 429) needLogin(box); else box.innerHTML = '<p class="k-empty">' + esc(e.message) + '</p>';
-  }
+  function fail(box, e){ box.innerHTML = '<p class="k-empty">' + esc(e.message) + '</p>'; }
 
   // ---------- TOP uživatelé ----------
   function renderUsers(list){
@@ -58,7 +53,7 @@
 
   async function load(){
     const ub = document.getElementById('k-users-box'), rb = document.getElementById('k-routes-box');
-    try{ const me = await api('/api/auth/me'); meId = me && me.id; }catch(e){ needLogin(ub); needLogin(rb); return; }
+    try{ const me = await api('/api/auth/me'); meId = me && me.id; }catch(e){ /* nepřihlášený – žebříčky vidí také */ }
     api('/api/community/users').then(renderUsers).catch(e => fail(ub, e));
     api('/api/community/routes').then(renderRoutes).catch(e => fail(rb, e));
   }

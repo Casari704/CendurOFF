@@ -190,9 +190,17 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
     } catch (e) { console.error(e); res.status(500).json({ error: 'Profil se nepodařilo načíst.' }); }
   });
 
-  // ---------------- v4.62: Komunita – žebříčky (jen pro přihlášené členy; žádné e-maily, jen přezdívky) ----------------
-  app.get('/api/community/users', whenReady, requireAuth, async (req, res) => {
+  // ---------------- v4.62: Komunita – žebříčky (veřejné; žádné e-maily, jen přezdívky) ----------------
+  // výsledek se na minutu uloží do paměti, aby veřejné načítání nezatěžovalo databázi
+  const commCache = {};
+  const cached = async (key, fn) => {
+    const c = commCache[key];
+    if (c && Date.now() - c.t < 60000) return c.v;
+    const v = await fn(); commCache[key] = { t: Date.now(), v }; return v;
+  };
+  app.get('/api/community/users', whenReady, async (req, res) => {
     try {
+      res.json(await cached('users', async () => {
       const u = await pool.query('SELECT id, display_name FROM users WHERE is_approved = true');
       const out = [];
       for (const row of u.rows) {
@@ -201,12 +209,13 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
           out.push({ id: row.id, nick: row.display_name, stats: b.stats, earned: b.earned });
         } catch (e) { console.error(e); }
       }
-      res.json(out);
+      return out;
+      }));
     } catch (e) { console.error(e); res.status(500).json({ error: 'Žebříček uživatelů se nepodařilo načíst.' }); }
   });
-  app.get('/api/community/routes', whenReady, requireAuth, async (req, res) => {
+  app.get('/api/community/routes', whenReady, async (req, res) => {
     try {
-      const r = await pool.query(
+      res.json(await cached('routes', async () => { const r = await pool.query(
         `SELECT r.id, r.name, r.distance_km, r.route_type, u.display_name AS author,
                 (SELECT COUNT(*)::int FROM route_rides rr WHERE rr.route_id = r.id) AS rides,
                 (SELECT COUNT(DISTINCT rr.user_id)::int FROM route_rides rr WHERE rr.route_id = r.id) AS riders,
@@ -215,8 +224,7 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
          FROM routes r JOIN users u ON u.id = r.owner_id
          WHERE r.deleted_at IS NULL
          ORDER BY rides DESC, stars DESC NULLS LAST, r.created_at DESC
-         LIMIT 100`);
-      res.json(r.rows);
+         LIMIT 100`); return r.rows; }));
     } catch (e) { console.error(e); res.status(500).json({ error: 'Žebříček tras se nepodařilo načíst.' }); }
   });
 
