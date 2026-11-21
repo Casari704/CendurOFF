@@ -633,10 +633,48 @@ function crossAt(ll){
     }
     along += L0;
   });
-  hits.sort((a, b)=> a.d - b.d);
-  const h1 = hits[0];
   const minGap = Math.max(60, tol * 4);
-  const h2 = h1 && hits.find(h => Math.abs(h.along - h1.along) > minGap);
+  // v4.79: obě linie se rozpojí přesně v místě, kde se protínají (ne v nejbližších bodech u klepnutí) –
+  // jinak vznikly šikmé „zálomy“ a smyčka se na mostě na půl cesty vracela
+  const cs = Math.cos(ll.lat * Math.PI / 180), P = (lat, lng)=>[lng * cs, lat];
+  const cand = [];
+  along = 0;
+  segs.forEach((s, k)=>{
+    const g = segGeometry(k); let acc = 0;
+    for(let q=0;q<g.length-1;q++){
+      const len = map.distance([g[q][0],g[q][1]], [g[q+1][0],g[q+1][1]]);
+      const n = nearestOnLine([g[q], g[q+1]], ll);
+      if(n && map.distance(ll, [n.lat, n.lng]) <= tol * 3) cand.push({ k, q, A:g[q], B:g[q+1], base: along + acc, len });
+      acc += len;
+    }
+    along += acc;
+  });
+  let best = null;
+  for(let i=0;i<cand.length;i++) for(let j=i+1;j<cand.length;j++){
+    const c1 = cand[i], c2 = cand[j];
+    const a1 = P(c1.A[0], c1.A[1]), b1 = P(c1.B[0], c1.B[1]), a2 = P(c2.A[0], c2.A[1]), b2 = P(c2.B[0], c2.B[1]);
+    const r = [b1[0]-a1[0], b1[1]-a1[1]], t = [b2[0]-a2[0], b2[1]-a2[1]];
+    const den = r[0]*t[1] - r[1]*t[0];
+    if(Math.abs(den) < 1e-14) continue;
+    const w = [a2[0]-a1[0], a2[1]-a1[1]];
+    const u1 = (w[0]*t[1] - w[1]*t[0]) / den, u2 = (w[0]*r[1] - w[1]*r[0]) / den;
+    if(u1 < 0 || u1 > 1 || u2 < 0 || u2 > 1) continue;
+    const lat = c1.A[0] + (c1.B[0]-c1.A[0]) * u1, lng = c1.A[1] + (c1.B[1]-c1.A[1]) * u1;
+    const al1 = c1.base + u1 * c1.len, al2 = c2.base + u2 * c2.len;
+    if(Math.abs(al1 - al2) <= minGap) continue;
+    const d = map.distance(ll, [lat, lng]);
+    if(!best || d < best.d) best = { d, lat, lng, c1, u1, c2, u2, al1, al2 };
+  }
+  let h1, h2;
+  if(best){
+    const mk = (c, u, al)=>{ const e0 = c.A[2], e1 = c.B[2]; const ele = (e0 != null && e1 != null) ? e0 + (e1 - e0) * u : (e0 != null ? e0 : e1);
+      return { k:c.k, q:c.q, along:al, n:{ lat:best.lat, lng:best.lng, ele, t:u, k:c.q } }; };
+    h1 = mk(best.c1, best.u1, best.al1); h2 = mk(best.c2, best.u2, best.al2);
+  } else {
+    hits.sort((a, b)=> a.d - b.d);
+    h1 = hits[0];
+    h2 = h1 && hits.find(h => Math.abs(h.along - h1.along) > minGap);
+  }
   if(!h1 || !h2){ toast('Tady se trasa nekříží – klepni přesně na místo, kde se čáry protínají.', 3500); return; }
   pushUndo();
   // nejdřív rozdělit ten průchod, který je dál podél trasy (indexy dřívějšího se nezmění)
