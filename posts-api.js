@@ -44,6 +44,14 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin, atLeast }) {
           data BYTEA NOT NULL
         )`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_post_photos_post ON post_photos(post_id, pos)`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS post_comments (
+          id SERIAL PRIMARY KEY,
+          post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+          user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          text TEXT NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_post_comments_post ON post_comments(post_id, id)`);
       })().catch(err => { ready = null; console.error('Články: tabulky se nepodařilo založit:', err); throw err; });
     }
     return ready;
@@ -70,7 +78,8 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin, atLeast }) {
       const before = Number(req.query.before);
       const r = await pool.query(
         `SELECT p.id, p.kind, p.title, p.body AS text, p.created_at, p.updated_at, p.user_id, u.display_name AS nick, u.role,
-                COALESCE((SELECT json_agg(ph.id ORDER BY ph.pos, ph.id) FROM post_photos ph WHERE ph.post_id = p.id), '[]'::json) AS photos
+                COALESCE((SELECT json_agg(ph.id ORDER BY ph.pos, ph.id) FROM post_photos ph WHERE ph.post_id = p.id), '[]'::json) AS photos,
+                (SELECT COUNT(*)::int FROM post_comments c WHERE c.post_id = p.id) AS comments
          FROM posts p LEFT JOIN users u ON u.id = p.user_id
          WHERE p.kind = $1 ${Number.isFinite(before) && before > 0 ? 'AND p.id < $3' : ''}
          ORDER BY p.id DESC LIMIT $2`,
@@ -117,6 +126,44 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin, atLeast }) {
       }
       res.status(201).json({ id });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Článek se nepodařilo uložit.' }); }
+  });
+
+  // ---------- komentáře (v4.68): čtení veřejné, psát smí každý přihlášený ----------
+  const MAX_COMMENT = 1000, PER_MIN = 6;
+  const hits = new Map();
+  const CSEL = `SELECT c.id, c.post_id, c.user_id, c.text, c.created_at, u.display_name AS nick, u.role
+                FROM post_comments c LEFT JOIN users u ON u.id = c.user_id`;
+  app.get('/api/posts/:id/comments', whenReady, async (req, res) => {
+    try {
+      const r = await pool.query(CSEL + ' WHERE c.post_id = $1 ORDER BY c.id ASC LIMIT 300', [Number(req.params.id)]);
+      res.json(r.rows);
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Komentáře se nepodařilo načíst.' }); }
+  });
+  app.post('/api/posts/:id/comments', whenReady, requireAuth, async (req, res) => {
+    try {
+      const text = String((req.body && req.body.text) || '').replace(/\r\n/g, '\n').trim();
+      if (!text) return res.status(400).json({ error: 'Napiš komentář.' });
+      if (text.length > MAX_COMMENT) return res.status(400).json({ error: 'Komentář může mít nejvýš ' + MAX_COMMENT + ' znaků.' });
+      const now = Date.now();
+      const list = (hits.get(req.user.id) || []).filter(t => now - t < 60000);
+      if (list.length >= PER_MIN) return res.status(429).json({ error: 'Píšeš moc rychle, chvilku počkej.' });
+      list.push(now); hits.set(req.user.id, list);
+      if (hits.size > 5000) hits.clear();
+      const post = await pool.query('SELECT id FROM posts WHERE id = $1', [Number(req.params.id)]);
+      if (!post.rows[0]) return res.status(404).json({ error: 'Článek nenalezen.' });
+      const ins = await pool.query('INSERT INTO post_comments (post_id, user_id, text) VALUES ($1,$2,$3) RETURNING id', [post.rows[0].id, req.user.id, text]);
+      const r = await pool.query(CSEL + ' WHERE c.id = $1', [ins.rows[0].id]);
+      res.status(201).json(r.rows[0]);
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Komentář se nepodařilo uložit.' }); }
+  });
+  app.delete('/api/posts/comments/:cid', whenReady, requireAuth, async (req, res) => {
+    try {
+      const r = atLeast(req, 'moderator')
+        ? await pool.query('DELETE FROM post_comments WHERE id = $1 RETURNING id', [Number(req.params.cid)])
+        : await pool.query('DELETE FROM post_comments WHERE id = $1 AND user_id = $2 RETURNING id', [Number(req.params.cid), req.user.id]);
+      if (!r.rows[0]) return res.status(404).json({ error: 'Komentář nenalezen (nebo není tvůj).' });
+      res.json({ ok: true });
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Komentář se nepodařilo smazat.' }); }
   });
 
   async function ownPost(req, res) {

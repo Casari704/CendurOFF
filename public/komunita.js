@@ -196,7 +196,47 @@
       });
       art.appendChild(g);
     }
+    const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'k-cbtn'; cb.dataset.comments = p.id;
+    cb.textContent = 'Komentáře (' + (p.comments || 0) + ')';
+    art.appendChild(cb);
+    const cs = document.createElement('div'); cs.className = 'k-comments'; cs.hidden = true; art.appendChild(cs);
     return art;
+  }
+  // komentáře se načtou až po rozkliknutí (šetří data)
+  function commentEl(c){
+    const row = document.createElement('div'); row.className = 'k-cm'; row.dataset.cid = c.id;
+    const head = document.createElement('div'); head.className = 'k-mh';
+    const nick = document.createElement('b'); nick.textContent = (c.nick || 'smazaný účet') + roleTag(c.role);
+    const time = document.createElement('span'); time.textContent = fmtTime(c.created_at);
+    head.appendChild(nick); head.appendChild(time);
+    if(c.user_id === meId || isMod()){ const del = document.createElement('button'); del.type = 'button'; del.className = 'k-del'; del.textContent = 'Smazat'; del.dataset.delcm = c.id; head.appendChild(del); }
+    const t = document.createElement('div'); t.className = 'k-mt'; t.textContent = c.text;
+    row.appendChild(head); row.appendChild(t);
+    return row;
+  }
+  function setCount(art, n){ const b = art.querySelector('.k-cbtn'); if(b) b.textContent = 'Komentáře (' + n + ')'; }
+  async function toggleComments(art){
+    const box = art.querySelector('.k-comments');
+    if(!box.hidden){ box.hidden = true; return; }
+    box.hidden = false;
+    if(box.dataset.loaded) return;
+    box.innerHTML = '<p class="k-empty">Načítám…</p>';
+    try{
+      const list = await api('/api/posts/' + art.dataset.id + '/comments');
+      box.innerHTML = '';
+      const lst = document.createElement('div'); lst.className = 'k-clist';
+      list.forEach(c => lst.appendChild(commentEl(c)));
+      if(!list.length) lst.innerHTML = '<p class="k-empty">Zatím bez komentářů.</p>';
+      box.appendChild(lst);
+      if(me){
+        const f = document.createElement('form'); f.className = 'k-cform';
+        f.innerHTML = '<textarea class="k-in" rows="2" maxlength="1000" placeholder="Napiš komentář…" aria-label="Komentář" required></textarea><button class="k-btn" type="submit">Odeslat</button><div class="k-err" role="alert"></div>';
+        box.appendChild(f);
+      }else{
+        const a = document.createElement('p'); a.className = 'k-note'; a.innerHTML = '<a href="index.html?next=komunita.html">Přihlas se</a>, pokud chceš komentovat.'; box.appendChild(a);
+      }
+      box.dataset.loaded = '1';
+    }catch(e){ box.innerHTML = '<p class="k-empty">' + esc(e.message) + '</p>'; }
   }
   async function loadPosts(kind, more){
     const st = posts[kind], box = document.getElementById('k-posts-' + kind), btn = document.getElementById('k-more-' + kind);
@@ -273,8 +313,33 @@
       }catch(e2){ err.textContent = e2.message; }
       finally{ btn.disabled = false; }
     });
+    box.addEventListener('submit', async e => {
+      const f = e.target.closest('.k-cform'); if(!f) return;
+      e.preventDefault();
+      const art = f.closest('.k-post'), ta = f.querySelector('textarea'), err = f.querySelector('.k-err'), btn = f.querySelector('button');
+      if(!ta.value.trim()) return;
+      err.textContent = ''; btn.disabled = true;
+      try{
+        const c = await send('POST', '/api/posts/' + art.dataset.id + '/comments', { text:ta.value });
+        const lst = art.querySelector('.k-clist'); const em = lst.querySelector('.k-empty'); if(em) em.remove();
+        lst.appendChild(commentEl(c)); ta.value = ''; setCount(art, lst.querySelectorAll('.k-cm').length);
+      }catch(e2){ err.textContent = e2.message; }
+      finally{ btn.disabled = false; }
+    });
     box.addEventListener('click', async e => {
       const st = posts[kind];
+      const cb = e.target.closest('[data-comments]');
+      if(cb){ toggleComments(cb.closest('.k-post')); return; }
+      const dc = e.target.closest('[data-delcm]');
+      if(dc){
+        try{
+          await send('DELETE', '/api/posts/comments/' + dc.dataset.delcm);
+          const art = dc.closest('.k-post'); dc.closest('.k-cm').remove();
+          const n = art.querySelectorAll('.k-cm').length; setCount(art, n);
+          if(!n) art.querySelector('.k-clist').innerHTML = '<p class="k-empty">Zatím bez komentářů.</p>';
+        }catch(e2){ alert(e2.message); }
+        return;
+      }
       const ph = e.target.closest('[data-photo]');
       if(ph){ e.preventDefault(); lightbox(ph.href); return; }
       const ed = e.target.closest('[data-edit]');

@@ -88,3 +88,15 @@ textarea.k-in{resize:vertical;}
 .k-morewrap .k-btn{padding:10px 18px;}
 .k-lb{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:12px;cursor:zoom-out;}
 .k-lb img{max-width:100%;max-height:100%;object-fit:contain;}
+
+/* komentáře ke článkům (v4.68) */
+.k-cbtn{margin-top:12px;background:none;border:0;padding:0;font:inherit;font-weight:700;color:var(--rust-dark);cursor:pointer;}
+.k-cbtn:hover{text-decoration:underline;}
+.k-comments{margin-top:10px;border-top:1px solid var(--line);padding-top:10px;}
+.k-clist{display:flex;flex-direction:column;gap:8px;}
+.k-cm{background:#fff;border:1px solid var(--line);border-radius:10px;padding:7px 11px;}
+.k-cform{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.k-cform textarea{flex:1 1 240px;resize:vertical;}
+.k-cform .k-btn{padding:9px 18px;}
+.k-cform .k-err{flex:1 1 100%;padding:0;}
+.k-comments .k-note a{color:var(--rust-dark);font-weight:700;}
