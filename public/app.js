@@ -562,6 +562,7 @@ function panelCoversMap(){
     (!routeListEl.classList.contains('collapsed') || detailPanelEl.classList.contains('open'));
 }
 function panelsChanged(){
+  document.body.classList.toggle('panel-open', panelCoversMap());   // v4.78.1: tlačítka mimo mapu (menu, výběr mapy) nezakrývají nadpis panelu
   if(typeof headingMode !== 'undefined' && headingMode === 'heading' && !panelCoversMap() && map) setMapRotation(true);
 }
 new MutationObserver(panelsChanged).observe(routeListEl, { attributes:true, attributeFilter:['class'] });
@@ -577,7 +578,9 @@ document.getElementById('map').parentElement.addEventListener('pointerdown', e=>
     e.stopPropagation();
   }
 }, true);
+var lastDetailClose = 0;   // v4.78.1: dozvuk klepnutí na šipku detailu nesmí trefit jazýček TRASY, který se pod ním právě objevil
 onTap(routeListTab, ()=>{
+  if(Date.now() - lastDetailClose < 800) return;
   const opening = routeListEl.classList.contains('collapsed');
   routeListEl.classList.toggle('collapsed');
   localStorage.setItem('routeListCollapsed', routeListEl.classList.contains('collapsed') ? '1' : '0');
@@ -1548,6 +1551,7 @@ lightbox.addEventListener('touchend', (e)=>{
 }, { passive:true });
 
 function closeDetail(){
+  lastDetailClose = Date.now();
   closeLightbox();
   setUrlRoute(null);
   document.getElementById('detail-panel').classList.remove('open');

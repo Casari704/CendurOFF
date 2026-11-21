@@ -1104,3 +1104,6 @@ body.ride-ui #menu-btn .menu-grid{width:calc(var(--rb) * 0.54);height:calc(var(-
   body.ride-ui #locate-btn{ width:var(--rz); height:var(--rz); border-radius:16px; }
   body.ride-ui #locate-btn .map-btn-icon{ width:calc(var(--rz) * 0.48); height:calc(var(--rz) * 0.48); }
 }
+
+/* v4.78.1: dokud je v jízdním režimu otevřený seznam tras nebo detail, tlačítka nad nimi se schovají (jako ostatní tlačítka pod panelem) */
+body.ride-ui.panel-open #menu-btn, body.ride-ui.panel-open #satellite-btn{ display:none; }
