@@ -1130,3 +1130,24 @@ body.ride-ui.panel-open #menu-btn, body.ride-ui.panel-open #satellite-btn{ displ
 .detail-reach{appearance:none;display:flex;align-items:center;justify-content:space-between;width:100%;min-height:50px;margin:0 0 6px;padding:0 16px;border-radius:12px;border:2px solid var(--moss,#4F7048);background:#fff;color:var(--moss-dark,#2F4A22);font-family:'Exo 2',sans-serif;font-weight:700;font-size:1.02rem;cursor:pointer;}
 .detail-reach:active{transform:scale(.99);}
 .detail-reach span{font-size:1.4rem;line-height:1;}
+
+/* v4.86: přehlednější seznam tras */
+.route-item{padding:6px 10px;gap:8px;}
+.route-item .r-name{font-size:0.82rem;line-height:1.25;}
+.route-item .r-meta{font-size:0.7rem;margin-top:1px;}
+.visibility-toggle{width:24px;height:24px;}
+.visibility-toggle input:checked + .visibility-box::after{font-size:15px;}
+#route-master{display:flex;flex-direction:column;gap:2px;margin-bottom:6px;}
+.master-row{display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:700;font-size:0.78rem;padding:3px 0;}
+.master-row .master-txt{display:flex;align-items:baseline;gap:8px;flex:1;}
+.master-row small{font-weight:500;color:var(--ink-soft);font-size:0.7rem;margin-left:auto;}
+.visibility-toggle input:indeterminate + .visibility-box{background:var(--moss);border-color:var(--moss);}
+.visibility-toggle input:indeterminate + .visibility-box::after{content:'–';color:#fff;font-size:16px;font-weight:700;line-height:1;}
+/* výběr ke stažení = modrá políčka vpravo, zobrazení = zelená vlevo */
+.route-item .visibility-toggle.dl,.master-row .visibility-toggle.dl{display:none;}
+#route-list.selecting .route-item .visibility-toggle.dl{display:inline-flex;}
+.master-row.dl{display:flex;}
+.master-row.dl[hidden]{display:none;}
+.visibility-toggle.dl input:checked + .visibility-box,.visibility-toggle.dl input:indeterminate + .visibility-box{background:#1E64D6;border-color:#1E64D6;}
+#route-master.selecting .visibility-toggle.dl{display:inline-flex;}
+#route-list.selecting .route-item .visibility-toggle:not(.dl){opacity:.5;}

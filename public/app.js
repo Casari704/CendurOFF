@@ -31,6 +31,20 @@
         <option value="transport">Transportní</option><option value="cenduro">Cenduro</option><option value="offroad">Offroad</option>
       </select>`);
   }
+  if(!document.getElementById('route-master')){
+    const tools = document.getElementById('route-tools');
+    if(tools) tools.insertAdjacentHTML('afterbegin', `
+      <div id="route-master">
+        <label class="master-row" id="master-show" title="Zobrazit všechny / žádné trasy na mapě">
+          <span class="visibility-toggle"><input type="checkbox" id="master-show-cb" checked><span class="visibility-box"></span></span>
+          <span class="master-txt">Zobrazit na mapě<small id="master-show-n"></small></span>
+        </label>
+        <label class="master-row dl" id="master-dl" hidden title="Vybrat všechny / žádné trasy ke stažení">
+          <span class="visibility-toggle dl"><input type="checkbox" id="master-dl-cb"><span class="visibility-box"></span></span>
+          <span class="master-txt">Ke stažení<small id="master-dl-n"></small></span>
+        </label>
+      </div>`);
+  }
   if(!document.getElementById('route-legend')){
     const tools = document.getElementById('route-tools');
     if(tools) tools.insertAdjacentHTML('beforeend', `<div id="route-legend"></div>`);
@@ -647,7 +661,12 @@ async function loadRoutes(){
       <div class="route-item-info">
         <div class="r-name">${typeDot(typeOf(route))}${escapeHtml(route.name)}</div>
         <div class="r-meta">${escapeHtml(routeMetaText(route))}</div>
-      </div>`;
+      </div>
+      <label class="visibility-toggle dl" title="Vybrat ke stažení">
+        <input type="checkbox" class="route-dl-checkbox"${selectedIds.has(Number(route.id)) ? ' checked' : ''}>
+        <span class="visibility-box"></span>
+      </label>`;
+    item.querySelector('.route-dl-checkbox').addEventListener('change', ()=> toggleSelected(route.id));
     item.querySelector('.route-item-info').addEventListener('click', ()=>{
       if(selectMode){ toggleSelected(route.id); return; }
       const layer = layersById[route.id];
@@ -669,6 +688,7 @@ async function loadRoutes(){
       if(!layer) return;
       if(e.target.checked) layer.addTo(map);
       else map.removeLayer(layer);
+      syncMasters();
     });
     listEl.appendChild(item);
   });
@@ -676,6 +696,7 @@ async function loadRoutes(){
   selectedIds.forEach(rid=>{ if(!routesCache[rid]) selectedIds.delete(rid); });
   Object.keys(layersById).forEach(applyRouteStyle);
   updateSelectionBar();
+  syncMasters();
 }
 
 const ROUTE_COLOR_SELECTED = '#1E64D6';
@@ -787,9 +808,65 @@ function updateSelectionBar(){
   selectToggleBtn.classList.toggle('active', selectMode);
   selectToggleBtn.textContent = selectMode ? 'Ukončit výběr' : 'Stáhnout více tras';
   const n = selectedIds.size;
-  selectionCount.textContent = n===0 ? 'Klikej na trasy na mapě nebo v seznamu' : 'Vybráno tras: ' + n;
+  selectionCount.textContent = n===0 ? 'Zaškrtni trasy ke stažení (modré políčko)' : 'Ke stažení: ' + n + ' ' + (n===1 ? 'trasa' : n<5 ? 'trasy' : 'tras');
+  syncMasters();
   selectionDownloadBtn.disabled = n===0;
   selectionDownloadBtn.classList.toggle('locked', !gpxAllowed());
+}
+// v4.86: hromadné stahování od hodnosti Cestovatel (500 km) a dvou nahraných tras; správci a moderátoři vždy
+const MULTI_DL_KM = 500, MULTI_DL_ROUTES = 2;
+function multiDlAllowed(){
+  const u = currentUser;
+  if(!u) return false;
+  if(u.role === 'admin' || u.role === 'moderator') return true;
+  return (u.km || 0) >= MULTI_DL_KM && (u.ownRoutes || 0) >= MULTI_DL_ROUTES;
+}
+async function multiDlGuard(){
+  if(!currentUser){ showLoginOverlay('stahování více tras'); return false; }
+  if(currentUser.km == null){
+    try{ const p = await api('/api/profile'); currentUser.km = Number(p && p.km) || 0; }catch(e){ currentUser.km = 0; }
+  }
+  if(multiDlAllowed()) return true;
+  const km = Math.floor(currentUser.km || 0), own = currentUser.ownRoutes || 0;
+  const msg = 'Stahování více tras najednou se odemyká od hodnosti Cestovatel (' + MULTI_DL_KM + ' km) a ' + MULTI_DL_ROUTES + ' nahraných tras. Teď máš ' + km + ' km a ' + own + ' ' + (own===1 ? 'nahranou trasu' : own>=2&&own<5 ? 'nahrané trasy' : 'nahraných tras') + '. Jednotlivé trasy stáhnout můžeš.';
+  if(window.CendurHeader && window.CendurHeader.ask) window.CendurHeader.ask({ title:'Zatím zamčeno', msg, yes:{ label:'Rozumím' } });
+  else toast(msg, 6000);
+  return false;
+}
+// hlavní zaškrtávátka „vše / nic“ (zobrazení na mapě, výběr ke stažení)
+function syncMasters(){
+  const show = document.getElementById('master-show-cb'), dl = document.getElementById('master-dl-cb');
+  if(!show) return;
+  const ids = Object.keys(routesCache);
+  const vis = ids.filter(id => layersById[id] && map.hasLayer(layersById[id])).length;
+  show.checked = ids.length > 0 && vis === ids.length;
+  show.indeterminate = vis > 0 && vis < ids.length;
+  document.getElementById('master-show-n').textContent = ids.length ? vis + ' z ' + ids.length : '';
+  document.getElementById('master-dl').hidden = !selectMode;
+  document.getElementById('route-master').classList.toggle('selecting', selectMode);
+  const sel = selectedIds.size;
+  dl.checked = ids.length > 0 && sel === ids.length;
+  dl.indeterminate = sel > 0 && sel < ids.length;
+  document.getElementById('master-dl-n').textContent = ids.length ? sel + ' z ' + ids.length : '';
+  document.querySelectorAll('.route-dl-checkbox').forEach(cb => { const it = cb.closest('.route-item'); cb.checked = !!it && selectedIds.has(Number(it.dataset.routeId)); });
+}
+function setAllVisible(on){
+  Object.keys(routesCache).forEach(id => {
+    const l = layersById[id]; if(!l) return;
+    if(on && !map.hasLayer(l)) l.addTo(map);
+    if(!on && map.hasLayer(l)) map.removeLayer(l);
+    const cb = document.querySelector(`.route-item[data-route-id="${id}"] .route-visibility-checkbox`);
+    if(cb) cb.checked = on;
+  });
+  syncMasters();
+}
+function setAllSelected(on){
+  selectedIds.clear();
+  if(on) Object.keys(routesCache).forEach(id => selectedIds.add(Number(id)));
+  document.querySelectorAll('.route-item').forEach(it => it.classList.toggle('picked', selectedIds.has(Number(it.dataset.routeId))));
+  if(on) setAllVisible(true);   // vybrané trasy musí být na mapě vidět
+  Object.keys(layersById).forEach(applyRouteStyle);
+  updateSelectionBar();
 }
 function setSelectMode(on){
   selectMode = on;
@@ -820,7 +897,12 @@ function selectedTracks(){
   return Array.from(selectedIds).map(rid=>routesCache[rid]).filter(Boolean)
     .map(r=>({ name:r.name, points:r.points }));
 }
-selectToggleBtn.addEventListener('click', ()=> setSelectMode(!selectMode));
+selectToggleBtn.addEventListener('click', async ()=>{
+  if(selectMode){ setSelectMode(false); return; }
+  if(await multiDlGuard()) setSelectMode(true);
+});
+document.getElementById('master-show-cb').addEventListener('change', e=> setAllVisible(e.target.checked));
+document.getElementById('master-dl-cb').addEventListener('change', e=> setAllSelected(e.target.checked));
 document.getElementById('selection-cancel').addEventListener('click', ()=> setSelectMode(false));
 selectionDownloadBtn.addEventListener('click', ()=> { if(gpxGuard()) downloadTracks(selectedTracks()); });
 
