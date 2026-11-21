@@ -425,7 +425,7 @@
     const box = eEl('k-next');
     if(!list.length){ box.innerHTML = '<p class="k-empty">Zatím není naplánovaná žádná akce.</p>'; return; }
     box.innerHTML = '<table class="k-t k-tn"><tbody>' + list.slice(0, 5).map(e =>
-      '<tr><td class="k-nd">' + esc(whenFmt(e)) + '</td><td class="nick"><a href="#srazy" data-jump="' + e.id + '">' + esc(e.title) + '</a></td><td>' + esc(e.place) + '</td><td class="num">' + esc(goingTxt(e.going)) + '</td></tr>').join('') + '</tbody></table>';
+      '<tr><td class="k-nd">' + esc(whenFmt(e)) + '</td><td class="nick"><a href="#srazy" data-jump="' + e.id + '">' + esc(e.title) + '</a></td><td class="k-np">' + esc(e.place) + '</td><td class="num">' + esc(goingTxt(e.going)) + '</td></tr>').join('') + '</tbody></table>';
   }
   async function loadEvents(){
     const box = eEl('k-events');

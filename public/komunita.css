@@ -133,3 +133,15 @@ select.k-in{background:#fff;}
 
 .k-dates{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 @media (max-width:560px){.k-dates{grid-template-columns:1fr;}}
+
+/* Budoucí akce na telefonu: každá akce jako blok pod sebou (v4.73.1) */
+@media (max-width:700px){
+  .k-tn,.k-tn tbody{display:block;width:100%;}
+  .k-tn tr{display:block;padding:10px 14px;border-bottom:1px solid var(--line);}
+  .k-tn tr:last-child{border-bottom:0;}
+  .k-tn td{display:block;padding:1px 0;border:0;text-align:left !important;white-space:normal !important;}
+  .k-tn td.k-nd{color:var(--rust-dark);}
+  .k-tn td.nick{font-size:1.05rem;}
+  .k-tn td.k-np,.k-tn td.num{display:inline;color:var(--ink-soft);font-size:0.9rem;}
+  .k-tn td.num::before{content:' · ';}
+}
