@@ -808,6 +808,12 @@ try {
 } catch (e) {
   console.error('Články: modul se nepodařilo připojit:', e);
 }
+// Srazy v Komunitě (v4.69)
+try {
+  require('./events-api').mount(app, { pool, requireAuth, optionalAuth, atLeast });
+} catch (e) {
+  console.error('Srazy: modul se nepodařilo připojit:', e);
+}
 // Skupinový chat v Komunitě (v4.63)
 try {
   require('./chat-api').mount(app, { pool, requireAuth, isAdmin, atLeast });

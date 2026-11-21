@@ -38,6 +38,7 @@ admin-api.js          archiv smazaných tras, projetí, správa uživatelů
 profile-api.js        profil jezdce, odznaky, hlášení chyb
 chat-api.js           skupinový chat v Komunitě (jen přihlášení)
 posts-api.js          články v Komunitě: Aktuality (admin) a Články (reporter a výš), komentáře pod články
+events-api.js         Srazy v Komunitě: přehled 5 nejbližších akcí, přidání srazu, potvrzení účasti
 backup-api.js         záloha a obnova databáze (jen admin)
 osm-api.js, region-api.js, elevation.js   data z OpenStreetMap, benzínky/CHKO, výšky
 export-zip.js         ZIP a XLSX pro zálohu

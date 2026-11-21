@@ -100,3 +100,21 @@ textarea.k-in{resize:vertical;}
 .k-cform .k-btn{padding:9px 18px;}
 .k-cform .k-err{flex:1 1 100%;padding:0;}
 .k-comments .k-note a{color:var(--rust-dark);font-weight:700;}
+
+/* srazy (v4.69) */
+.k-next{max-height:none;}
+.k-tn td{white-space:normal;}
+.k-tn td.k-nd{white-space:nowrap;color:var(--ink-soft);font-weight:700;}
+.k-tn th:nth-child(2),.k-tn td:nth-child(2){position:static;box-shadow:none;}
+.k-tn td.nick a{color:var(--ink);text-decoration:none;}
+.k-tn td.nick a:hover{color:var(--rust-dark);text-decoration:underline;}
+.k-lbl{display:flex;flex-direction:column;gap:4px;font-size:0.85rem;color:var(--ink-soft);font-weight:700;}
+.k-ewhen{font-family:'Exo 2',sans-serif;font-weight:800;color:var(--rust-dark);}
+.k-eplace{margin-bottom:6px;}
+.k-eplace a,.k-elink a{color:var(--rust-dark);font-weight:700;}
+.k-elink{margin:8px 0 0;overflow-wrap:anywhere;}
+.k-ebar2{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px;}
+.k-ebar2 .k-cbtn{margin-top:0;}
+.k-join{padding:9px 18px;}
+.k-join.on{background:var(--moss);}
+.k-gnames{margin:0;overflow-wrap:anywhere;}

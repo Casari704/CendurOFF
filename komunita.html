@@ -11,8 +11,8 @@
 <title>CendurOFF Komunita</title>
 <meta name="description" content="Komunita CendurOFF: uživatelé, trasy a chat.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.68">
-<link rel="stylesheet" href="public/komunita.css?v=4.68">
+<link rel="stylesheet" href="public/style.css?v=4.69">
+<link rel="stylesheet" href="public/komunita.css?v=4.69">
 </head>
 <body class="kom-page">
 <header class="topbar" data-page="komunita" data-auth="auto"></header>
@@ -70,16 +70,36 @@
       <div class="k-err" id="k-err" role="alert"></div>
     </div>
   </section>
-  <section class="k-panel" id="srazy" role="tabpanel" hidden><h2>Srazy</h2><p class="k-empty">Připravujeme.</p></section>
+  <section class="k-panel" id="srazy" role="tabpanel" hidden><h2>Budoucí akce</h2>
+    <p class="k-note">Pět nejbližších srazů.</p>
+    <div class="k-box k-next" id="k-next"><p class="k-empty">Načítám…</p></div>
+    <h2 class="k-h2b">Srazy</h2>
+    <div class="k-postbar" id="k-ebar" hidden><button class="k-btn k-new" type="button" id="k-enew">+ Nový sraz</button></div>
+    <form class="k-form" id="k-eform" hidden>
+      <input type="text" class="k-in" name="title" maxlength="120" placeholder="Název srazu" aria-label="Název" required>
+      <label class="k-lbl">Kdy<input type="datetime-local" class="k-in" name="when" required></label>
+      <input type="text" class="k-in" name="place" maxlength="160" placeholder="Kde (místo, obec, adresa)" aria-label="Místo" required>
+      <textarea class="k-in" name="description" rows="5" maxlength="2000" placeholder="Jak to bude probíhat, co s sebou, obtížnost…" aria-label="Popis"></textarea>
+      <input type="url" class="k-in" name="url" maxlength="300" placeholder="Odkaz (volitelné, třeba událost na Facebooku nebo mapa)" aria-label="Odkaz">
+      <div class="k-files"><label class="k-file">Přidat fotku<input type="file" name="photo" accept="image/*" hidden></label><span class="k-fhint">Volitelné</span></div>
+      <div class="k-thumbs"></div>
+      <div class="k-fbtns"><button class="k-btn" type="submit">Přidat sraz</button><button class="k-btn k-ghost" type="button" id="k-ecancel">Zrušit</button></div>
+      <div class="k-err" role="alert"></div>
+    </form>
+    <div class="k-posts" id="k-events"><p class="k-empty">Načítám…</p></div>
+    <div class="k-morewrap"><button class="k-btn k-ghost" type="button" id="k-epast">Proběhlé srazy</button></div>
+    <div class="k-posts" id="k-events-past"></div>
+    <div class="k-morewrap"><button class="k-btn k-ghost" type="button" id="k-epast-more" hidden>Starší srazy</button></div>
+  </section>
   <section class="k-panel" id="mista" role="tabpanel" hidden><h2>Místa</h2><p class="k-empty">Připravujeme.</p></section>
   <section class="k-panel" id="prazdne3" role="tabpanel" hidden><h2>Prázdné 3</h2><p class="k-empty">Prázdné.</p></section>
 </main>
 
-<script src="public/config.js?v=4.68"></script>
-<script src="public/errors.js?v=4.68"></script>
-<script src="public/rider.js?v=4.68"></script>
-<script src="public/header.js?v=4.68"></script>
-<script src="public/pwa.js?v=4.68"></script>
-<script src="public/komunita.js?v=4.68"></script>
+<script src="public/config.js?v=4.69"></script>
+<script src="public/errors.js?v=4.69"></script>
+<script src="public/rider.js?v=4.69"></script>
+<script src="public/header.js?v=4.69"></script>
+<script src="public/pwa.js?v=4.69"></script>
+<script src="public/komunita.js?v=4.69"></script>
 </body>
 </html>
