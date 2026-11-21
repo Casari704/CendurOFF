@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------
-// CendurOFF Komunita – Srazy (v4.69)
-// Sraz = kdy, kde, popis, volitelně odkaz a jedna fotka; členové potvrzují účast.
+// CendurOFF Komunita – Akce (v4.69)
+// Akce (sraz, vyjížďka…) = kdy, kde, popis, volitelně odkaz a jedna fotka; členové potvrzují účast.
 // Čtení je veřejné, přidávat smí každý přihlášený, upravit/smazat autor nebo moderátor.
-//   GET    /api/events                    – nadcházející (a ty, co právě běží; do 6 h po začátku)
+//   GET    /api/events                    – nadcházející akce (a ty, co právě běží; do 6 h po začátku)
 //   GET    /api/events?past=1&offset=N    – proběhlé, 10 na stránku, nejnovější první
 //   GET    /api/events/photo/:id          – fotka
 //   GET    /api/events/:id/going          – kdo se zúčastní (přezdívky)
@@ -41,12 +41,12 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
           created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
           PRIMARY KEY (event_id, user_id)
         )`);
-      })().catch(err => { ready = null; console.error('Srazy: tabulky se nepodařilo založit:', err); throw err; });
+      })().catch(err => { ready = null; console.error('Akce: tabulky se nepodařilo založit:', err); throw err; });
     }
     return ready;
   }
   (app.locals.cendurSchemas = app.locals.cendurSchemas || []).push(() => ensure());
-  const whenReady = (req, res, next) => ensure().then(() => next(), () => res.status(500).json({ error: 'Srazy nejsou připravené.' }));
+  const whenReady = (req, res, next) => ensure().then(() => next(), () => res.status(500).json({ error: 'Akce nejsou připravené.' }));
 
   const clean = (s, n) => String(s == null ? '' : s).replace(/\r\n/g, '\n').trim().slice(0, n);
   const SELECT = `SELECT e.id, e.title, e.starts_at, e.place, e.description, e.url, e.user_id, (e.photo_mime IS NOT NULL) AS has_photo,
@@ -57,8 +57,8 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
 
   function parse(b) {
     const title = clean(b.title, 120), place = clean(b.place, 160), description = clean(b.description, 2000);
-    if (title.length < 3) return { error: 'Napiš název srazu (aspoň 3 znaky).' };
-    if (place.length < 2) return { error: 'Napiš, kde se sraz koná.' };
+    if (title.length < 3) return { error: 'Napiš název akce (aspoň 3 znaky).' };
+    if (place.length < 2) return { error: 'Napiš, kde se akce koná.' };
     const t = new Date(b.startsAt);
     if (isNaN(t.getTime())) return { error: 'Zadej datum a čas.' };
     const now = Date.now();
@@ -82,7 +82,7 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
       }
       const r = await pool.query(SELECT + ` WHERE e.starts_at >= now() - interval '6 hours' ORDER BY e.starts_at ASC, e.id ASC LIMIT 100`, [uid]);
       res.json({ events: r.rows, more: false });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Srazy se nepodařilo načíst.' }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Akce se nepodařilo načíst.' }); }
   });
 
   app.get('/api/events/photo/:id', whenReady, async (req, res) => {
@@ -117,21 +117,21 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
       }
       const now = Date.now();
       const list = (hits.get(req.user.id) || []).filter(t => now - t < 3600000);
-      if (list.length >= 5) return res.status(429).json({ error: 'Přidáváš moc srazů, zkus to později.' });
+      if (list.length >= 5) return res.status(429).json({ error: 'Přidáváš moc akcí, zkus to později.' });
       list.push(now); hits.set(req.user.id, list);
       if (hits.size > 5000) hits.clear();
       const ins = await pool.query(
         'INSERT INTO events (user_id, title, starts_at, place, description, url, photo_mime, photo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
         [req.user.id, p.v.title, p.v.startsAt, p.v.place, p.v.description, p.v.url, mime, buf]);
       res.status(201).json({ id: ins.rows[0].id });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Sraz se nepodařilo uložit.' }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Akci se nepodařilo uložit.' }); }
   });
 
   async function own(req, res) {
     const r = await pool.query('SELECT id, user_id FROM events WHERE id = $1', [Number(req.params.id)]);
     const ev = r.rows[0];
-    if (!ev) { res.status(404).json({ error: 'Sraz nenalezen.' }); return null; }
-    if (!atLeast(req, 'moderator') && ev.user_id !== req.user.id) { res.status(403).json({ error: 'Cizí sraz může upravit jen moderátor nebo admin.' }); return null; }
+    if (!ev) { res.status(404).json({ error: 'Akce nenalezena.' }); return null; }
+    if (!atLeast(req, 'moderator') && ev.user_id !== req.user.id) { res.status(403).json({ error: 'Cizí akci může upravit jen moderátor nebo admin.' }); return null; }
     return ev;
   }
   app.put('/api/events/:id', whenReady, requireAuth, async (req, res) => {
@@ -141,20 +141,20 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
       const p = parse(b); if (p.error) return res.status(400).json({ error: p.error });
       await pool.query('UPDATE events SET title=$2, starts_at=$3, place=$4, description=$5, url=$6 WHERE id=$1', [ev.id, p.v.title, p.v.startsAt, p.v.place, p.v.description, p.v.url]);
       res.json({ ok: true });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Sraz se nepodařilo upravit.' }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Akci se nepodařilo upravit.' }); }
   });
   app.delete('/api/events/:id', whenReady, requireAuth, async (req, res) => {
     try {
       const ev = await own(req, res); if (!ev) return;
       await pool.query('DELETE FROM events WHERE id = $1', [ev.id]);
       res.json({ ok: true });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Sraz se nepodařilo smazat.' }); }
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Akci se nepodařilo smazat.' }); }
   });
 
   app.post('/api/events/:id/join', whenReady, requireAuth, async (req, res) => {
     try {
       const ev = await pool.query('SELECT id FROM events WHERE id = $1', [Number(req.params.id)]);
-      if (!ev.rows[0]) return res.status(404).json({ error: 'Sraz nenalezen.' });
+      if (!ev.rows[0]) return res.status(404).json({ error: 'Akce nenalezena.' });
       await pool.query('INSERT INTO event_rsvps (event_id, user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [ev.rows[0].id, req.user.id]);
       const c = await pool.query('SELECT COUNT(*)::int AS n FROM event_rsvps WHERE event_id = $1', [ev.rows[0].id]);
       res.json({ ok: true, going: c.rows[0].n, joined: true });

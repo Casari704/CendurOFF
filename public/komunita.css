@@ -118,3 +118,15 @@ textarea.k-in{resize:vertical;}
 .k-join{padding:9px 18px;}
 .k-join.on{background:var(--moss);}
 .k-gnames{margin:0;overflow-wrap:anywhere;}
+
+/* místa (v4.70) */
+.k-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px;}
+.k-chip{border:1px solid #bbb;background:#fff;border-radius:999px;padding:6px 14px;font:inherit;font-weight:700;font-size:0.85rem;cursor:pointer;color:var(--ink);}
+.k-chip:hover{border-color:var(--moss);}
+.k-chip.on{background:var(--moss);border-color:var(--moss);color:#fff;}
+.k-pcat{display:inline-block;font-size:0.75rem;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--moss);margin-bottom:2px;}
+.k-coords{color:var(--ink-soft);font-size:0.85rem;}
+select.k-in{background:#fff;}
+
+/* atribut hidden musí vždy skrýt (jinak ho přebije display:flex u formulářů) */
+.k-wrap [hidden]{display:none !important;}

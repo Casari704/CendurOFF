@@ -808,11 +808,17 @@ try {
 } catch (e) {
   console.error('Články: modul se nepodařilo připojit:', e);
 }
-// Srazy v Komunitě (v4.69)
+// Místa v Komunitě (v4.70)
+try {
+  require('./places-api').mount(app, { pool, requireAuth, atLeast });
+} catch (e) {
+  console.error('Místa: modul se nepodařilo připojit:', e);
+}
+// Akce v Komunitě (v4.69)
 try {
   require('./events-api').mount(app, { pool, requireAuth, optionalAuth, atLeast });
 } catch (e) {
-  console.error('Srazy: modul se nepodařilo připojit:', e);
+  console.error('Akce: modul se nepodařilo připojit:', e);
 }
 // Skupinový chat v Komunitě (v4.63)
 try {

@@ -83,6 +83,7 @@
     chatActive(id === 'chat' && !!me);
     if(loaded && (id === 'aktuality' || id === 'fotoreporty')) openPosts(id);
     if(loaded && id === 'srazy') openEvents();
+    if(loaded && id === 'mista') openPlaces();
   }
   window.addEventListener('hashchange', showTab);
 
@@ -216,14 +217,14 @@
     return row;
   }
   function setCount(art, n){ const b = art.querySelector('.k-cbtn'); if(b) b.textContent = 'Komentáře (' + n + ')'; }
-  async function toggleComments(art){
+  async function toggleComments(art, path){
     const box = art.querySelector('.k-comments');
     if(!box.hidden){ box.hidden = true; return; }
     box.hidden = false;
     if(box.dataset.loaded) return;
     box.innerHTML = '<p class="k-empty">Načítám…</p>';
     try{
-      const list = await api('/api/posts/' + art.dataset.id + '/comments');
+      const list = await api(path || ('/api/posts/' + art.dataset.id + '/comments'));
       box.innerHTML = '';
       const lst = document.createElement('div'); lst.className = 'k-clist';
       list.forEach(c => lst.appendChild(commentEl(c)));
@@ -366,7 +367,7 @@
   }
 
 
-  // ---------- Srazy (v4.69) ----------
+  // ---------- Akce (v4.69) ----------
   const ev = { loaded:false, editId:0, photo:null, pastOff:0 };
   const whenFmt = iso => new Date(iso).toLocaleString('cs-CZ', { weekday:'short', day:'numeric', month:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
   const eEl = id => document.getElementById(id);
@@ -407,7 +408,7 @@
   }
   function renderNext(list){
     const box = eEl('k-next');
-    if(!list.length){ box.innerHTML = '<p class="k-empty">Zatím není naplánovaný žádný sraz.</p>'; return; }
+    if(!list.length){ box.innerHTML = '<p class="k-empty">Zatím není naplánovaná žádná akce.</p>'; return; }
     box.innerHTML = '<table class="k-t k-tn"><tbody>' + list.slice(0, 5).map(e =>
       '<tr><td class="k-nd">' + esc(whenFmt(e.starts_at)) + '</td><td class="nick"><a href="#srazy" data-jump="' + e.id + '">' + esc(e.title) + '</a></td><td>' + esc(e.place) + '</td><td class="num">' + esc(goingTxt(e.going)) + '</td></tr>').join('') + '</tbody></table>';
   }
@@ -418,7 +419,7 @@
       renderNext(d.events);
       box.innerHTML = '';
       d.events.forEach(e => box.appendChild(eventEl(e, false)));
-      if(!d.events.length) box.innerHTML = '<p class="k-empty">Zatím tu nic není. Přidej první sraz.</p>';
+      if(!d.events.length) box.innerHTML = '<p class="k-empty">Zatím tu nic není. Přidej první akci.</p>';
     }catch(e){ fail(box, e); eEl('k-next').innerHTML = ''; }
   }
   async function loadPast(more){
@@ -428,7 +429,7 @@
       const d = await api('/api/events?past=1&offset=' + ev.pastOff);
       d.events.forEach(e => box.appendChild(eventEl(e, true)));
       ev.pastOff += d.events.length;
-      if(!box.children.length) box.innerHTML = '<p class="k-empty">Žádné proběhlé srazy.</p>';
+      if(!box.children.length) box.innerHTML = '<p class="k-empty">Žádné proběhlé akce.</p>';
       btn.hidden = !d.more;
     }catch(e){ fail(box, e); }
   }
@@ -442,7 +443,7 @@
   function eClose(){
     const f = eEl('k-eform'); f.hidden = true; f.reset(); ev.photo = null; ev.editId = 0;
     f.querySelector('.k-err').textContent = ''; f.querySelector('.k-thumbs').innerHTML = '';
-    f.querySelector('.k-files').hidden = false; f.querySelector('button[type=submit]').textContent = 'Přidat sraz';
+    f.querySelector('.k-files').hidden = false; f.querySelector('button[type=submit]').textContent = 'Přidat akci';
   }
   (function(){
     const f = eEl('k-eform');
@@ -515,8 +516,8 @@
       const dl = e.target.closest('[data-edel]');
       if(dl){
         const run = async () => { try{ await send('DELETE', '/api/events/' + dl.dataset.edel); art.remove(); loadNextOnly(); }catch(e2){ alert(e2.message); } };
-        if(window.CendurHeader && window.CendurHeader.ask) window.CendurHeader.ask({ title:'Smazat sraz?', msg:'Sraz zmizí i s potvrzenými účastmi.', yes:{ label:'Smazat', fn:run } });
-        else if(confirm('Smazat sraz?')) run();
+        if(window.CendurHeader && window.CendurHeader.ask) window.CendurHeader.ask({ title:'Smazat akci?', msg:'Akce zmizí i s potvrzenými účastmi.', yes:{ label:'Smazat', fn:run } });
+        else if(confirm('Smazat akci?')) run();
       }
     }
     eEl('srazy').addEventListener('click', onClick);
@@ -527,6 +528,163 @@
     if(window.CendurHeader && window.CendurHeader.ask) window.CendurHeader.ask({ title:'Přihlášení', msg, yes:{ label:'Přihlásit se', fn:go } });
     else go();
   }
+
+
+  // ---------- Místa (v4.70) ----------
+  const PCATS = { vyhlidka:'Vyhlídka', obcerstveni:'Občerstvení', terenni:'Terénní zajímavost', pamatka:'Památka', priroda:'Příroda', opustene:'Opuštěné místo', ostatni:'Ostatní' };
+  const pl = { loaded:false, cat:'', oldest:0, editId:0, files:[] };
+  function pmapLink(p){ return 'https://mapy.com/cs/zakladni?q=' + encodeURIComponent(p.lat != null ? p.lat + ',' + p.lon : p.locality); }
+  function placeEl(p){
+    const art = document.createElement('article'); art.className = 'k-post k-place'; art.dataset.pid = p.id;
+    art.dataset.pl = JSON.stringify({ name:p.name, category:p.category, locality:p.locality, lat:p.lat, lon:p.lon, description:p.description, url:p.url });
+    const h = document.createElement('h3'); h.textContent = p.name; art.appendChild(h);
+    const cat = document.createElement('div'); cat.className = 'k-pcat'; cat.textContent = PCATS[p.category] || 'Ostatní'; art.appendChild(cat);
+    const loc = document.createElement('div'); loc.className = 'k-eplace';
+    if(p.locality) loc.appendChild(document.createTextNode(p.locality + ' · '));
+    const ml = document.createElement('a'); ml.href = pmapLink(p); ml.target = '_blank'; ml.rel = 'noopener'; ml.textContent = 'na mapě'; loc.appendChild(ml);
+    if(p.lat != null){ const c = document.createElement('span'); c.className = 'k-coords'; c.textContent = ' · ' + Number(p.lat).toFixed(5) + ', ' + Number(p.lon).toFixed(5); loc.appendChild(c); }
+    art.appendChild(loc);
+    const meta = document.createElement('div'); meta.className = 'k-pmeta';
+    meta.textContent = 'Přidal ' + (p.nick || 'smazaný účet') + roleTag(p.role) + ' · ' + fmtDate(p.created_at);
+    if(me && (isMod() || p.user_id === meId)){
+      const ed = document.createElement('button'); ed.type = 'button'; ed.className = 'k-del k-edit'; ed.textContent = 'Upravit'; ed.dataset.pedit = p.id;
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'k-del'; del.textContent = 'Smazat'; del.dataset.pdel = p.id;
+      meta.appendChild(ed); meta.appendChild(del);
+    }
+    art.appendChild(meta);
+    if(p.description){ const t = document.createElement('div'); t.className = 'k-ptext'; t.textContent = p.description; art.appendChild(t); }
+    if(p.url){ const q = document.createElement('p'); q.className = 'k-elink'; const a = document.createElement('a'); a.href = p.url; a.target = '_blank'; a.rel = 'noopener nofollow'; a.textContent = p.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60); q.appendChild(a); art.appendChild(q); }
+    if(p.photos && p.photos.length){
+      const g = document.createElement('div'); g.className = 'k-pgal' + (p.photos.length === 1 ? ' one' : '');
+      p.photos.forEach(id => {
+        const a = document.createElement('a'); a.href = API() + '/api/places/photo/' + id; a.className = 'k-ph'; a.dataset.photo = '1';
+        const im = document.createElement('img'); im.loading = 'lazy'; im.decoding = 'async'; im.alt = p.name; im.src = a.href; a.appendChild(im); g.appendChild(a);
+      });
+      art.appendChild(g);
+    }
+    const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'k-cbtn'; cb.dataset.pcomments = p.id; cb.textContent = 'Komentáře (' + (p.comments || 0) + ')'; art.appendChild(cb);
+    const cs = document.createElement('div'); cs.className = 'k-comments'; cs.hidden = true; art.appendChild(cs);
+    return art;
+  }
+  async function loadPlaces(more){
+    const box = eEl('k-places'), btn = eEl('k-pmore');
+    try{
+      const d = await api('/api/places?' + (pl.cat ? 'cat=' + pl.cat + '&' : '') + (more && pl.oldest ? 'before=' + pl.oldest : ''));
+      if(!more){ box.innerHTML = ''; pl.oldest = 0; }
+      d.places.forEach(p => { box.appendChild(placeEl(p)); pl.oldest = p.id; });
+      if(!box.children.length) box.innerHTML = '<p class="k-empty">Zatím tu nic není.' + (pl.cat ? '' : ' Přidej první místo.') + '</p>';
+      btn.hidden = !d.more;
+    }catch(e){ if(!more) fail(box, e); }
+  }
+  function drawPThumbs(){
+    const f = eEl('k-pform'), th = f.querySelector('.k-thumbs'); th.innerHTML = '';
+    pl.files.forEach((u, i) => {
+      const w = document.createElement('div'); w.className = 'k-th';
+      const im = document.createElement('img'); im.src = u; im.alt = '';
+      const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.dataset.rm = i; x.setAttribute('aria-label', 'Odebrat fotku');
+      w.appendChild(im); w.appendChild(x); th.appendChild(w);
+    });
+    f.querySelector('.k-fhint').textContent = pl.files.length ? pl.files.length + ' / 4' : 'Nejvýš 4 fotky';
+  }
+  function pClose(){
+    const f = eEl('k-pform'); f.hidden = true; f.reset(); pl.files = []; pl.editId = 0;
+    f.querySelector('.k-err').textContent = ''; f.querySelector('.k-files').hidden = false; f.querySelector('button[type=submit]').textContent = 'Přidat místo'; drawPThumbs();
+  }
+  function parseCoords(v){
+    v = String(v || '').trim(); if(!v) return { lat:'', lon:'' };
+    const m = v.replace(/[°NEne]/g, ' ').replace(/,/g, ' ').match(/-?\d+(?:\.\d+)?/g);
+    if(!m || m.length !== 2) return null;
+    return { lat:m[0], lon:m[1] };
+  }
+  async function openPlaces(){
+    if(pl.loaded) return;
+    pl.loaded = true;
+    eEl('k-pbar').hidden = !me;
+    loadPlaces(false);
+  }
+  (function(){
+    const f = eEl('k-pform'), chips = eEl('k-pcats');
+    f.category.innerHTML = Object.keys(PCATS).map(k => '<option value="' + k + '">' + PCATS[k] + '</option>').join('');
+    chips.innerHTML = '<button type="button" class="k-chip on" data-cat="">Vše</button>' + Object.keys(PCATS).map(k => '<button type="button" class="k-chip" data-cat="' + k + '">' + PCATS[k] + '</button>').join('');
+    chips.addEventListener('click', e => {
+      const b = e.target.closest('[data-cat]'); if(!b) return;
+      pl.cat = b.dataset.cat; chips.querySelectorAll('.k-chip').forEach(c => c.classList.toggle('on', c === b));
+      eEl('k-places').innerHTML = '<p class="k-empty">Načítám…</p>'; loadPlaces(false);
+    });
+    eEl('k-pnew').addEventListener('click', () => { pClose(); f.hidden = false; drawPThumbs(); f.name.focus(); });
+    eEl('k-pcancel').addEventListener('click', pClose);
+    eEl('k-pmore').addEventListener('click', () => loadPlaces(true));
+    f.photos.addEventListener('change', async () => {
+      const err = f.querySelector('.k-err'); err.textContent = '';
+      const list = Array.from(f.photos.files); f.photos.value = '';
+      for(const file of list){
+        if(pl.files.length >= 4){ err.textContent = 'Nejvýš 4 fotky.'; break; }
+        try{ pl.files.push(await shrink(file)); }catch(e){ err.textContent = e.message; }
+      }
+      drawPThumbs();
+    });
+    f.querySelector('.k-thumbs').addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if(!b) return; pl.files.splice(Number(b.dataset.rm), 1); drawPThumbs(); });
+    f.addEventListener('submit', async e => {
+      e.preventDefault();
+      const err = f.querySelector('.k-err'), btn = f.querySelector('button[type=submit]');
+      err.textContent = '';
+      const c = parseCoords(f.coords.value);
+      if(!c){ err.textContent = 'Souřadnice zadej jako dvě čísla, např. 50.5123, 15.4321.'; return; }
+      btn.disabled = true;
+      try{
+        const body = { name:f.name.value, category:f.category.value, locality:f.locality.value, lat:c.lat, lon:c.lon, description:f.description.value, url:f.url.value };
+        if(pl.editId) await send('PUT', '/api/places/' + pl.editId, body);
+        else{ body.photos = pl.files; await send('POST', '/api/places', body); }
+        pClose(); await loadPlaces(false);
+      }catch(e2){ err.textContent = e2.message; }
+      finally{ btn.disabled = false; }
+    });
+    const box = eEl('k-places');
+    box.addEventListener('submit', async e => {
+      const cf = e.target.closest('.k-cform'); if(!cf) return;
+      e.preventDefault();
+      const art = cf.closest('.k-place'), ta = cf.querySelector('textarea'), err = cf.querySelector('.k-err'), btn = cf.querySelector('button');
+      if(!ta.value.trim()) return;
+      err.textContent = ''; btn.disabled = true;
+      try{
+        const c = await send('POST', '/api/places/' + art.dataset.pid + '/comments', { text:ta.value });
+        const lst = art.querySelector('.k-clist'); const em = lst.querySelector('.k-empty'); if(em) em.remove();
+        lst.appendChild(commentEl(c)); ta.value = ''; setCount(art, lst.querySelectorAll('.k-cm').length);
+      }catch(e2){ err.textContent = e2.message; }
+      finally{ btn.disabled = false; }
+    });
+    box.addEventListener('click', async e => {
+      const ph = e.target.closest('[data-photo]');
+      if(ph){ e.preventDefault(); lightbox(ph.href); return; }
+      const art = e.target.closest('.k-place'); if(!art) return;
+      const cb = e.target.closest('[data-pcomments]');
+      if(cb){ toggleComments(art, '/api/places/' + art.dataset.pid + '/comments'); return; }
+      const dc = e.target.closest('[data-delcm]');
+      if(dc){
+        try{
+          await send('DELETE', '/api/places/comments/' + dc.dataset.delcm);
+          dc.closest('.k-cm').remove();
+          const n = art.querySelectorAll('.k-cm').length; setCount(art, n);
+          if(!n) art.querySelector('.k-clist').innerHTML = '<p class="k-empty">Zatím bez komentářů.</p>';
+        }catch(e2){ alert(e2.message); }
+        return;
+      }
+      const ed = e.target.closest('[data-pedit]');
+      if(ed){
+        const d = JSON.parse(art.dataset.pl); pClose();
+        f.name.value = d.name; f.category.value = d.category; f.locality.value = d.locality || '';
+        f.coords.value = d.lat != null ? d.lat + ', ' + d.lon : ''; f.description.value = d.description || ''; f.url.value = d.url || '';
+        pl.editId = Number(ed.dataset.pedit); f.querySelector('.k-files').hidden = true; f.querySelector('button[type=submit]').textContent = 'Uložit změny';
+        f.hidden = false; f.scrollIntoView({ block:'nearest' }); f.name.focus(); return;
+      }
+      const dl = e.target.closest('[data-pdel]');
+      if(dl){
+        const run = async () => { try{ await send('DELETE', '/api/places/' + dl.dataset.pdel); art.remove(); }catch(e2){ alert(e2.message); } };
+        if(window.CendurHeader && window.CendurHeader.ask) window.CendurHeader.ask({ title:'Smazat místo?', msg:'Místo zmizí i s fotkami a komentáři.', yes:{ label:'Smazat', fn:run } });
+        else if(confirm('Smazat místo?')) run();
+      }
+    });
+  })();
 
   showTab();
   load().then(() => { loaded = true; showTab(); });
