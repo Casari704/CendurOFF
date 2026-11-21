@@ -13,3 +13,25 @@ body.kom-page header.topbar{position:sticky;top:0;}
 .k-tab.active{background:var(--rust);border-color:var(--rust);color:#fff;}
 .k-panel h2{font-size:1.35rem;margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid var(--ink);}
 .k-empty{color:var(--ink-soft);margin:8px 0;}
+
+.k-note{margin:0 0 10px;color:var(--ink-soft);font-size:0.9rem;}
+/* tabulka: ~10 řádků, zbytek se posouvá; hlavička a první sloupec zůstávají vidět */
+.k-box{overflow:auto;max-height:510px;background:var(--surface);border:1px solid var(--line);border-radius:10px;}
+table.k-t{width:100%;border-collapse:collapse;font-size:0.92rem;}
+.k-t th,.k-t td{padding:9px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;white-space:nowrap;}
+.k-t th{position:sticky;top:0;z-index:3;background:var(--surface);box-shadow:0 1px 0 var(--line);font-family:'Exo 2',sans-serif;font-size:0.8rem;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-soft);}
+.k-t th.num,.k-t td.num{text-align:right;}
+.k-t td.pos{color:var(--ink-soft);font-weight:700;width:1%;}
+.k-t td.nick,.k-t td.rname{font-weight:700;}
+.k-t th:nth-child(2),.k-t td:nth-child(2){position:sticky;left:0;z-index:2;background:var(--surface);box-shadow:1px 0 0 var(--line);}
+.k-t th:nth-child(2){z-index:4;}
+.k-t tr.me td{background:#FFF8E5;}
+.k-t tr.me td:nth-child(2){background:#FFF8E5;}
+.k-t .big{font-family:'Exo 2',sans-serif;font-weight:800;font-size:1rem;}
+.k-t .top1 td.pos,.k-t .top1 td.nick{color:#B8860B;}
+.k-ach{white-space:normal !important;min-width:140px;}
+.k-ach span{display:inline-block;margin-right:3px;font-size:1.1rem;}
+.k-login{padding:18px;}
+.k-login a{color:var(--rust-dark);font-weight:700;}
+.k-t td.rname a{color:var(--ink);text-decoration:none;}
+.k-t td.rname a:hover{color:var(--rust-dark);text-decoration:underline;}

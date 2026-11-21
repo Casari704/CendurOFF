@@ -190,6 +190,36 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
     } catch (e) { console.error(e); res.status(500).json({ error: 'Profil se nepodařilo načíst.' }); }
   });
 
+  // ---------------- v4.62: Komunita – žebříčky (jen pro přihlášené členy; žádné e-maily, jen přezdívky) ----------------
+  app.get('/api/community/users', whenReady, requireAuth, async (req, res) => {
+    try {
+      const u = await pool.query('SELECT id, display_name FROM users WHERE is_approved = true');
+      const out = [];
+      for (const row of u.rows) {
+        try {
+          const b = await riderBadges(pool, row.id);
+          out.push({ id: row.id, nick: row.display_name, stats: b.stats, earned: b.earned });
+        } catch (e) { console.error(e); }
+      }
+      res.json(out);
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Žebříček uživatelů se nepodařilo načíst.' }); }
+  });
+  app.get('/api/community/routes', whenReady, requireAuth, async (req, res) => {
+    try {
+      const r = await pool.query(
+        `SELECT r.id, r.name, r.distance_km, r.route_type, u.display_name AS author,
+                (SELECT COUNT(*)::int FROM route_rides rr WHERE rr.route_id = r.id) AS rides,
+                (SELECT COUNT(DISTINCT rr.user_id)::int FROM route_rides rr WHERE rr.route_id = r.id) AS riders,
+                (SELECT ROUND(AVG(stars)::numeric, 1)::float FROM ratings x WHERE x.route_id = r.id) AS stars,
+                (SELECT COUNT(*)::int FROM ratings x WHERE x.route_id = r.id) AS votes
+         FROM routes r JOIN users u ON u.id = r.owner_id
+         WHERE r.deleted_at IS NULL
+         ORDER BY rides DESC, stars DESC NULLS LAST, r.created_at DESC
+         LIMIT 100`);
+      res.json(r.rows);
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Žebříček tras se nepodařilo načíst.' }); }
+  });
+
   // ---------------- hlášení chyb z webu ----------------
   const hits = new Map();   // ip -> [časy] (omezení počtu hlášení)
   app.post('/api/errors', whenReady, optionalAuth, async (req, res) => {
