@@ -9,8 +9,8 @@
 <title>CendurOFF Admin sekce</title>
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.66">
-<link rel="stylesheet" href="public/faq.css?v=4.66">
+<link rel="stylesheet" href="public/style.css?v=4.66.1">
+<link rel="stylesheet" href="public/faq.css?v=4.66.1">
 <style>
   .a-wrap{max-width:1800px;margin:0 auto;padding:24px 20px 60px;}   /* v4.61: na velkém monitoru širší tabulky */
   .a-wrap h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);}
@@ -95,7 +95,7 @@
   <section id="a-users-sec" hidden>
     <h2>Uživatelé <small>přihlášení = zadal jméno a heslo (počítá se od verze 2.9.2) · aktivní = naposledy použil web nebo aplikaci (přesnost ~10 min)</small></h2>
     <div class="a-box"><table class="a-t" id="a-users"><thead><tr>
-      <th data-k="display_name">Přezdívka</th><th data-k="username">E-mail / login</th><th data-k="km">Hodnost</th><th class="num" data-k="km">Km</th><th data-k="badges">Odznaky</th><th data-k="last_seen_at">Naposledy aktivní</th><th class="num" data-k="logins_30d">Přihlášení za 30 dní</th><th class="num" data-k="logins_total">Přihlášení celkem</th><th class="num" data-k="routes">Tras</th><th class="num" data-k="rides">Projetí</th><th data-k="created_at">Registrace</th><th></th>
+      <th data-k="display_name">Přezdívka</th><th data-k="username">E-mail / login</th><th data-k="km">Hodnost</th><th class="num" data-k="km">Km</th><th class="num" data-k="routes">Tras</th><th class="num" data-k="rides">Projetí</th><th data-k="badges">Odznaky</th><th data-k="last_seen_at">Naposledy aktivní</th><th class="num" data-k="logins_30d">Přihlášení za 30 dní</th><th class="num" data-k="logins_total">Přihlášení celkem</th><th data-k="created_at">Registrace</th><th></th>
     </tr></thead><tbody></tbody></table></div>
   </section>
 
@@ -131,11 +131,11 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.66"></script>
-<script src="public/errors.js?v=4.66"></script>
-<script src="public/rider.js?v=4.66"></script>
-<script src="public/header.js?v=4.66"></script>
-<script src="public/pwa.js?v=4.66"></script>
+<script src="public/config.js?v=4.66.1"></script>
+<script src="public/errors.js?v=4.66.1"></script>
+<script src="public/rider.js?v=4.66.1"></script>
+<script src="public/header.js?v=4.66.1"></script>
+<script src="public/pwa.js?v=4.66.1"></script>
 <script>
 (function(){
   const API_URL = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
@@ -323,10 +323,10 @@
       const ach = R && u.stats ? R.achievements(st, u.earned).filter(a => a.got) : [];
       return '<tr data-uid="' + u.id + '" class="' + (u.is_approved ? '' : 'a-pend ') + (openIds.has(u.id) ? 'open' : '') + '"><td class="name">' + esc(u.display_name) + (u.role === 'admin' ? ' <small>(admin)</small>' : '') + (u.is_approved ? '' : ' <span class="a-deleted">čeká na schválení</span>') + (u.reset_requested_at ? ' <span class="a-deleted" title="' + esc(fmtDate(u.reset_requested_at)) + '">žádá reset hesla</span>' : '') + (u.must_change_password ? ' <small>(dočasné heslo)</small>' : '') + '</td>' +
       '<td>' + esc(u.username) + '</td>' +
-      '<td>' + (b ? b.icon + ' ' + esc(b.name) : '—') + '</td><td class="num">' + (u.stats ? R.fmtKm(st.km).replace(' km', '') : '—') + '</td>' +
+      '<td>' + (b ? b.icon + ' ' + esc(b.name) : '—') + '</td><td class="num">' + (u.stats ? R.fmtKm(st.km).replace(' km', '') : '—') + '</td><td class="num">' + u.routes + '</td><td class="num">' + u.rides + '</td>' +
       '<td class="a-ach">' + (ach.length ? ach.map(a => '<span title="' + esc(a.name) + '">' + a.icon + '</span>').join('') : '—') + '</td>' +
       '<td>' + ago(u.last_seen_at) + '</td><td class="num big">' + u.logins_30d + '</td><td class="num big">' + u.logins_total + '</td>' +
-      '<td class="num">' + u.routes + '</td><td class="num">' + u.rides + '</td><td>' + fmtDate(u.created_at) + '</td>' +
+      '<td>' + fmtDate(u.created_at) + '</td>' +
       '<td>' + (u.is_approved ? (me && u.id !== me.id ? (u.role === 'admin' ? '' : '<button class="a-btn' + (u.can_report ? ' go' : '') + '" type="button" data-reporter="' + u.id + '" title="Smí přidávat fotoreportáže v Komunitě">Fotoreportér: ' + (u.can_report ? 'ano' : 'ne') + '</button>') + '<button class="a-btn" type="button" data-reset="' + u.id + '">Resetovat heslo</button><button class="a-btn red" type="button" data-remove="' + u.id + '">Smazat účet</button>' : '') : '<button class="a-btn green" type="button" data-approve="' + u.id + '">✓ Schválit</button><button class="a-btn red" type="button" data-reject="' + u.id + '">Zamítnout</button>') + '</td></tr>' +
       (removeId === u.id ? removeRow(u) : '') + (resetId === u.id ? resetRow(u) : '');
     }).join('')
