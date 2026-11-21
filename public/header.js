@@ -28,6 +28,7 @@
     // v4.26: Roadbook NAVI už není samostatná stránka – jízda podle roadbooku se otevírá v Atlasu (public/rb-ride.js)
   ];
   const HELP_PAGES = [
+    { id:'komunita', label:'Komunita',      href:'komunita.html' },
     { id:'merch', label:'Merch',          href:'merch.html' },
     { id:'faq',   label:'Nápověda', href:'faq.html' }
   ];
@@ -96,7 +97,7 @@
         background:#101810;color:#F1D79A;display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:700;pointer-events:none;}
       .tm-tile .tm-n{display:inline-flex;align-items:center;justify-content:center;width:1.6em;height:1.6em;border-radius:50%;font-size:0.8rem;
         background:rgba(0,0,0,.25);margin-bottom:2px;}
-      .tm-side{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+      .tm-side{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;}
       .tm-s{border-radius:10px;background:#26342A;border:1px solid #3A4A3C;color:#EFEAD8;display:flex;align-items:center;justify-content:center;
         text-align:center;padding:12px 8px;font-weight:700;font-size:0.98rem;text-decoration:none;font-family:inherit;cursor:pointer;min-height:48px;box-sizing:border-box;}
       .tm-s.cur{border-color:#F1D79A;}
@@ -132,6 +133,7 @@
   </div></div>
   <div class="tm-side">
     <button class="tm-s${page==='nastaveni' ? ' cur' : ''}" id="tm-account" type="button">Nastavení účtu</button>
+    <a class="tm-s${page==='komunita' ? ' cur' : ''}" href="komunita.html">Komunita</a>
     <a class="tm-s${page==='faq' ? ' cur' : ''}" href="faq.html">Nápověda</a>
     <a class="tm-s${page==='merch' ? ' cur' : ''}" href="merch.html">Merch</a>
   </div>

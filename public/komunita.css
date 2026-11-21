@@ -1,0 +1,15 @@
+/* ---------- CendurOFF Komunita (komunita.html), v4.62 ---------- */
+html,body{height:auto;}
+body.kom-page{overflow:auto;background:var(--page);line-height:1.55;}
+body.kom-page header.topbar{position:sticky;top:0;}
+.k-wrap{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
+.k-wrap h1{font-size:clamp(28px,4vw,40px);margin:0 0 14px;}
+/* podružné menu: záložky v jedné řadě, na telefonu se posouvá do strany */
+.k-tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;border-bottom:3px solid var(--rust);margin:0 0 22px;}
+.k-tabs::-webkit-scrollbar{display:none;}
+.k-tab{flex:none;padding:11px 18px;border:1px solid var(--line);border-bottom:0;border-radius:8px 8px 0 0;background:var(--surface);color:var(--ink-soft);
+  font-family:'Exo 2',sans-serif;font-weight:700;font-size:0.92rem;letter-spacing:0.4px;text-transform:uppercase;text-decoration:none;white-space:nowrap;}
+.k-tab:hover{color:var(--ink);background:#fff;}
+.k-tab.active{background:var(--rust);border-color:var(--rust);color:#fff;}
+.k-panel h2{font-size:1.35rem;margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid var(--ink);}
+.k-empty{color:var(--ink-soft);margin:8px 0;}
