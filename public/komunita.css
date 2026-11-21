@@ -184,3 +184,5 @@ select.k-in{background:#fff;}
   .k-nt > b{font-size:1rem;}
   .k-nl{font-size:0.86rem;}
 }
+
+.k-nl.k-ccnt{color:var(--moss);font-weight:700;font-size:0.82rem;}

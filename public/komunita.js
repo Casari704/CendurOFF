@@ -179,6 +179,7 @@
     return data;
   }
   // společný souhrn karty (náhled + řádky), podrobnosti se rozbalí klepnutím – stejně u článků, míst i akcí
+  const cPlural = n => n === 0 ? 'Bez komentářů' : n + (n === 1 ? ' komentář' : n < 5 ? ' komentáře' : ' komentářů');
   function cardSum(thumbSrc, phHtml, title, rows, excerpt){
     const sum = document.createElement('div'); sum.className = 'k-ni k-esum'; sum.setAttribute('role', 'button'); sum.tabIndex = 0; sum.setAttribute('aria-expanded', 'false');
     const th = document.createElement('span'); th.className = 'k-nth';
@@ -187,8 +188,10 @@
     const tx = document.createElement('span'); tx.className = 'k-nt';
     const h = document.createElement('b'); h.textContent = title; tx.appendChild(h);
     rows.forEach(r => {
-      const l = document.createElement('span'); l.className = 'k-nl'; l.appendChild(document.createTextNode(r[0] + ': '));
-      const v = document.createElement('strong'); v.textContent = r[1]; if(r[2]) v.className = r[2]; l.appendChild(v); tx.appendChild(l);
+      const l = document.createElement('span'); l.className = 'k-nl';
+      if(r[0]){ l.appendChild(document.createTextNode(r[0] + ': ')); const v = document.createElement('strong'); v.textContent = r[1]; if(r[2]) v.className = r[2]; l.appendChild(v); }
+      else{ l.textContent = r[1]; if(r[2]) l.classList.add(r[2]); }   // řádek bez popisku
+      tx.appendChild(l);
     });
     if(excerpt){ const x = document.createElement('span'); x.className = 'k-nx'; x.textContent = excerpt; tx.appendChild(x); }
     sum.appendChild(th); sum.appendChild(tx);
@@ -233,7 +236,7 @@
     const cs = document.createElement('div'); cs.className = 'k-comments'; cs.hidden = true; art.appendChild(cs);
     const d = new Date(p.created_at);
     const sum = cardSum(p.photos && p.photos.length ? API() + '/api/posts/photo/' + p.photos[0] : '', '<b>' + d.getDate() + '</b><small>' + MON[d.getMonth()] + '</small>', p.title,
-      [['Autor', (p.nick || 'smazaný účet') + roleTag(p.role) + ' · ' + d.getDate() + '. ' + (d.getMonth() + 1) + '. ' + d.getFullYear()], ['Komentáře', String(p.comments || 0), 'k-ccnt']],
+      [['', d.getDate() + '. ' + (d.getMonth() + 1) + '. ' + d.getFullYear()], ['', cPlural(p.comments || 0), 'k-ccnt']],
       String(p.text || '').replace(/\s+/g, ' ').slice(0, 140));
     return collapseCard(art, sum);
   }
@@ -249,7 +252,7 @@
     row.appendChild(head); row.appendChild(t);
     return row;
   }
-  function setCount(art, n){ const b = art.querySelector('.k-cbtn'); if(b) b.textContent = 'Komentáře (' + n + ')'; const c = art.querySelector('.k-ccnt'); if(c) c.textContent = n; }
+  function setCount(art, n){ const b = art.querySelector('.k-cbtn'); if(b) b.textContent = 'Komentáře (' + n + ')'; const c = art.querySelector('.k-ccnt'); if(c) c.textContent = cPlural(n); }
   async function toggleComments(art, path){
     const box = art.querySelector('.k-comments');
     if(!box.hidden){ box.hidden = true; return; }
@@ -641,7 +644,7 @@
     const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'k-cbtn'; cb.dataset.pcomments = p.id; cb.textContent = 'Komentáře (' + (p.comments || 0) + ')'; art.appendChild(cb);
     const cs = document.createElement('div'); cs.className = 'k-comments'; cs.hidden = true; art.appendChild(cs);
     const sum = cardSum(p.photos && p.photos.length ? API() + '/api/places/photo/' + p.photos[0] : '', '<small>' + esc(PCATS[p.category] || 'Ostatní') + '</small>', p.name,
-      [['Kategorie', PCATS[p.category] || 'Ostatní'], ['Místo', p.locality || (p.lat != null ? Number(p.lat).toFixed(4) + ', ' + Number(p.lon).toFixed(4) : '')], ['Komentáře', String(p.comments || 0), 'k-ccnt']],
+      [['', (PCATS[p.category] || 'Ostatní') + ((p.locality || p.lat != null) ? ' · ' + (p.locality || Number(p.lat).toFixed(4) + ', ' + Number(p.lon).toFixed(4)) : '')], ['', cPlural(p.comments || 0), 'k-ccnt']],
       String(p.description || '').replace(/\s+/g, ' ').slice(0, 140));
     return collapseCard(art, sum);
   }
