@@ -369,15 +369,21 @@
 
   // ---------- Akce (v4.69) ----------
   const ev = { loaded:false, editId:0, photo:null, pastOff:0 };
-  const whenFmt = iso => new Date(iso).toLocaleString('cs-CZ', { weekday:'short', day:'numeric', month:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  const dayOf = s => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); return new Date(+m[1], +m[2] - 1, +m[3]); };
+  const whenFmt = e => {
+    const a = dayOf(e.date_from), b = dayOf(e.date_to || e.date_from);
+    if(a.getTime() === b.getTime()) return a.toLocaleDateString('cs-CZ', { weekday:'short', day:'numeric', month:'numeric', year:'numeric' });
+    const d = x => x.getDate() + '. ' + (x.getMonth() + 1) + '.';
+    return a.getFullYear() === b.getFullYear() ? d(a) + ' – ' + d(b) + ' ' + b.getFullYear() : d(a) + ' ' + a.getFullYear() + ' – ' + d(b) + ' ' + b.getFullYear();
+  };
   const eEl = id => document.getElementById(id);
   const goingTxt = n => n === 0 ? 'Zatím nikdo' : n + (n === 1 ? ' účastník' : n < 5 ? ' účastníci' : ' účastníků');
   function mapLink(place){ return 'https://mapy.com/cs/zakladni?q=' + encodeURIComponent(place); }
   function eventEl(e, past){
     const art = document.createElement('article'); art.className = 'k-post k-event'; art.dataset.eid = e.id; art.id = 'sraz-' + e.id;
-    art.dataset.ev = JSON.stringify({ title:e.title, starts_at:e.starts_at, place:e.place, description:e.description, url:e.url });
+    art.dataset.ev = JSON.stringify({ title:e.title, date_from:e.date_from, date_to:e.date_to, place:e.place, description:e.description, url:e.url });
     const h = document.createElement('h3'); h.textContent = e.title; art.appendChild(h);
-    const when = document.createElement('div'); when.className = 'k-ewhen'; when.textContent = whenFmt(e.starts_at); art.appendChild(when);
+    const when = document.createElement('div'); when.className = 'k-ewhen'; when.textContent = whenFmt(e); art.appendChild(when);
     const pl = document.createElement('div'); pl.className = 'k-eplace';
     pl.appendChild(document.createTextNode(e.place + ' · '));
     const ml = document.createElement('a'); ml.href = mapLink(e.place); ml.target = '_blank'; ml.rel = 'noopener'; ml.textContent = 'na mapě'; pl.appendChild(ml);
@@ -410,7 +416,7 @@
     const box = eEl('k-next');
     if(!list.length){ box.innerHTML = '<p class="k-empty">Zatím není naplánovaná žádná akce.</p>'; return; }
     box.innerHTML = '<table class="k-t k-tn"><tbody>' + list.slice(0, 5).map(e =>
-      '<tr><td class="k-nd">' + esc(whenFmt(e.starts_at)) + '</td><td class="nick"><a href="#srazy" data-jump="' + e.id + '">' + esc(e.title) + '</a></td><td>' + esc(e.place) + '</td><td class="num">' + esc(goingTxt(e.going)) + '</td></tr>').join('') + '</tbody></table>';
+      '<tr><td class="k-nd">' + esc(whenFmt(e)) + '</td><td class="nick"><a href="#srazy" data-jump="' + e.id + '">' + esc(e.title) + '</a></td><td>' + esc(e.place) + '</td><td class="num">' + esc(goingTxt(e.going)) + '</td></tr>').join('') + '</tbody></table>';
   }
   async function loadEvents(){
     const box = eEl('k-events');
@@ -439,7 +445,6 @@
     eEl('k-ebar').hidden = !me;
     loadEvents();
   }
-  function localInput(iso){ const d = new Date(iso), p2 = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + 'T' + p2(d.getHours()) + ':' + p2(d.getMinutes()); }
   function eClose(){
     const f = eEl('k-eform'); f.hidden = true; f.reset(); ev.photo = null; ev.editId = 0;
     f.querySelector('.k-err').textContent = ''; f.querySelector('.k-thumbs').innerHTML = '';
@@ -469,7 +474,7 @@
       const err = f.querySelector('.k-err'), btn = f.querySelector('button[type=submit]');
       err.textContent = ''; btn.disabled = true;
       try{
-        const body = { title:f.title.value, startsAt:f.when.value ? new Date(f.when.value).toISOString() : '', place:f.place.value, description:f.description.value, url:f.url.value };
+        const body = { title:f.title.value, dateFrom:f.dfrom.value, dateTo:f.dto.value, place:f.place.value, description:f.description.value, url:f.url.value };
         if(ev.editId) await send('PUT', '/api/events/' + ev.editId, body);
         else{ if(ev.photo) body.photo = ev.photo; await send('POST', '/api/events', body); }
         eClose(); await loadEvents();
@@ -509,7 +514,7 @@
       const ed = e.target.closest('[data-eedit]');
       if(ed){
         const d = JSON.parse(art.dataset.ev); eClose();
-        f.title.value = d.title; f.when.value = localInput(d.starts_at); f.place.value = d.place; f.description.value = d.description || ''; f.url.value = d.url || '';
+        f.title.value = d.title; f.dfrom.value = d.date_from; f.dto.value = d.date_to && d.date_to !== d.date_from ? d.date_to : ''; f.place.value = d.place; f.description.value = d.description || ''; f.url.value = d.url || '';
         ev.editId = Number(ed.dataset.eedit); f.querySelector('.k-files').hidden = true; f.querySelector('button[type=submit]').textContent = 'Uložit změny';
         f.hidden = false; f.scrollIntoView({ block:'nearest' }); f.title.focus(); return;
       }

@@ -2,12 +2,12 @@
 // CendurOFF Komunita – Akce (v4.69)
 // Akce (sraz, vyjížďka…) = kdy, kde, popis, volitelně odkaz a jedna fotka; členové potvrzují účast.
 // Čtení je veřejné, přidávat smí každý přihlášený, upravit/smazat autor nebo moderátor.
-//   GET    /api/events                    – nadcházející akce (a ty, co právě běží; do 6 h po začátku)
+//   GET    /api/events                    – nadcházející akce (a ty, co právě probíhají)
 //   GET    /api/events?past=1&offset=N    – proběhlé, 10 na stránku, nejnovější první
 //   GET    /api/events/photo/:id          – fotka
 //   GET    /api/events/:id/going          – kdo se zúčastní (přezdívky)
-//   POST   /api/events                    – { title, startsAt, place, description, url, photo(data URL) }
-//   PUT    /api/events/:id                – { title, startsAt, place, description, url }
+//   POST   /api/events                    – { title, dateFrom, dateTo (volitelné), place, description, url, photo(data URL) }
+//   PUT    /api/events/:id                – { title, dateFrom, dateTo, place, description, url }
 //   DELETE /api/events/:id
 //   POST   /api/events/:id/join, DELETE /api/events/:id/join – potvrdit / zrušit účast
 // ---------------------------------------------------------------
@@ -34,7 +34,12 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
           photo BYTEA,
           created_at TIMESTAMPTZ NOT NULL DEFAULT now()
         )`);
-        await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_start ON events(starts_at)`);
+        // v4.71: akce má termín od–do (jen dny, bez času); starts_at zůstává jen u starších záznamů
+        await pool.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS date_from DATE`);
+        await pool.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS date_to DATE`);
+        await pool.query(`ALTER TABLE events ALTER COLUMN starts_at DROP NOT NULL`);
+        await pool.query(`UPDATE events SET date_from = (starts_at AT TIME ZONE 'Europe/Prague')::date, date_to = (starts_at AT TIME ZONE 'Europe/Prague')::date WHERE date_from IS NULL AND starts_at IS NOT NULL`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_from ON events(date_from)`);
         await pool.query(`CREATE TABLE IF NOT EXISTS event_rsvps (
           event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
           user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -49,7 +54,7 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
   const whenReady = (req, res, next) => ensure().then(() => next(), () => res.status(500).json({ error: 'Akce nejsou připravené.' }));
 
   const clean = (s, n) => String(s == null ? '' : s).replace(/\r\n/g, '\n').trim().slice(0, n);
-  const SELECT = `SELECT e.id, e.title, e.starts_at, e.place, e.description, e.url, e.user_id, (e.photo_mime IS NOT NULL) AS has_photo,
+  const SELECT = `SELECT e.id, e.title, e.date_from::text AS date_from, e.date_to::text AS date_to, e.place, e.description, e.url, e.user_id, (e.photo_mime IS NOT NULL) AS has_photo,
                          u.display_name AS nick, u.role,
                          (SELECT COUNT(*)::int FROM event_rsvps r WHERE r.event_id = e.id) AS going,
                          EXISTS(SELECT 1 FROM event_rsvps r WHERE r.event_id = e.id AND r.user_id = $1) AS joined
@@ -59,17 +64,20 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
     const title = clean(b.title, 120), place = clean(b.place, 160), description = clean(b.description, 2000);
     if (title.length < 3) return { error: 'Napiš název akce (aspoň 3 znaky).' };
     if (place.length < 2) return { error: 'Napiš, kde se akce koná.' };
-    const t = new Date(b.startsAt);
-    if (isNaN(t.getTime())) return { error: 'Zadej datum a čas.' };
-    const now = Date.now();
-    if (t.getTime() < now - 24 * 3600 * 1000) return { error: 'Datum je v minulosti.' };
-    if (t.getTime() > now + 800 * 24 * 3600 * 1000) return { error: 'Datum je příliš daleko.' };
+    const day = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || '')); if (!m) return null; const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])); return d.getUTCMonth() === +m[2] - 1 ? { d, s: m[0] } : null; };
+    const from = day(b.dateFrom), to = b.dateTo ? day(b.dateTo) : from;
+    if (!from || !to) return { error: 'Zadej datum konání.' };
+    if (to.d < from.d) return { error: 'Konec akce nemůže být před začátkem.' };
+    const today = Date.now();
+    if (to.d.getTime() < today - 2 * 24 * 3600 * 1000) return { error: 'Datum je v minulosti.' };
+    if (from.d.getTime() > today + 800 * 24 * 3600 * 1000) return { error: 'Datum je příliš daleko.' };
+    if ((to.d - from.d) / 86400000 > 60) return { error: 'Akce může trvat nejvýš 60 dní.' };
     let url = clean(b.url, 300);
     if (url) {
       if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
       try { const u = new URL(url); if (!/^https?:$/.test(u.protocol)) throw 0; url = u.toString(); } catch (e) { return { error: 'Odkaz není platná adresa.' }; }
     }
-    return { v: { title, place, description, url: url || null, startsAt: t.toISOString() } };
+    return { v: { title, place, description, url: url || null, dateFrom: from.s, dateTo: to.s } };
   }
 
   app.get('/api/events', whenReady, optionalAuth, async (req, res) => {
@@ -77,10 +85,10 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
       const uid = req.user ? req.user.id : 0;
       if (req.query.past) {
         const off = Math.max(0, Math.floor(Number(req.query.offset)) || 0);
-        const r = await pool.query(SELECT + ` WHERE e.starts_at < now() - interval '6 hours' ORDER BY e.starts_at DESC, e.id DESC LIMIT ${PAGE + 1} OFFSET ${off}`, [uid]);
+        const r = await pool.query(SELECT + ` WHERE e.date_to < (now() AT TIME ZONE 'Europe/Prague')::date ORDER BY e.date_from DESC, e.id DESC LIMIT ${PAGE + 1} OFFSET ${off}`, [uid]);
         return res.json({ events: r.rows.slice(0, PAGE), more: r.rows.length > PAGE });
       }
-      const r = await pool.query(SELECT + ` WHERE e.starts_at >= now() - interval '6 hours' ORDER BY e.starts_at ASC, e.id ASC LIMIT 100`, [uid]);
+      const r = await pool.query(SELECT + ` WHERE e.date_to >= (now() AT TIME ZONE 'Europe/Prague')::date ORDER BY e.date_from ASC, e.id ASC LIMIT 100`, [uid]);
       res.json({ events: r.rows, more: false });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Akce se nepodařilo načíst.' }); }
   });
@@ -121,8 +129,8 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
       list.push(now); hits.set(req.user.id, list);
       if (hits.size > 5000) hits.clear();
       const ins = await pool.query(
-        'INSERT INTO events (user_id, title, starts_at, place, description, url, photo_mime, photo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
-        [req.user.id, p.v.title, p.v.startsAt, p.v.place, p.v.description, p.v.url, mime, buf]);
+        'INSERT INTO events (user_id, title, date_from, date_to, place, description, url, photo_mime, photo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',
+        [req.user.id, p.v.title, p.v.dateFrom, p.v.dateTo, p.v.place, p.v.description, p.v.url, mime, buf]);
       res.status(201).json({ id: ins.rows[0].id });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Akci se nepodařilo uložit.' }); }
   });
@@ -139,7 +147,7 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
       const ev = await own(req, res); if (!ev) return;
       const b = req.body || {};
       const p = parse(b); if (p.error) return res.status(400).json({ error: p.error });
-      await pool.query('UPDATE events SET title=$2, starts_at=$3, place=$4, description=$5, url=$6 WHERE id=$1', [ev.id, p.v.title, p.v.startsAt, p.v.place, p.v.description, p.v.url]);
+      await pool.query('UPDATE events SET title=$2, date_from=$3, date_to=$4, place=$5, description=$6, url=$7 WHERE id=$1', [ev.id, p.v.title, p.v.dateFrom, p.v.dateTo, p.v.place, p.v.description, p.v.url]);
       res.json({ ok: true });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Akci se nepodařilo upravit.' }); }
   });

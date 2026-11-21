@@ -130,3 +130,6 @@ select.k-in{background:#fff;}
 
 /* atribut hidden musí vždy skrýt (jinak ho přebije display:flex u formulářů) */
 .k-wrap [hidden]{display:none !important;}
+
+.k-dates{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media (max-width:560px){.k-dates{grid-template-columns:1fr;}}
