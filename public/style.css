@@ -1153,3 +1153,12 @@ body.ride-ui.panel-open #menu-btn, body.ride-ui.panel-open #satellite-btn{ displ
 
 .route-item[hidden]{display:none;}
 .master-row[hidden]{display:none;}
+
+/* v4.98: kompaktnější horní část seznamu tras (obecné pravidlo pro label přidávalo řádkům filtrů velké okraje) */
+#route-tools{padding:6px 12px 8px;}
+#route-master{gap:0;margin-bottom:4px;}
+.master-row{margin:0;padding:3px 0;}
+#route-tools #select-mode-btn{margin:2px 0 0;}
+#route-legend{margin-top:6px;}
+#route-list h2{padding-top:10px;padding-bottom:10px;}
+@media (max-width:760px){ #route-tools{padding:4px 10px 6px;} #route-list h2{padding:8px 14px;} }
