@@ -161,7 +161,7 @@
   });
 
 
-  // ---------- články: Aktuality a Fotoreportáže (v4.64) ----------
+  // ---------- články: Aktuality a Články (v4.64) ----------
   const MAXP = { aktuality:4, fotoreporty:12 };
   const posts = {};   // kind -> { loaded, oldest, more, perm, files:[dataURL], editId }
   const MONTHS = ['ledna','února','března','dubna','května','června','července','srpna','září','října','listopadu','prosince'];

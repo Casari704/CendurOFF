@@ -37,7 +37,7 @@ roadbook-api.js       roadbooky
 admin-api.js          archiv smazaných tras, projetí, správa uživatelů
 profile-api.js        profil jezdce, odznaky, hlášení chyb
 chat-api.js           skupinový chat v Komunitě (jen přihlášení)
-posts-api.js          články v Komunitě: Aktuality (admin) a Fotoreportáže (vybraní členové)
+posts-api.js          články v Komunitě: Aktuality (admin) a Články (reporter a výš)
 backup-api.js         záloha a obnova databáze (jen admin)
 osm-api.js, region-api.js, elevation.js   data z OpenStreetMap, benzínky/CHKO, výšky
 export-zip.js         ZIP a XLSX pro zálohu
@@ -79,7 +79,7 @@ npm test                 # testy bezpečnostních funkcí
 
 - První registrovaný účet se schválí automaticky, další schvaluje admin v `admin.html`.
 - Admina nastavíš v databázi: `UPDATE users SET role = 'admin' WHERE username = 'tvuj@email.cz';`
-- Role (sloupec `users.role`): `user` (Uživatel), `reporter` (smí psát Fotoreportáže), `moderator` (+ maže cizí chat, články a recenze, schvaluje registrace, mění role Uživatel/Reporter), `admin` (vše). Nepřihlášený je host. Role se mění v Admin sekci.
+- Role (sloupec `users.role`): `user` (Uživatel), `reporter` (smí psát Články), `moderator` (+ maže cizí chat, články a recenze, schvaluje registrace, mění role Uživatel/Reporter), `admin` (vše). Nepřihlášený je host. Role se mění v Admin sekci.
 - Zapomenuté heslo: člen klepne na „Zapomněl jsem heslo“ (žádost se ukáže v `admin.html`), admin u něj klikne na „Resetovat heslo“, předá mu vygenerované dočasné heslo a člen si po přihlášení musí zvolit nové.
 - Smazané trasy zůstávají v archivu (jen admin je vidí, obnoví nebo smaže natrvalo).
 - Záloha a obnova databáze: `admin.html` (ZIP s přehledem v Excelu, GPX, fotkami a daty pro obnovu).

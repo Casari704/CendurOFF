@@ -94,7 +94,7 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin, atLeast }) {
       const b = req.body || {};
       const kind = String(b.kind || '');
       if (!KINDS.includes(kind)) return res.status(400).json({ error: 'Neznámá kategorie.' });
-      if (!(await canWrite(req, kind))) return res.status(403).json({ error: kind === 'aktuality' ? 'Aktuality přidává jen admin.' : 'Fotoreportáže smí přidávat jen vybraní členové.' });
+      if (!(await canWrite(req, kind))) return res.status(403).json({ error: kind === 'aktuality' ? 'Aktuality přidává jen admin.' : 'Články smí přidávat jen reporteři, moderátoři a admin.' });
       const title = clean(b.title, MAX_TITLE), text = clean(b.text, MAX_TEXT);
       if (title.length < 3) return res.status(400).json({ error: 'Napiš nadpis (aspoň 3 znaky).' });
       if (!text) return res.status(400).json({ error: 'Napiš text článku.' });
