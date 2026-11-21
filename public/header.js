@@ -260,6 +260,7 @@
 
   function setUser(u){
     user = u || null;
+    if(user && user.mustChangePassword && page !== 'nastaveni'){ location.replace('nastaveni.html?zmena=1'); return; }   // v4.60: dočasné heslo
     userBtn.hidden = !user;
     loginLink.hidden = !!user;
     if(user) userBtn.textContent = user.displayName + (user.role==='admin' ? ' · admin' : '');

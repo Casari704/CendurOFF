@@ -105,6 +105,9 @@ async function initDb() {
   // v2.9: kdy se uživatel naposledy přihlásil (zadal heslo) a kdy byl naposledy aktivní na webu / v aplikaci
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);
+  // v4.60: reset hesla – dočasné heslo od admina (nutno změnit) a žádost „Zapomněl jsem heslo“
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT false`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_requested_at TIMESTAMPTZ`);
   await pool.query(`CREATE TABLE IF NOT EXISTS user_logins (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_logins_user ON user_logins(user_id, created_at)`);
 
@@ -356,7 +359,7 @@ app.post('/api/auth/login', async (req, res) => {
     pool.query('INSERT INTO user_logins (user_id) VALUES ($1)', [user.id]).catch(e => console.error(e));
     const token = signToken(user);
     setAuthCookie(res, token);
-    res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true, role: user.role || 'user', token });
+    res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true, role: user.role || 'user', mustChangePassword: !!user.must_change_password, token });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Přihlášení se nepovedlo.' });
@@ -368,8 +371,33 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/auth/me', requireAuth, (req, res) => {
-  res.json({ id: req.user.id, username: req.user.username, displayName: req.user.displayName, role: req.user.role });
+app.get('/api/auth/me', requireAuth, async (req, res) => {
+  let must = false;
+  try { const r = await pool.query('SELECT must_change_password FROM users WHERE id = $1', [req.user.id]); must = !!(r.rows[0] && r.rows[0].must_change_password); } catch (e) {}
+  res.json({ id: req.user.id, username: req.user.username, displayName: req.user.displayName, role: req.user.role, mustChangePassword: must });
+});
+
+// v4.60: „Zapomněl jsem heslo“ – jen zapíše žádost, admin v administraci nastaví dočasné heslo.
+// Odpověď je vždy stejná (nezjistí se, jestli e-mail v databázi je); nejvýš 5 žádostí za hodinu z jedné adresy.
+const forgotHits = new Map();
+app.post('/api/auth/forgot', async (req, res) => {
+  try {
+    const ip = req.ip || 'neznama', now = Date.now();
+    let h = forgotHits.get(ip);
+    if (!h || now >= h.reset) { h = { n: 0, reset: now + 3600000 }; forgotHits.set(ip, h); }
+    if (++h.n > 5) return res.status(429).json({ error: 'Příliš mnoho žádostí, zkus to později.' });
+    if (forgotHits.size > 5000) { for (const [k, v] of forgotHits) if (now >= v.reset) forgotHits.delete(k); }
+    const username = String(req.body.username || '').trim().toLowerCase();
+    if (username) {
+      await pool.query(
+        `UPDATE users SET reset_requested_at = now()
+         WHERE username = $1 AND is_approved = true AND (reset_requested_at IS NULL OR reset_requested_at < now() - interval '1 hour')`, [username]);
+    }
+    res.json({ ok: true, message: 'Žádost je odeslána. Administrátor ti pošle dočasné heslo.' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Žádost se nepodařilo odeslat.' });
+  }
 });
 
 app.post('/api/auth/change-password', requireAuth, async (req, res) => {
@@ -384,7 +412,7 @@ app.post('/api/auth/change-password', requireAuth, async (req, res) => {
     const ok = await bcrypt.compare(currentPassword, user.password_hash);
     if (!ok) return res.status(401).json({ error: 'Současné heslo není správně.' });
     const hash = await bcrypt.hash(newPassword, 10);
-    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
+    await pool.query('UPDATE users SET password_hash = $1, must_change_password = false, reset_requested_at = NULL WHERE id = $2', [hash, req.user.id]);
     res.json({ ok: true });
   } catch (e) {
     console.error(e);

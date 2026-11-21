@@ -454,8 +454,20 @@ function setLoginMode(m){
   liUser.autocomplete = reg ? 'email' : 'username';
   liNickWrap.hidden = !reg; liNick.required = reg;
   document.getElementById('li-pass').autocomplete = reg ? 'new-password' : 'current-password';
+  document.getElementById('li-forgot').hidden = reg;
   formMsg.textContent = '';
 }
+// v4.60: „Zapomněl jsem heslo“ – zapíše žádost, admin pošle dočasné heslo
+document.getElementById('li-forgot').addEventListener('click', async ()=>{
+  const u = liUser.value.trim().toLowerCase();
+  formMsg.style.color = '';
+  if(!u){ formMsg.textContent = 'Napiš nahoru svůj e-mail a klepni znovu na „Zapomněl jsem heslo“.'; return; }
+  try{
+    const r = await api('/api/auth/forgot', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username: u }) });
+    formMsg.style.color = 'var(--moss-dark)';
+    formMsg.textContent = (r && r.message) || 'Žádost je odeslána.';
+  }catch(err){ formMsg.textContent = err.message || 'Žádost se nepodařilo odeslat.'; }
+});
 tabLogin.addEventListener('click', ()=> setLoginMode('login'));
 tabRegister.addEventListener('click', ()=> setLoginMode('register'));
 setLoginMode('login');
@@ -493,6 +505,7 @@ loginForm.addEventListener('submit', async (e)=>{
     }
     if(user.token){ setToken(user.token); delete user.token; }
     currentUser = user;
+    if(user.mustChangePassword){ location.replace('nastaveni.html?zmena=1'); return; }   // v4.60: dočasné heslo → nejdřív nové
     if(goNextIfAny()) return;
     // přihlášení z prohlížení bez účtu → stránku načíst znovu už přihlášený (trasy s oprávněními)
     if(appEntered){
@@ -3278,6 +3291,7 @@ async function enterApp(){
   try{
     const user = await api('/api/auth/me');
     currentUser = user;
+    if(user.mustChangePassword){ location.replace('nastaveni.html?zmena=1'); return; }
     if(goNextIfAny()) return;
     document.body.classList.remove('auth-pending');
     enterApp();

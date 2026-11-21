@@ -29,6 +29,12 @@
     $('s-name').textContent = user.displayName;
     $('s-role').textContent = (user.role === 'admin' ? 'administrátor' : 'uživatel') + (user.username && user.username.toLowerCase() !== String(user.displayName).toLowerCase() ? ' · přihlašovací jméno ' + user.username : '');
     $('s-admin-row').hidden = user.role !== 'admin';
+    // v4.60: přihlášen dočasným heslem od admina → rovnou formulář pro nové heslo
+    if(user.mustChangePassword){
+      setPw(true);
+      $('cp-msg').textContent = 'Přihlásil ses dočasným heslem. Do „Současné heslo“ napiš to dočasné a nastav si vlastní.';
+      $('s-pw').scrollIntoView({ block:'center' });
+    }
     loadProfile();
   }
 

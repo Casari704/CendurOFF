@@ -9,8 +9,8 @@
 <title>CendurOFF Admin sekce</title>
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.59.2">
-<link rel="stylesheet" href="public/faq.css?v=4.59.2">
+<link rel="stylesheet" href="public/style.css?v=4.60">
+<link rel="stylesheet" href="public/faq.css?v=4.60">
 <style>
   .a-wrap{max-width:1100px;margin:0 auto;padding:24px 20px 60px;}
   .a-wrap h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);}
@@ -105,11 +105,11 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.59.2"></script>
-<script src="public/errors.js?v=4.59.2"></script>
-<script src="public/rider.js?v=4.59.2"></script>
-<script src="public/header.js?v=4.59.2"></script>
-<script src="public/pwa.js?v=4.59.2"></script>
+<script src="public/config.js?v=4.60"></script>
+<script src="public/errors.js?v=4.60"></script>
+<script src="public/rider.js?v=4.60"></script>
+<script src="public/header.js?v=4.60"></script>
+<script src="public/pwa.js?v=4.60"></script>
 <script>
 (function(){
   const API_URL = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
@@ -288,18 +288,20 @@
     $('a-users').querySelectorAll('th[data-k]').forEach((th, i) => { th.textContent = th.textContent.replace(/ [▲▼]$/, '') + (i === uSortTh ? (uSortDesc ? ' ▼' : ' ▲') : ''); });
     const pending = users.filter(u => !u.is_approved).length;
     $('a-pending').textContent = pending ? '⏳ ' + pending + (pending === 1 ? ' registrace čeká' : pending < 5 ? ' registrace čekají' : ' registrací čeká') + ' na schválení' : '';
-    $('a-pending').hidden = !pending;
+    const resets = users.filter(u => u.reset_requested_at).length;
+    if(resets) $('a-pending').textContent += (pending ? ' · ' : '') + '🔑 ' + resets + (resets === 1 ? ' žádost o reset hesla' : resets < 5 ? ' žádosti o reset hesla' : ' žádostí o reset hesla');
+    $('a-pending').hidden = !pending && !resets;
     tb.innerHTML = users.length ? users.map(u => {
       const st = u.stats || {}; const b = R ? R.badgeFor(st.km) : null;
       const ach = R && u.stats ? R.achievements(st, u.earned).filter(a => a.got) : [];
-      return '<tr' + (u.is_approved ? '' : ' class="a-pend"') + '><td class="name">' + esc(u.display_name) + (u.role === 'admin' ? ' <small>(admin)</small>' : '') + (u.is_approved ? '' : ' <span class="a-deleted">čeká na schválení</span>') + '</td>' +
+      return '<tr' + (u.is_approved ? '' : ' class="a-pend"') + '><td class="name">' + esc(u.display_name) + (u.role === 'admin' ? ' <small>(admin)</small>' : '') + (u.is_approved ? '' : ' <span class="a-deleted">čeká na schválení</span>') + (u.reset_requested_at ? ' <span class="a-deleted" title="' + esc(fmtDate(u.reset_requested_at)) + '">žádá reset hesla</span>' : '') + (u.must_change_password ? ' <small>(dočasné heslo)</small>' : '') + '</td>' +
       '<td>' + esc(u.username) + '</td>' +
       '<td>' + (b ? b.icon + ' ' + esc(b.name) : '—') + '</td><td class="num">' + (u.stats ? R.fmtKm(st.km).replace(' km', '') : '—') + '</td>' +
       '<td class="a-ach">' + (ach.length ? ach.map(a => '<span title="' + esc(a.name) + '">' + a.icon + '</span>').join('') : '—') + '</td>' +
       '<td>' + ago(u.last_seen_at) + '</td><td class="num big">' + u.logins_30d + '</td><td class="num big">' + u.logins_total + '</td>' +
       '<td class="num">' + u.routes + '</td><td class="num">' + u.rides + '</td><td>' + ago(u.last_login_at) + '</td><td>' + fmtDate(u.created_at) + '</td>' +
-      '<td>' + (u.is_approved ? (me && u.id !== me.id ? '<button class="a-btn red" type="button" data-remove="' + u.id + '">Smazat účet</button>' : '') : '<button class="a-btn green" type="button" data-approve="' + u.id + '">✓ Schválit</button><button class="a-btn red" type="button" data-reject="' + u.id + '">Zamítnout</button>') + '</td></tr>' +
-      (removeId === u.id ? removeRow(u) : '');
+      '<td>' + (u.is_approved ? (me && u.id !== me.id ? '<button class="a-btn" type="button" data-reset="' + u.id + '">Resetovat heslo</button><button class="a-btn red" type="button" data-remove="' + u.id + '">Smazat účet</button>' : '') : '<button class="a-btn green" type="button" data-approve="' + u.id + '">✓ Schválit</button><button class="a-btn red" type="button" data-reject="' + u.id + '">Zamítnout</button>') + '</td></tr>' +
+      (removeId === u.id ? removeRow(u) : '') + (resetId === u.id ? resetRow(u) : '');
     }).join('')
       : '<tr><td colspan="13" class="a-empty">Žádní uživatelé.</td></tr>';
   }
@@ -307,6 +309,18 @@
     const k = th.dataset.k; if(uSortTh === i) uSortDesc = !uSortDesc; else { uSortK = k; uSortTh = i; uSortDesc = !(k === 'display_name' || k === 'username'); } renderUsers(users);
   }));
   // v4.5.2: smazání účtu – trasy se nejdřív převedou na jiný účet (třeba „archiv“)
+  let resetId = null, resetShown = null;   // v4.60: reset hesla
+  function resetRow(u){
+    if(resetShown && resetShown.id === u.id){
+      return '<tr class="det a-remove"><td colspan="13"><div class="a-remove-in"><b>Dočasné heslo pro ' + esc(u.display_name) + '</b>' +
+        '<p style="font-size:1.4rem;letter-spacing:.08em;font-family:monospace;user-select:all;margin:6px 0">' + esc(resetShown.password) + '</p>' +
+        '<p class="a-note">Ukáže se jen teď. Pošli ho uživateli (' + esc(u.username) + '); po přihlášení si musí nastavit vlastní heslo.</p>' +
+        '<button class="a-btn go" type="button" data-reset-copy="1">Zkopírovat</button><button class="a-btn" type="button" data-reset-close="1">Hotovo</button></div></td></tr>';
+    }
+    return '<tr class="det a-remove"><td colspan="13"><div class="a-remove-in"><b>Resetovat heslo: ' + esc(u.display_name) + ' (' + esc(u.username) + ')</b>' +
+      '<p>Vytvoří se dočasné heslo a stávající přestane platit. Uživatel si po přihlášení musí zvolit nové.</p>' +
+      '<button class="a-btn red" type="button" data-reset-ok="' + u.id + '">Vytvořit dočasné heslo</button><button class="a-btn" type="button" data-reset-close="1">Zrušit</button></div></td></tr>';
+  }
   let removeId = null;
   function removeRow(u){
     const others = users.filter(x => x.is_approved && x.id !== u.id);
@@ -322,6 +336,21 @@
       '<button class="a-btn red" type="button" data-remove-ok="' + u.id + '">Smazat účet natrvalo</button><button class="a-btn" type="button" data-remove-cancel="1">Zrušit</button>' +
       '</td></tr>';
   }
+  $('a-users').addEventListener('click', async ev => {
+    const rs = ev.target.closest('[data-reset]'), rok = ev.target.closest('[data-reset-ok]'), rcl = ev.target.closest('[data-reset-close]'), rcp = ev.target.closest('[data-reset-copy]');
+    if(rs){ const id = Number(rs.dataset.reset); resetId = resetId === id ? null : id; resetShown = null; removeId = null; renderUsers(users); return; }
+    if(rcl){ resetId = null; resetShown = null; renderUsers(users); return; }
+    if(rcp && resetShown){ try{ await navigator.clipboard.writeText(resetShown.password); toast('Heslo zkopírováno.'); }catch(e){ toast('Označ heslo a zkopíruj ho ručně.'); } return; }
+    if(rok){
+      const u = users.find(x => x.id === Number(rok.dataset.resetOk)); if(!u) return;
+      try{
+        const x = await api('/api/admin/users/' + u.id + '/reset-password', { method:'POST' });
+        resetShown = { id: u.id, password: x.password }; resetId = u.id;
+        const fresh = await api('/api/admin/users'); renderUsers(fresh);
+      }catch(e2){ toast(e2.message); }
+      return;
+    }
+  });
   $('a-users').addEventListener('click', async ev => {
     const rm = ev.target.closest('[data-remove]'), ok = ev.target.closest('[data-remove-ok]'), cancel = ev.target.closest('[data-remove-cancel]');
     if(rm){ removeId = removeId === Number(rm.dataset.remove) ? null : Number(rm.dataset.remove); renderUsers(users); return; }

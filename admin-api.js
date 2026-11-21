@@ -49,7 +49,7 @@ function mount(app, { pool, requireAuth, isAdmin }) {
   app.get('/api/admin/users', whenReady, requireAuth, adminOnly, async (req, res) => {
     try {
       const r = await pool.query(`
-        SELECT u.id, u.username, u.display_name, u.role, u.is_approved, u.created_at, u.last_login_at, u.last_seen_at,
+        SELECT u.id, u.username, u.display_name, u.role, u.is_approved, u.created_at, u.last_login_at, u.last_seen_at, u.must_change_password, u.reset_requested_at,
                (SELECT COUNT(*)::int FROM routes x WHERE x.owner_id = u.id AND x.deleted_at IS NULL) AS routes,
                (SELECT COUNT(*)::int FROM routes x WHERE x.owner_id = u.id AND x.deleted_at IS NOT NULL) AS routes_archived,
                (SELECT COUNT(*)::int FROM route_rides rr WHERE rr.user_id = u.id) AS rides,
@@ -106,6 +106,24 @@ function mount(app, { pool, requireAuth, isAdmin }) {
       if (!r.rows[0]) return res.status(404).json({ error: 'Uživatel nenalezen.' });
       res.json({ ok: true, moved: r.rows[0].moved });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Účet se nepodařilo smazat.' }); }
+  });
+
+  // ---------------- v4.60: reset hesla ----------------
+  // vygeneruje dočasné heslo (admin ho uvidí jednou a předá), uživatel si ho po přihlášení musí změnit
+  app.post('/api/admin/users/:id/reset-password', whenReady, requireAuth, adminOnly, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (id === req.user.id) return res.status(400).json({ error: 'Vlastní heslo si změň v Nastavení účtu.' });
+      const alphabet = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // bez zaměnitelných znaků (0 O 1 l I)
+      const bytes = require('crypto').randomBytes(8);
+      let pw = ''; for (let i = 0; i < 8; i++) pw += alphabet[bytes[i] % alphabet.length];
+      const hash = await require('bcryptjs').hash(pw, 10);
+      const r = await pool.query(
+        'UPDATE users SET password_hash = $2, must_change_password = true, reset_requested_at = NULL WHERE id = $1 AND is_approved = true RETURNING id, username, display_name', [id, hash]);
+      if (!r.rows[0]) return res.status(404).json({ error: 'Uživatel nenalezen (nebo ještě není schválený).' });
+      console.log('Admin ' + req.user.id + ' resetoval heslo uživateli ' + id);
+      res.json({ ok: true, password: pw, username: r.rows[0].username, display_name: r.rows[0].display_name });
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Heslo se nepodařilo resetovat.' }); }
   });
 
   // ---------------- v4.5: změna vlastníka trasy ----------------
