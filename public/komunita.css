@@ -167,5 +167,9 @@ select.k-in{background:#fff;}
 /* karta akce: souhrn s náhledem, podrobnosti se rozbalí */
 .k-esum{padding:0;border:0;cursor:pointer;position:relative;padding-right:24px;}
 .k-esum::after{content:'▸';position:absolute;right:2px;top:2px;color:var(--moss);transition:transform .15s;}
-.k-event.open .k-esum::after{transform:rotate(90deg);}
+.k-post.open > .k-esum::after{transform:rotate(90deg);}
 .k-edet{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);}
+
+.k-nx{margin-top:3px;font-size:0.88rem;color:var(--ink-soft);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;}
+.k-nth.ph small{text-align:center;padding:0 4px;line-height:1.2;}
+.k-nth.ph:has(> small:only-child){font-size:0.8rem;}

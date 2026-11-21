@@ -178,9 +178,37 @@
     if(!res.ok) throw new Error((data && data.error) || 'Něco se pokazilo.');
     return data;
   }
+  // společný souhrn karty (náhled + řádky), podrobnosti se rozbalí klepnutím – stejně u článků, míst i akcí
+  function cardSum(thumbSrc, phHtml, title, rows, excerpt){
+    const sum = document.createElement('div'); sum.className = 'k-ni k-esum'; sum.setAttribute('role', 'button'); sum.tabIndex = 0; sum.setAttribute('aria-expanded', 'false');
+    const th = document.createElement('span'); th.className = 'k-nth';
+    if(thumbSrc){ const im = document.createElement('img'); im.loading = 'lazy'; im.decoding = 'async'; im.alt = ''; im.src = thumbSrc; th.appendChild(im); }
+    else{ th.classList.add('ph'); th.innerHTML = phHtml; }
+    const tx = document.createElement('span'); tx.className = 'k-nt';
+    const h = document.createElement('b'); h.textContent = title; tx.appendChild(h);
+    rows.forEach(r => {
+      const l = document.createElement('span'); l.className = 'k-nl'; l.appendChild(document.createTextNode(r[0] + ': '));
+      const v = document.createElement('strong'); v.textContent = r[1]; if(r[2]) v.className = r[2]; l.appendChild(v); tx.appendChild(l);
+    });
+    if(excerpt){ const x = document.createElement('span'); x.className = 'k-nx'; x.textContent = excerpt; tx.appendChild(x); }
+    sum.appendChild(th); sum.appendChild(tx);
+    return sum;
+  }
+  function collapseCard(art, sum){
+    const det = document.createElement('div'); det.className = 'k-edet'; det.hidden = true;
+    while(art.firstChild) det.appendChild(art.firstChild);
+    art.appendChild(sum); art.appendChild(det);
+    return art;
+  }
+  function toggleCard(art){
+    const det = art.querySelector(':scope > .k-edet'), on = det.hidden;
+    det.hidden = !on; art.classList.toggle('open', on);
+    art.querySelector(':scope > .k-esum').setAttribute('aria-expanded', on ? 'true' : 'false');
+  }
+  document.addEventListener('keydown', e => { const s = e.target.closest && e.target.closest('.k-esum'); if(s && (e.key === 'Enter' || e.key === ' ') && !s.parentNode.classList.contains('k-event')){ e.preventDefault(); s.click(); } });
   function postEl(kind, p){
     const art = document.createElement('article'); art.className = 'k-post'; art.dataset.id = p.id; art.dataset.photos = JSON.stringify(p.photos || []);
-    const h = document.createElement('h3'); h.textContent = p.title; art.appendChild(h);
+    art.dataset.title = p.title;
     const meta = document.createElement('div'); meta.className = 'k-pmeta';
     meta.textContent = (p.nick || 'smazaný účet') + roleTag(p.role) + ' · ' + fmtDate(p.created_at) + (p.updated_at ? ' · upraveno' : '');
     if(me && (isMod() || p.user_id === meId)){
@@ -203,7 +231,11 @@
     cb.textContent = 'Komentáře (' + (p.comments || 0) + ')';
     art.appendChild(cb);
     const cs = document.createElement('div'); cs.className = 'k-comments'; cs.hidden = true; art.appendChild(cs);
-    return art;
+    const d = new Date(p.created_at);
+    const sum = cardSum(p.photos && p.photos.length ? API() + '/api/posts/photo/' + p.photos[0] : '', '<b>' + d.getDate() + '</b><small>' + MON[d.getMonth()] + '</small>', p.title,
+      [['Autor', (p.nick || 'smazaný účet') + roleTag(p.role)], ['Přidáno', fmtDate(p.created_at)], ['Komentáře', String(p.comments || 0), 'k-ccnt']],
+      String(p.text || '').replace(/\s+/g, ' ').slice(0, 140));
+    return collapseCard(art, sum);
   }
   // komentáře se načtou až po rozkliknutí (šetří data)
   function commentEl(c){
@@ -217,7 +249,7 @@
     row.appendChild(head); row.appendChild(t);
     return row;
   }
-  function setCount(art, n){ const b = art.querySelector('.k-cbtn'); if(b) b.textContent = 'Komentáře (' + n + ')'; }
+  function setCount(art, n){ const b = art.querySelector('.k-cbtn'); if(b) b.textContent = 'Komentáře (' + n + ')'; const c = art.querySelector('.k-ccnt'); if(c) c.textContent = n; }
   async function toggleComments(art, path){
     const box = art.querySelector('.k-comments');
     if(!box.hidden){ box.hidden = true; return; }
@@ -339,6 +371,7 @@
     });
     box.addEventListener('click', async e => {
       const st = posts[kind];
+      const sm = e.target.closest('.k-esum'); if(sm){ toggleCard(sm.parentNode); return; }
       const cb = e.target.closest('[data-comments]');
       if(cb){ toggleComments(cb.closest('.k-post')); return; }
       const dc = e.target.closest('[data-delcm]');
@@ -356,7 +389,7 @@
       const ed = e.target.closest('[data-edit]');
       if(ed){
         const art = ed.closest('.k-post'); closeForm(kind);
-        f.title.value = art.querySelector('h3').textContent; f.text.value = art.querySelector('.k-ptext').textContent;
+        f.title.value = art.dataset.title; f.text.value = art.querySelector('.k-ptext').textContent;
         st.editId = Number(ed.dataset.edit); st.old = JSON.parse(art.dataset.photos || '[]'); drawThumbs(kind); f.querySelector('button[type=submit]').textContent = 'Uložit změny';
         f.hidden = false; f.scrollIntoView({ block:'nearest' }); f.title.focus(); return;
       }
@@ -582,8 +615,6 @@
   function placeEl(p){
     const art = document.createElement('article'); art.className = 'k-post k-place'; art.dataset.pid = p.id; art.dataset.photos = JSON.stringify(p.photos || []);
     art.dataset.pl = JSON.stringify({ name:p.name, category:p.category, locality:p.locality, lat:p.lat, lon:p.lon, description:p.description, url:p.url });
-    const h = document.createElement('h3'); h.textContent = p.name; art.appendChild(h);
-    const cat = document.createElement('div'); cat.className = 'k-pcat'; cat.textContent = PCATS[p.category] || 'Ostatní'; art.appendChild(cat);
     const loc = document.createElement('div'); loc.className = 'k-eplace';
     if(p.locality) loc.appendChild(document.createTextNode(p.locality + ' · '));
     const ml = document.createElement('a'); ml.href = pmapLink(p); ml.target = '_blank'; ml.rel = 'noopener'; ml.textContent = 'na mapě'; loc.appendChild(ml);
@@ -609,7 +640,10 @@
     }
     const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'k-cbtn'; cb.dataset.pcomments = p.id; cb.textContent = 'Komentáře (' + (p.comments || 0) + ')'; art.appendChild(cb);
     const cs = document.createElement('div'); cs.className = 'k-comments'; cs.hidden = true; art.appendChild(cs);
-    return art;
+    const sum = cardSum(p.photos && p.photos.length ? API() + '/api/places/photo/' + p.photos[0] : '', '<small>' + esc(PCATS[p.category] || 'Ostatní') + '</small>', p.name,
+      [['Kategorie', PCATS[p.category] || 'Ostatní'], ['Místo', p.locality || (p.lat != null ? Number(p.lat).toFixed(4) + ', ' + Number(p.lon).toFixed(4) : '')], ['Komentáře', String(p.comments || 0), 'k-ccnt']],
+      String(p.description || '').replace(/\s+/g, ' ').slice(0, 140));
+    return collapseCard(art, sum);
   }
   async function loadPlaces(more){
     const box = eEl('k-places'), btn = eEl('k-pmore');
@@ -710,6 +744,7 @@
       const ph = e.target.closest('[data-photo]');
       if(ph){ e.preventDefault(); lightbox(ph.href); return; }
       const art = e.target.closest('.k-place'); if(!art) return;
+      const sm = e.target.closest('.k-esum'); if(sm){ toggleCard(art); return; }
       const cb = e.target.closest('[data-pcomments]');
       if(cb){ toggleComments(art, '/api/places/' + art.dataset.pid + '/comments'); return; }
       const dc = e.target.closest('[data-delcm]');
