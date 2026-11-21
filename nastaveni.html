@@ -10,8 +10,8 @@
 <title>CendurOFF Nastavení účtu</title>
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.64">
-<link rel="stylesheet" href="public/settings.css?v=4.64">
+<link rel="stylesheet" href="public/style.css?v=4.65">
+<link rel="stylesheet" href="public/settings.css?v=4.65">
 <style>body.auth-pending .s-wrap{visibility:hidden;}</style>
 </head>
 <body class="settings-page auth-pending">
@@ -31,6 +31,19 @@
       <div class="s-txt"><b>Admin sekce</b><small>uživatelé, projetí tras, archiv smazaných tras</small></div>
       <a class="s-btn" href="admin.html">Otevřít</a>
     </div>
+    <div class="s-row">
+      <div class="s-txt"><b>Přezdívka</b><small>jméno, pod kterým tě vidí ostatní</small></div>
+      <button class="s-btn" id="s-nick-open" type="button" aria-expanded="false" aria-controls="s-nick">Změnit přezdívku</button>
+    </div>
+    <form class="s-form" id="s-nick" hidden>
+      <label for="cn-nick">Nová přezdívka</label>
+      <input type="text" id="cn-nick" autocomplete="nickname" required minlength="2" maxlength="40">
+      <div class="s-msg" id="cn-msg" aria-live="polite"></div>
+      <div class="s-form-btns">
+        <button class="s-btn" type="button" id="s-nick-cancel">Zrušit</button>
+        <button class="s-btn primary" type="submit">Uložit přezdívku</button>
+      </div>
+    </form>
     <div class="s-row">
       <div class="s-txt"><b>Heslo</b><small>změna hesla k účtu</small></div>
       <button class="s-btn" id="s-pw-open" type="button" aria-expanded="false" aria-controls="s-pw">Změnit heslo</button>
@@ -119,12 +132,12 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.64"></script>
-<script src="public/errors.js?v=4.64"></script>
-<script src="public/rider.js?v=4.64"></script>
-<script src="public/header.js?v=4.64"></script>
-<script src="public/pwa.js?v=4.64"></script>
-<script src="public/sound.js?v=4.64"></script>
-<script src="public/settings.js?v=4.64"></script>
+<script src="public/config.js?v=4.65"></script>
+<script src="public/errors.js?v=4.65"></script>
+<script src="public/rider.js?v=4.65"></script>
+<script src="public/header.js?v=4.65"></script>
+<script src="public/pwa.js?v=4.65"></script>
+<script src="public/sound.js?v=4.65"></script>
+<script src="public/settings.js?v=4.65"></script>
 </body>
 </html>

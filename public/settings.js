@@ -125,6 +125,30 @@
   renderSnd();
   setTimeout(renderSnd, 1500);
 
+  // ---------- přezdívka ----------
+  const nform = $('s-nick');
+  function setNick(open){
+    nform.hidden = !open;
+    $('s-nick-open').hidden = open;
+    $('s-nick-open').setAttribute('aria-expanded', open ? 'true' : 'false');
+    if(open){ nform.reset(); $('cn-msg').textContent = ''; $('cn-msg').className = 's-msg'; $('cn-nick').value = $('s-name').textContent; $('cn-nick').focus(); $('cn-nick').select(); }
+  }
+  $('s-nick-open').addEventListener('click', () => setNick(true));
+  $('s-nick-cancel').addEventListener('click', () => setNick(false));
+  nform.addEventListener('submit', async e => {
+    e.preventDefault();
+    const msg = $('cn-msg'), nick = $('cn-nick').value.trim().replace(/\s+/g, ' ');
+    msg.className = 's-msg';
+    if(nick.length < 2){ msg.textContent = 'Přezdívka musí mít aspoň 2 znaky.'; return; }
+    msg.textContent = 'Ukládám…';
+    try{
+      const d = await api('/api/auth/change-nick', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ displayName: nick }) });
+      $('s-name').textContent = d.displayName;
+      msg.className = 's-msg ok'; msg.textContent = 'Přezdívka byla změněna.';
+      setTimeout(() => setNick(false), 1200);
+    }catch(err){ msg.textContent = err.message || 'Přezdívku se nepodařilo změnit.'; }
+  });
+
   // ---------- heslo ----------
   const form = $('s-pw');
   function setPw(open){

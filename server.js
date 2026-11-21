@@ -231,9 +231,10 @@ async function requireAuth(req, res, next) {
   }
   try {
     // roli čteme vždy čerstvě z databáze - změna role v DB platí hned, bez nového přihlášení
-    const r = await pool.query('SELECT role FROM users WHERE id = $1', [req.user.id]);
+    const r = await pool.query('SELECT role, display_name FROM users WHERE id = $1', [req.user.id]);
     if (!r.rows[0]) return res.status(401).json({ error: 'Účet už neexistuje.' });
     req.user.role = r.rows[0].role || 'user';
+    req.user.displayName = r.rows[0].display_name;   // přezdívku čteme také čerstvě (v4.65: jde změnit)
     touchSeen(req.user.id);
   } catch (e) {
     console.error(e);
@@ -399,6 +400,20 @@ app.post('/api/auth/forgot', async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Žádost se nepodařilo odeslat.' });
+  }
+});
+
+app.post('/api/auth/change-nick', requireAuth, async (req, res) => {
+  try {
+    const nick = String(req.body.displayName || '').trim().replace(/\s+/g, ' ').slice(0, 40);
+    if (nick.length < 2) return res.status(400).json({ error: 'Přezdívka musí mít aspoň 2 znaky.' });
+    const taken = await pool.query('SELECT id FROM users WHERE lower(display_name) = lower($1) AND id <> $2', [nick, req.user.id]);
+    if (taken.rows.length) return res.status(409).json({ error: 'Tuhle přezdívku už někdo má – vyber si jinou.' });
+    await pool.query('UPDATE users SET display_name = $1 WHERE id = $2', [nick, req.user.id]);
+    res.json({ ok: true, displayName: nick });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Přezdívku se nepodařilo změnit.' });
   }
 });
 
