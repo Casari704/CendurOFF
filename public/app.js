@@ -840,7 +840,7 @@ async function multiDlGuard(){
 // hlavní zaškrtávátka „vše / nic“ (zobrazení na mapě, výběr ke stažení)
 // v4.88: filtr „pouze moje trasy“ – cizí trasy zmizí ze seznamu i z mapy
 let myOnly = false;
-try{ myOnly = localStorage.getItem('cenduroff_my_only') === '1'; }catch(e){}
+try{ localStorage.removeItem('cenduroff_my_only'); }catch(e){}   // v4.93: vždy začíná vypnuté
 function isMine(id){ const r = routesCache[id]; return !!(r && currentUser && Number(r.owner_id) === Number(currentUser.id)); }
 function listedIds(){ return Object.keys(routesCache).filter(id => !(myOnly && currentUser && !isMine(id))); }
 function applyMyOnly(){
@@ -932,7 +932,6 @@ selectToggleBtn.addEventListener('click', async ()=>{
 });
 document.getElementById('master-mine-cb').addEventListener('change', e=>{
   myOnly = e.target.checked;
-  try{ localStorage.setItem('cenduroff_my_only', myOnly ? '1' : '0'); }catch(err){}
   applyMyOnly();
 });
 document.getElementById('master-show-cb').addEventListener('change', e=> setAllVisible(e.target.checked));
