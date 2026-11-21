@@ -288,7 +288,7 @@ let pendingLinkId = routeIdFromUrl(); // trasa z odkazu, otevře se po přihlá�
 // Povolené jsou jen naše vlastní stránky, ať se odkaz nedá zneužít k přesměrování jinam.
 function nextPageAfterLogin(){
   const n = new URLSearchParams(location.search).get('next');
-  return (n && /^(planovac|merch|faq|admin|nastaveni|roadbook-planner)\.html(\?[^#]*)?$/.test(n)) ? n : null;
+  return (n && /^(planovac|merch|faq|komunita|admin|nastaveni|roadbook-planner)\.html(\?[^#]*)?$/.test(n)) ? n : null;
 }
 // ---------------------------------------------------------------
 // v4.2: Atlas bez přihlášení – host vidí mapu a trasy; navigace, záznam jízdy, nahrávání,

@@ -776,6 +776,12 @@ try {
 } catch (e) {
   console.error('Profil/chyby: modul se nepodařilo připojit:', e);
 }
+// Skupinový chat v Komunitě (v4.63)
+try {
+  require('./chat-api').mount(app, { pool, requireAuth, isAdmin });
+} catch (e) {
+  console.error('Chat: modul se nepodařilo připojit:', e);
+}
 // Záloha a obnova databáze (v4.16) – jen admin
 try {
   require('./backup-api').mount(app, { pool, requireAuth, isAdmin });

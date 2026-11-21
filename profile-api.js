@@ -201,12 +201,12 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
   app.get('/api/community/users', whenReady, async (req, res) => {
     try {
       res.json(await cached('users', async () => {
-      const u = await pool.query('SELECT id, display_name FROM users WHERE is_approved = true');
+      const u = await pool.query('SELECT id, display_name, role FROM users WHERE is_approved = true');
       const out = [];
       for (const row of u.rows) {
         try {
           const b = await riderBadges(pool, row.id);
-          out.push({ id: row.id, nick: row.display_name, stats: b.stats, earned: b.earned });
+          out.push({ id: row.id, nick: row.display_name, role: row.role || 'user', stats: b.stats, earned: b.earned });
         } catch (e) { console.error(e); }
       }
       return out;
@@ -224,7 +224,7 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
          FROM routes r JOIN users u ON u.id = r.owner_id
          WHERE r.deleted_at IS NULL
          ORDER BY rides DESC, stars DESC NULLS LAST, r.created_at DESC
-         LIMIT 100`); return r.rows; }));
+         LIMIT 10`); return r.rows; }));
     } catch (e) { console.error(e); res.status(500).json({ error: 'Žebříček tras se nepodařilo načíst.' }); }
   });
 

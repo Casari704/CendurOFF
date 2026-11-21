@@ -11,8 +11,8 @@
 <title>CendurOFF Komunita</title>
 <meta name="description" content="Komunita CendurOFF: uživatelé, trasy a chat.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.62.2">
-<link rel="stylesheet" href="public/komunita.css?v=4.62.2">
+<link rel="stylesheet" href="public/style.css?v=4.63">
+<link rel="stylesheet" href="public/komunita.css?v=4.63">
 </head>
 <body class="kom-page">
 <header class="topbar" data-page="komunita" data-auth="auto"></header>
@@ -23,38 +23,34 @@
     <a class="k-tab" role="tab" href="#uzivatele" data-tab="uzivatele">Uživatelé</a>
     <a class="k-tab" role="tab" href="#trasy" data-tab="trasy">Trasy</a>
     <a class="k-tab" role="tab" href="#chat" data-tab="chat">Chat</a>
-    <a class="k-tab" role="tab" href="#prazdne1" data-tab="prazdne1">Prázdné 1</a>
-    <a class="k-tab" role="tab" href="#prazdne2" data-tab="prazdne2">Prázdné 2</a>
+    <a class="k-tab" role="tab" href="#srazy" data-tab="srazy">Srazy</a>
+    <a class="k-tab" role="tab" href="#mista" data-tab="mista">Místa</a>
     <a class="k-tab" role="tab" href="#prazdne3" data-tab="prazdne3">Prázdné 3</a>
   </nav>
 
-  <section class="k-panel" id="uzivatele" role="tabpanel" hidden><h2>TOP uživatelé</h2><p class="k-note">Řazeno podle najetých kilometrů, při shodě podle počtu odznaků.</p><div class="k-box" id="k-users-box"><p class="k-empty">Načítám…</p></div></section>
-  <section class="k-panel" id="trasy" role="tabpanel" hidden><h2>TOP trasy</h2><p class="k-note">Řazeno podle počtu projetí, při shodě podle hodnocení.</p><div class="k-box" id="k-routes-box"><p class="k-empty">Načítám…</p></div></section>
-  <section class="k-panel" id="chat" role="tabpanel" hidden><h2>Chat</h2><p class="k-empty">Připravujeme.</p></section>
-  <section class="k-panel" id="prazdne1" role="tabpanel" hidden><h2>Prázdné 1</h2><p class="k-empty">Prázdné.</p></section>
-  <section class="k-panel" id="prazdne2" role="tabpanel" hidden><h2>Prázdné 2</h2><p class="k-empty">Prázdné.</p></section>
+  <section class="k-panel" id="uzivatele" role="tabpanel" hidden><h2>TOP uživatelé</h2><p class="k-note">Deset nejlepších, řazeno podle najetých kilometrů, při shodě podle počtu odznaků.</p><div class="k-box" id="k-users-box"><p class="k-empty">Načítám…</p></div></section>
+  <section class="k-panel" id="trasy" role="tabpanel" hidden><h2>TOP trasy</h2><p class="k-note">Deset nejprojížděnějších tras, při shodě podle hodnocení.</p><div class="k-box" id="k-routes-box"><p class="k-empty">Načítám…</p></div></section>
+  <section class="k-panel" id="chat" role="tabpanel" hidden><h2>Chat</h2>
+    <p class="k-note">Společná místnost pro všechny členy.</p>
+    <div class="k-chat" id="k-chat">
+      <div class="k-msgs" id="k-msgs" aria-live="polite"><p class="k-empty">Načítám…</p></div>
+      <form class="k-send" id="k-send">
+        <textarea id="k-text" rows="1" maxlength="1000" placeholder="Napiš zprávu…" aria-label="Zpráva"></textarea>
+        <button class="k-btn" type="submit" id="k-send-btn">Odeslat</button>
+      </form>
+      <div class="k-err" id="k-err" role="alert"></div>
+    </div>
+  </section>
+  <section class="k-panel" id="srazy" role="tabpanel" hidden><h2>Srazy</h2><p class="k-empty">Připravujeme.</p></section>
+  <section class="k-panel" id="mista" role="tabpanel" hidden><h2>Místa</h2><p class="k-empty">Připravujeme.</p></section>
   <section class="k-panel" id="prazdne3" role="tabpanel" hidden><h2>Prázdné 3</h2><p class="k-empty">Prázdné.</p></section>
 </main>
 
-<script src="public/config.js?v=4.62.2"></script>
-<script src="public/errors.js?v=4.62.2"></script>
-<script src="public/rider.js?v=4.62.2"></script>
-<script src="public/header.js?v=4.62.2"></script>
-<script src="public/pwa.js?v=4.62.2"></script>
-<script src="public/komunita.js?v=4.62.2"></script>
-<script>
-// podružné menu: záložka podle #adresy, výchozí je první
-(function(){
-  const tabs = Array.from(document.querySelectorAll('.k-tab'));
-  const panels = Array.from(document.querySelectorAll('.k-panel'));
-  function show(){
-    const id = (location.hash || '').slice(1);
-    const cur = tabs.some(t => t.dataset.tab === id) ? id : tabs[0].dataset.tab;
-    tabs.forEach(t => { const on = t.dataset.tab === cur; t.classList.toggle('active', on); t.setAttribute('aria-selected', on ? 'true' : 'false'); if(on) t.scrollIntoView({ block:'nearest', inline:'center' }); });
-    panels.forEach(p => { p.hidden = p.id !== cur; });
-  }
-  window.addEventListener('hashchange', show); show();
-})();
-</script>
+<script src="public/config.js?v=4.63"></script>
+<script src="public/errors.js?v=4.63"></script>
+<script src="public/rider.js?v=4.63"></script>
+<script src="public/header.js?v=4.63"></script>
+<script src="public/pwa.js?v=4.63"></script>
+<script src="public/komunita.js?v=4.63"></script>
 </body>
 </html>
