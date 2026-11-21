@@ -718,12 +718,13 @@ let cutMode = null;   // { pieces:[{wps,segs}], sel:{p,end}|null, hist:[], layer
 const CUT_COLORS = ['#E8730C', '#1E64D6', '#2E8B57', '#B03A8C', '#B58B00', '#00838F', '#7A4E2D', '#555'];
 const cutBar = document.createElement('div');
 cutBar.className = 'pl-crossbar pl-cutbar'; cutBar.hidden = true;
-cutBar.innerHTML = '<span id="pl-cut-msg"></span><button type="button" data-a="undo">Zpět</button><button type="button" data-a="done">Hotovo</button><button type="button" data-a="cancel">Zrušit</button>';
+cutBar.innerHTML = '<span id="pl-cut-msg"></span><button type="button" data-a="undo">Zpět</button><button type="button" data-a="del">Smazat kus</button><button type="button" data-a="done">Hotovo</button><button type="button" data-a="cancel">Zrušit</button>';
 map.getContainer().appendChild(cutBar);
 L.DomEvent.disableClickPropagation(cutBar);
 cutBar.addEventListener('click', e=>{
   const b = e.target.closest('button'); if(!b) return;
   if(b.dataset.a === 'undo') cutUndo();
+  else if(b.dataset.a === 'del'){ if(cutMode.pieces.length < 2){ toast('Nejdřív trasu rozřízni.'); return; } cutMode.del = !cutMode.del; cutMode.sel = null; cutMsg(); renderCut(); }
   else if(b.dataset.a === 'done') cutDone();
   else cutEnd(false);
 });
@@ -739,7 +740,9 @@ function cutLetter(i){ return String.fromCharCode(65 + (i % 26)); }
 function cutMsg(){
   const m = document.getElementById('pl-cut-msg'); if(!m) return;
   const n = cutMode.pieces.length;
-  m.textContent = cutMode.sel ? 'Klepni na druhý konec, který chceš spojit'
+  cutBar.querySelector('[data-a=del]').classList.toggle('on', !!cutMode.del);
+  m.textContent = cutMode.del ? 'Klepni na kus, který chceš smazat (Smazat kus znovu = konec mazání)'
+    : cutMode.sel ? 'Klepni na druhý konec, který chceš spojit'
     : n === 1 ? 'Klepni na trasu, kde ji chceš rozříznout'
     : n + ' kusy – klepni na dva konce a spojí se; na čáru pro další řez';
 }
@@ -749,7 +752,7 @@ function cutStart(){
   if(crossMode) setCrossMode(false);
   cutMode = {
     pieces: [{ wps: wps.map(w=>Object.assign({}, w)), segs: segs.map(s=>({ mode:s.mode, pts:s.pts, error:!!s.error, loading:false, req:0 })) }],
-    sel: null, hist: [], layer: L.layerGroup().addTo(map)
+    sel: null, del: false, hist: [], layer: L.layerGroup().addTo(map)
   };
   cutBar.hidden = false;
   document.body.classList.add('pl-cut-mode');
@@ -851,7 +854,11 @@ function renderCut(){
       const ll = pGeom(P, si).map(q=>[q[0], q[1]]);
       L.polyline(ll, { pane:'pl-route', color, weight:6, opacity:.95, interactive:false, dashArray: s.join ? '3 9' : null }).addTo(L0);
       const hit = L.polyline(ll, { pane:'pl-route', weight:22, opacity:0, bubblingMouseEvents:false }).addTo(L0);
-      hit.on('click', e=>{ L.DomEvent.stopPropagation(e); cutAt(pi, si, e.latlng); });
+      hit.on('click', e=>{
+        L.DomEvent.stopPropagation(e);
+        if(cutMode.del){ cutPush(); cutMode.pieces.splice(pi, 1); cutMode.sel = null; if(cutMode.pieces.length < 2) cutMode.del = false; cutMsg(); renderCut(); return; }
+        cutAt(pi, si, e.latlng);
+      });
     });
     // konce kusu; protože po řezu leží na stejném místě, každý se kousek odsune po svém kusu
     [['start', 0, 1], ['end', P.wps.length-1, P.wps.length-2]].forEach(([end, wi, ni], k)=>{
@@ -869,6 +876,7 @@ function renderCut(){
       const m = L.marker(pos, { icon: cutEndIcon(cutLetter(pi) + (end === 'start' ? '1' : '2'), isSel, color), keyboard:false, zIndexOffset: isSel ? 2000 : 1000 }).addTo(L0);
       m.on('click', e=>{
         L.DomEvent.stopPropagation(e);
+        if(cutMode.del) return;
         const me = { p: pi, end };
         if(!cutMode.sel){ cutMode.sel = me; cutMsg(); renderCut(); return; }
         if(cutMode.sel.p === pi && cutMode.sel.end === end){ cutMode.sel = null; cutMsg(); renderCut(); return; }
