@@ -421,11 +421,33 @@
     const gb = document.createElement('div'); gb.className = 'k-comments k-glist'; gb.hidden = true; art.appendChild(gb);
     return art;
   }
+  const MON = ['led','úno','bře','dub','kvě','čvn','čvc','srp','zář','říj','lis','pro'];
+  const plural = n => n + (n === 1 ? ' motorkář' : n >= 2 && n <= 4 ? ' motorkáři' : ' motorkářů');
+  function whenRel(e){
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const a = dayOf(e.date_from), b = dayOf(e.date_to || e.date_from), day = 86400000;
+    const single = a.getTime() === b.getTime();
+    if(a <= t && t <= b){ return single ? 'Dnes' : 'Probíhá do ' + b.getDate() + '. ' + (b.getMonth() + 1) + '.'; }
+    if(single && a.getTime() - t.getTime() === day) return 'Zítra';
+    return whenFmt(e);
+  }
   function renderNext(list){
     const box = eEl('k-next');
     if(!list.length){ box.innerHTML = '<p class="k-empty">Zatím není naplánovaná žádná akce.</p>'; return; }
-    box.innerHTML = '<table class="k-t k-tn"><tbody>' + list.slice(0, 5).map(e =>
-      '<tr><td class="k-nd">' + esc(whenFmt(e)) + '</td><td class="nick"><a href="#srazy" data-jump="' + e.id + '">' + esc(e.title) + '</a></td><td class="k-np">' + esc(e.place) + '</td><td class="num">' + esc(goingTxt(e.going)) + '</td></tr>').join('') + '</tbody></table>';
+    box.innerHTML = '';
+    list.slice(0, 5).forEach(e => {
+      const a = document.createElement('a'); a.className = 'k-ni'; a.href = '#srazy'; a.dataset.jump = e.id;
+      const th = document.createElement('span'); th.className = 'k-nth';
+      if(e.has_photo){ const im = document.createElement('img'); im.loading = 'lazy'; im.decoding = 'async'; im.alt = ''; im.src = API() + '/api/events/photo/' + e.id + '?v=' + (e.photo_v || 0); th.appendChild(im); }
+      else { const d = dayOf(e.date_from); th.classList.add('ph'); th.innerHTML = '<b>' + d.getDate() + '</b><small>' + MON[d.getMonth()] + '</small>'; }
+      const tx = document.createElement('span'); tx.className = 'k-nt';
+      const h = document.createElement('b'); h.textContent = e.title; tx.appendChild(h);
+      [['Termín', whenRel(e)], ['Místo', e.place], ['Přihlášeno', plural(e.going)]].forEach(r => {
+        const l = document.createElement('span'); l.className = 'k-nl'; l.appendChild(document.createTextNode(r[0] + ': '));
+        const v = document.createElement('strong'); v.textContent = r[1]; l.appendChild(v); tx.appendChild(l);
+      });
+      a.appendChild(th); a.appendChild(tx); box.appendChild(a);
+    });
   }
   async function loadEvents(){
     const box = eEl('k-events');
