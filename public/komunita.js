@@ -391,12 +391,24 @@
   function eventEl(e, past){
     const art = document.createElement('article'); art.className = 'k-post k-event'; art.dataset.eid = e.id; art.id = 'sraz-' + e.id;
     art.dataset.ev = JSON.stringify({ title:e.title, has_photo:e.has_photo, photo_v:e.photo_v, date_from:e.date_from, date_to:e.date_to, place:e.place, description:e.description, url:e.url });
-    const h = document.createElement('h3'); h.textContent = e.title; art.appendChild(h);
-    const when = document.createElement('div'); when.className = 'k-ewhen'; when.textContent = whenFmt(e); art.appendChild(when);
+    // souhrn (vždy vidět): náhled, název, termín, místo, počet přihlášených; klepnutím se karta rozbalí
+    const sum = document.createElement('div'); sum.className = 'k-ni k-esum'; sum.setAttribute('role', 'button'); sum.tabIndex = 0; sum.setAttribute('aria-expanded', 'false');
+    const th = document.createElement('span'); th.className = 'k-nth';
+    if(e.has_photo){ const im = document.createElement('img'); im.loading = 'lazy'; im.decoding = 'async'; im.alt = ''; im.src = API() + '/api/events/photo/' + e.id + '?v=' + (e.photo_v || 0); th.appendChild(im); }
+    else { const d = dayOf(e.date_from); th.classList.add('ph'); th.innerHTML = '<b>' + d.getDate() + '</b><small>' + MON[d.getMonth()] + '</small>'; }
+    const tx = document.createElement('span'); tx.className = 'k-nt';
+    const h = document.createElement('b'); h.textContent = e.title; tx.appendChild(h);
+    [['Termín', past ? whenFmt(e) : whenRel(e), ''], ['Místo', e.place, ''], [past ? 'Zúčastnilo se' : 'Přihlášeno', plural(e.going), 'k-cnt']].forEach(r => {
+      const l = document.createElement('span'); l.className = 'k-nl'; l.appendChild(document.createTextNode(r[0] + ': '));
+      const v = document.createElement('strong'); v.textContent = r[1]; if(r[2]) v.className = r[2]; l.appendChild(v); tx.appendChild(l);
+    });
+    sum.appendChild(th); sum.appendChild(tx); art.appendChild(sum);
+    // podrobnosti (rozbalí se)
+    const det = document.createElement('div'); det.className = 'k-edet'; det.hidden = true; art.appendChild(det);
     const pl = document.createElement('div'); pl.className = 'k-eplace';
     pl.appendChild(document.createTextNode(e.place + ' · '));
     const ml = document.createElement('a'); ml.href = mapLink(e.place); ml.target = '_blank'; ml.rel = 'noopener'; ml.textContent = 'na mapě'; pl.appendChild(ml);
-    art.appendChild(pl);
+    det.appendChild(pl);
     const meta = document.createElement('div'); meta.className = 'k-pmeta';
     meta.textContent = 'Přidal ' + (e.nick || 'smazaný účet') + roleTag(e.role);
     if(me && (isMod() || e.user_id === meId)){
@@ -404,21 +416,21 @@
       const del = document.createElement('button'); del.type = 'button'; del.className = 'k-del'; del.textContent = 'Smazat'; del.dataset.edel = e.id;
       meta.appendChild(ed); meta.appendChild(del);
     }
-    art.appendChild(meta);
-    if(e.description){ const t = document.createElement('div'); t.className = 'k-ptext'; t.textContent = e.description; art.appendChild(t); }
-    if(e.url){ const p = document.createElement('p'); p.className = 'k-elink'; const a = document.createElement('a'); a.href = e.url; a.target = '_blank'; a.rel = 'noopener nofollow'; a.textContent = e.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60); p.appendChild(a); art.appendChild(p); }
+    det.appendChild(meta);
+    if(e.description){ const t = document.createElement('div'); t.className = 'k-ptext'; t.textContent = e.description; det.appendChild(t); }
+    if(e.url){ const p = document.createElement('p'); p.className = 'k-elink'; const a = document.createElement('a'); a.href = e.url; a.target = '_blank'; a.rel = 'noopener nofollow'; a.textContent = e.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60); p.appendChild(a); det.appendChild(p); }
     if(e.has_photo){
       const g = document.createElement('div'); g.className = 'k-pgal one';
       const a = document.createElement('a'); a.href = API() + '/api/events/photo/' + e.id + '?v=' + (e.photo_v || 0); a.className = 'k-ph'; a.dataset.photo = '1';
-      const im = document.createElement('img'); im.loading = 'lazy'; im.decoding = 'async'; im.alt = e.title; im.src = a.href; a.appendChild(im); g.appendChild(a); art.appendChild(g);
+      const im = document.createElement('img'); im.loading = 'lazy'; im.decoding = 'async'; im.alt = e.title; im.src = a.href; a.appendChild(im); g.appendChild(a); det.appendChild(g);
     }
     const bar = document.createElement('div'); bar.className = 'k-ebar2';
     if(!past){
-      const j = document.createElement('button'); j.type = 'button'; j.className = 'k-btn k-join' + (e.joined ? ' on' : ''); j.dataset.join = e.id; j.textContent = e.joined ? 'Zúčastním se ✓' : 'Zúčastním se'; bar.appendChild(j);
+      const jn = document.createElement('button'); jn.type = 'button'; jn.className = 'k-btn k-join' + (e.joined ? ' on' : ''); jn.dataset.join = e.id; jn.textContent = e.joined ? 'Zúčastním se ✓' : 'Zúčastním se'; bar.appendChild(jn);
     }
-    const gl = document.createElement('button'); gl.type = 'button'; gl.className = 'k-cbtn k-going'; gl.dataset.going = e.id; gl.dataset.n = e.going; gl.textContent = (past ? 'Zúčastnili se: ' : 'Jedou: ') + goingTxt(e.going).toLowerCase().replace('zatím nikdo', 'zatím nikdo');
-    bar.appendChild(gl); art.appendChild(bar);
-    const gb = document.createElement('div'); gb.className = 'k-comments k-glist'; gb.hidden = true; art.appendChild(gb);
+    const gl = document.createElement('button'); gl.type = 'button'; gl.className = 'k-cbtn k-going'; gl.dataset.going = e.id; gl.dataset.n = e.going; gl.textContent = (past ? 'Zúčastnili se: ' : 'Jedou: ') + goingTxt(e.going).toLowerCase();
+    bar.appendChild(gl); det.appendChild(bar);
+    const gb = document.createElement('div'); gb.className = 'k-comments k-glist'; gb.hidden = true; det.appendChild(gb);
     return art;
   }
   const MON = ['led','úno','bře','dub','kvě','čvn','čvc','srp','zář','říj','lis','pro'];
@@ -434,20 +446,8 @@
   function renderNext(list){
     const box = eEl('k-next');
     if(!list.length){ box.innerHTML = '<p class="k-empty">Zatím není naplánovaná žádná akce.</p>'; return; }
-    box.innerHTML = '';
-    list.slice(0, 5).forEach(e => {
-      const a = document.createElement('a'); a.className = 'k-ni'; a.href = '#srazy'; a.dataset.jump = e.id;
-      const th = document.createElement('span'); th.className = 'k-nth';
-      if(e.has_photo){ const im = document.createElement('img'); im.loading = 'lazy'; im.decoding = 'async'; im.alt = ''; im.src = API() + '/api/events/photo/' + e.id + '?v=' + (e.photo_v || 0); th.appendChild(im); }
-      else { const d = dayOf(e.date_from); th.classList.add('ph'); th.innerHTML = '<b>' + d.getDate() + '</b><small>' + MON[d.getMonth()] + '</small>'; }
-      const tx = document.createElement('span'); tx.className = 'k-nt';
-      const h = document.createElement('b'); h.textContent = e.title; tx.appendChild(h);
-      [['Termín', whenRel(e)], ['Místo', e.place], ['Přihlášeno', plural(e.going)]].forEach(r => {
-        const l = document.createElement('span'); l.className = 'k-nl'; l.appendChild(document.createTextNode(r[0] + ': '));
-        const v = document.createElement('strong'); v.textContent = r[1]; l.appendChild(v); tx.appendChild(l);
-      });
-      a.appendChild(th); a.appendChild(tx); box.appendChild(a);
-    });
+    box.innerHTML = '<table class="k-t k-tn"><tbody>' + list.slice(0, 5).map(e =>
+      '<tr><td class="k-nd">' + esc(whenFmt(e)) + '</td><td class="nick"><a href="#srazy" data-jump="' + e.id + '">' + esc(e.title) + '</a></td><td class="k-np">' + esc(e.place) + '</td><td class="num">' + esc(goingTxt(e.going)) + '</td></tr>').join('') + '</tbody></table>';
   }
   async function loadEvents(){
     const box = eEl('k-events');
@@ -515,12 +515,18 @@
       }catch(e2){ err.textContent = e2.message; }
       finally{ btn.disabled = false; }
     });
+    function setOpen(art, on){
+      art.querySelector('.k-edet').hidden = !on;
+      const s = art.querySelector('.k-esum'); s.setAttribute('aria-expanded', on ? 'true' : 'false'); art.classList.toggle('open', on);
+    }
+    eEl('srazy').addEventListener('keydown', e => { const s = e.target.closest && e.target.closest('.k-esum'); if(s && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); s.click(); } });
     async function onClick(e){
       const jmp = e.target.closest('[data-jump]');
-      if(jmp){ e.preventDefault(); const t = eEl('sraz-' + jmp.dataset.jump); if(t) t.scrollIntoView({ behavior:'smooth', block:'start' }); return; }
+      if(jmp){ e.preventDefault(); const t = eEl('sraz-' + jmp.dataset.jump); if(t){ setOpen(t, true); t.scrollIntoView({ behavior:'smooth', block:'start' }); } return; }
       const ph = e.target.closest('[data-photo]');
       if(ph){ e.preventDefault(); lightbox(ph.href); return; }
       const art = e.target.closest('.k-event'); if(!art) return;
+      if(e.target.closest('.k-esum')){ setOpen(art, art.querySelector('.k-edet').hidden); return; }
       const jn = e.target.closest('[data-join]');
       if(jn){
         if(!me){ askLoginFor('Účast se potvrzuje po přihlášení.'); return; }
@@ -528,7 +534,7 @@
         try{
           const d = await send(on ? 'POST' : 'DELETE', '/api/events/' + art.dataset.eid + '/join');
           jn.classList.toggle('on', d.joined); jn.textContent = d.joined ? 'Zúčastním se ✓' : 'Zúčastním se';
-          const g = art.querySelector('.k-going'); g.dataset.n = d.going; g.textContent = 'Jedou: ' + goingTxt(d.going).toLowerCase();
+          const g = art.querySelector('.k-going'); g.dataset.n = d.going; g.textContent = 'Jedou: ' + goingTxt(d.going).toLowerCase(); art.querySelector('.k-cnt').textContent = plural(d.going);
           const gb = art.querySelector('.k-glist'); gb.dataset.loaded = ''; if(!gb.hidden) { gb.hidden = true; }
           loadNextOnly();
         }catch(e2){ alert(e2.message); }

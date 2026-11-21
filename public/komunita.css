@@ -102,7 +102,7 @@ textarea.k-in{resize:vertical;}
 .k-comments .k-note a{color:var(--rust-dark);font-weight:700;}
 
 /* srazy (v4.69) */
-.k-next{max-height:none;padding:6px 14px;}
+.k-next{max-height:none;}
 .k-lbl{display:flex;flex-direction:column;gap:4px;font-size:0.85rem;color:var(--ink-soft);font-weight:700;}
 .k-ewhen{font-family:'Exo 2',sans-serif;font-weight:800;color:var(--rust-dark);}
 .k-eplace{margin-bottom:6px;}
@@ -147,3 +147,25 @@ select.k-in{background:#fff;}
 .k-nl{font-size:0.92rem;color:var(--ink-soft);overflow-wrap:anywhere;}
 .k-nl strong{color:var(--ink);}
 @media (max-width:420px){.k-nth{width:96px;height:72px;}}
+
+/* tabulka Budoucí akce (původní řešení) + na telefonu bloky pod sebou */
+.k-tn td{white-space:normal;}
+.k-tn td.k-nd{white-space:nowrap;color:var(--ink-soft);font-weight:700;}
+.k-tn th:nth-child(2),.k-tn td:nth-child(2){position:static;box-shadow:none;}
+.k-tn td.nick a{color:var(--ink);text-decoration:none;}
+.k-tn td.nick a:hover{color:var(--rust-dark);text-decoration:underline;}
+@media (max-width:700px){
+  .k-tn,.k-tn tbody{display:block;width:100%;}
+  .k-tn tr{display:block;padding:10px 14px;border-bottom:1px solid var(--line);}
+  .k-tn tr:last-child{border-bottom:0;}
+  .k-tn td{display:block;padding:1px 0;border:0;text-align:left !important;white-space:normal !important;}
+  .k-tn td.k-nd{color:var(--rust-dark);}
+  .k-tn td.nick{font-size:1.05rem;}
+  .k-tn td.k-np,.k-tn td.num{display:inline;color:var(--ink-soft);font-size:0.9rem;}
+  .k-tn td.num::before{content:' · ';}
+}
+/* karta akce: souhrn s náhledem, podrobnosti se rozbalí */
+.k-esum{padding:0;border:0;cursor:pointer;position:relative;padding-right:24px;}
+.k-esum::after{content:'▸';position:absolute;right:2px;top:2px;color:var(--moss);transition:transform .15s;}
+.k-event.open .k-esum::after{transform:rotate(90deg);}
+.k-edet{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);}
