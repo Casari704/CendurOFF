@@ -275,7 +275,9 @@
 
   // v4.20: verze v rohu úvodních dlaždic (web · aplikace) a kontrola nové verze aplikace pro Android
   //  nejnovější verzi říká download/app-version.json ({"version":"3.0"}) – mění se spolu s download/CendurOFF.apk
-  const APK_URL = 'https://github.com/Casari704/CendurOFF/raw/main/download/CendurOFF.apk';  // jiná doména → stáhne Chrome (i aplikace 3.0)
+  // jiná doména (GitHub raw) → stáhne Chrome (i aplikace 3.0); název souboru je ve verzi: download/app-version.json → apk
+  const APK_BASE = 'https://github.com/Casari704/CendurOFF/raw/main/download/';
+  const apkUrl = d => APK_BASE + ((d && d.apk) || 'CendurOFF.apk');
   const verCmp = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number);
     for(let i = 0; i < Math.max(x.length, y.length); i++){ const d = (x[i] || 0) - (y[i] || 0); if(d) return d; } return 0; };
   function appVersionInfo(){
@@ -288,15 +290,34 @@
       if(!d || !d.version || verCmp(d.version, app) <= 0) return;
       el.innerHTML = '';
       el.append('web ' + web + ' · aplikace ' + app + ' · ');
-      const a = document.createElement('a'); a.href = APK_URL; a.textContent = '⬆ nová ' + d.version; el.append(a);
+      const a = document.createElement('a'); a.href = apkUrl(d); a.textContent = '⬆ nová ' + d.version; el.append(a);
       // nabídka jednou za verzi, jen na úvodních dlaždicích (ne při jízdě)
       let seen = null; try{ seen = localStorage.getItem('cenduroff.appUpdateAsked'); }catch(e){}
       if(seen === d.version || !tilesHome) return;
       try{ localStorage.setItem('cenduroff.appUpdateAsked', d.version); }catch(e){}
       ask({ title: 'Nová verze aplikace ' + d.version, msg: 'Máš verzi ' + app + '. Stáhni novou a nainstaluj ji přes starou – účet i nastavení zůstanou.',
-        yes: { label: 'Stáhnout', fn: () => { location.href = APK_URL; } }, no: { label: 'Později' } });
+        yes: { label: 'Stáhnout', fn: () => { location.href = apkUrl(d); } }, no: { label: 'Později' } });
     }).catch(() => {});
   }
+
+  // v4.84: povinná aktualizace aplikace + odkazy ke stažení s aktuálním názvem souboru (data-apk)
+  //  app-version.json: { "version":"3.3", "apk":"CendurOFF-3.3.apk", "min":"3.3" (volitelné; jinak platí version) }
+  //  aplikace se starší verzí dostane okno bez možnosti pokračovat; bez signálu (nejde stáhnout JSON) se nic neblokuje
+  (function enforceApp(){
+    fetch('download/app-version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => {
+      if(!d || !d.version) return;
+      document.querySelectorAll('a[data-apk]').forEach(a => { if(d.apk){ a.href = 'download/' + d.apk; if(a.classList.contains('f-dl')) a.textContent = '⬇ Stáhnout ' + d.apk; } });
+      let app = null; try{ if(window.CendurApp && window.CendurApp.version) app = String(window.CendurApp.version()); }catch(e){}
+      if(!app || verCmp(d.min || d.version, app) <= 0) return;
+      if(document.getElementById('c-force')) return;
+      const el = document.createElement('div');
+      el.id = 'c-force'; el.className = 'c-ask'; el.style.zIndex = '99999'; el.setAttribute('role', 'alertdialog'); el.setAttribute('aria-modal', 'true');
+      el.innerHTML = '<div class="c-ask-box"><b>Je potřeba aktualizovat aplikaci</b><p class="c-ask-msg"></p><div class="c-ask-row"><button type="button" class="c-ask-yes">Stáhnout aktualizaci</button></div></div>';
+      el.querySelector('.c-ask-msg').textContent = 'Máš verzi ' + app + ', aktuální je ' + d.version + '. Stáhni novou a nainstaluj ji přes starou – účet i nastavení zůstanou.';
+      el.querySelector('.c-ask-yes').addEventListener('click', () => { location.href = apkUrl(d); });
+      document.body.appendChild(el);
+    }).catch(() => {});
+  })();
 
   // v4.3.1: sdílené potvrzovací okno (Atlas i Roadbook NAVI) – titulek, text, 1–2 tlačítka a křížek
   //  ask({ title, msg, icon, list:[{icon,name,desc}], yes:{label, fn}, no:{label, fn}, onClose })

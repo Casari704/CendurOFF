@@ -13,7 +13,7 @@ Starší historie změn je v [CHANGELOG.md](CHANGELOG.md).
 | Web (statické soubory v kořeni a ve `public/`) | GitHub Pages, doména `cenduroff.cz` (soubor `CNAME`) |
 | Backend (`server.js` + `*-api.js`) | Railway, adresa `api.cenduroff.cz` |
 | Databáze | PostgreSQL na Railway (EU West, Amsterdam) |
-| Android aplikace | `download/CendurOFF.apk`, verze v `download/app-version.json` |
+| Android aplikace | `download/CendurOFF-<verze>.apk`, nejnovější verze a název souboru v `download/app-version.json` |
 
 Web volá backend na adrese z `public/config.js` (`CENDUROFF_API_URL`). Přihlášení drží token v `localStorage`
 (hlavička `Authorization: Bearer …`), cookie je záloha.
@@ -75,7 +75,7 @@ npm test                 # testy bezpečnostních funkcí
 
 1. Zvyš číslo verze na všech třech místech: `public/config.js` (`CENDUROFF_WEB_VERSION`), `sw.js` (`VERSION`)
    a `?v=` u všech `<script>` a `<link>` v HTML souborech (telefony pak ukážou „Je dostupná nová verze“).
-2. Nové APK ulož jako `download/CendurOFF.apk` a zvyš `download/app-version.json`.
+2. Nové APK ulož jako `download/CendurOFF-<verze>.apk` (starý soubor smaž), pushni ho a teprve potom uprav `download/app-version.json` (`version`, `apk`). Aplikace se starší verzí se pak zablokuje s tlačítkem Stáhnout.
 3. Pushni na `main` – GitHub Pages nasadí web, Railway backend.
 
 ## Správa
