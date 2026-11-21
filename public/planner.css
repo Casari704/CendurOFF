@@ -226,3 +226,6 @@ body.pl-cross-mode #map{cursor:crosshair;}
   #pl-mapctl{top:6px;gap:6px;}
   #pl-mapctl .map-btn-square{width:44px;height:44px;border-radius:12px;font-size:1.3rem;}
 }
+
+/* v4.97: na telefonu bez přiblížení o 3 kroky (+3 / −3), stačí + a − */
+@media (max-width:760px){ #pl-mapctl .pl-z3{display:none;} }
