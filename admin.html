@@ -9,8 +9,8 @@
 <title>CendurOFF Admin sekce</title>
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.65.1">
-<link rel="stylesheet" href="public/faq.css?v=4.65.1">
+<link rel="stylesheet" href="public/style.css?v=4.66">
+<link rel="stylesheet" href="public/faq.css?v=4.66">
 <style>
   .a-wrap{max-width:1800px;margin:0 auto;padding:24px 20px 60px;}   /* v4.61: na velkém monitoru širší tabulky */
   .a-wrap h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);}
@@ -28,6 +28,26 @@
   #a-users thead th:last-child,#a-users tbody tr:not(.det) td:last-child{position:sticky;right:0;z-index:2;background:var(--surface);box-shadow:-1px 0 0 var(--line);}
   #a-users thead th:first-child,#a-users thead th:last-child{z-index:4;top:0;}
   #a-users tbody tr.a-pend td:first-child,#a-users tbody tr.a-pend td:last-child{background:#FFF8E5;}
+  /* v4.66: na telefonu jen jména; klepnutím na řádek se pod něj rozbalí údaje a tlačítka */
+  @media (max-width:700px){
+    .a-box:has(#a-users){max-height:none;overflow:visible;border:0;background:none;}
+    #a-users,#a-users tbody{display:block;width:100%;}
+    #a-users thead{display:none;}
+    #a-users tbody tr:not(.det){display:block;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin:0 0 8px;overflow:hidden;}
+    #a-users tbody tr.a-pend{background:#FFF8E5;}
+    #a-users tbody tr.det{display:block;margin:-4px 0 8px;}
+    #a-users tbody tr.det td{display:block;}
+    #a-users tbody tr:not(.det) td{display:none;border:0;padding:6px 14px;position:static !important;box-shadow:none !important;background:none !important;white-space:normal;}
+    #a-users tbody tr:not(.det) td:first-child{display:block;cursor:pointer;padding:12px 38px 12px 14px;min-width:0;position:relative !important;font-size:1rem;}
+    #a-users tbody tr:not(.det) td:first-child::after{content:'▸';position:absolute;right:14px;top:12px;color:var(--moss);transition:transform .15s;}
+    #a-users tbody tr.open td{display:flex;justify-content:space-between;gap:12px;text-align:right;}
+    #a-users tbody tr.open td:first-child{display:block;text-align:left;}
+    #a-users tbody tr.open td:first-child::after{transform:rotate(90deg);}
+    #a-users tbody tr.open td[data-l]::before{content:attr(data-l);color:var(--ink-soft);font-size:0.8rem;text-transform:uppercase;font-family:'Exo 2',sans-serif;text-align:left;flex:none;}
+    #a-users tbody tr.open td:last-child{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-start;padding:10px 14px 14px;border-top:1px solid var(--line);}
+    #a-users tbody tr.open td:last-child::before{content:none;}
+    #a-users tbody tr.open td:last-child .a-btn{margin:0;}
+  }
   .a-t tr.row{cursor:pointer;}
   .a-t tr.row:hover td{background:rgba(79,112,72,0.06);}
   .a-t tr.det td{background:#fff;white-space:normal;}
@@ -111,11 +131,11 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.65.1"></script>
-<script src="public/errors.js?v=4.65.1"></script>
-<script src="public/rider.js?v=4.65.1"></script>
-<script src="public/header.js?v=4.65.1"></script>
-<script src="public/pwa.js?v=4.65.1"></script>
+<script src="public/config.js?v=4.66"></script>
+<script src="public/errors.js?v=4.66"></script>
+<script src="public/rider.js?v=4.66"></script>
+<script src="public/header.js?v=4.66"></script>
+<script src="public/pwa.js?v=4.66"></script>
 <script>
 (function(){
   const API_URL = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
@@ -279,6 +299,7 @@
     if(/_at$/.test(k)) return u[k] ? new Date(u[k]).getTime() : 0;
     return u[k];
   };
+  const openIds = new Set();
   function renderUsers(list){
     users = list;
     const R = window.CendurRider;
@@ -300,7 +321,7 @@
     tb.innerHTML = users.length ? users.map(u => {
       const st = u.stats || {}; const b = R ? R.badgeFor(st.km) : null;
       const ach = R && u.stats ? R.achievements(st, u.earned).filter(a => a.got) : [];
-      return '<tr' + (u.is_approved ? '' : ' class="a-pend"') + '><td class="name">' + esc(u.display_name) + (u.role === 'admin' ? ' <small>(admin)</small>' : '') + (u.is_approved ? '' : ' <span class="a-deleted">čeká na schválení</span>') + (u.reset_requested_at ? ' <span class="a-deleted" title="' + esc(fmtDate(u.reset_requested_at)) + '">žádá reset hesla</span>' : '') + (u.must_change_password ? ' <small>(dočasné heslo)</small>' : '') + '</td>' +
+      return '<tr data-uid="' + u.id + '" class="' + (u.is_approved ? '' : 'a-pend ') + (openIds.has(u.id) ? 'open' : '') + '"><td class="name">' + esc(u.display_name) + (u.role === 'admin' ? ' <small>(admin)</small>' : '') + (u.is_approved ? '' : ' <span class="a-deleted">čeká na schválení</span>') + (u.reset_requested_at ? ' <span class="a-deleted" title="' + esc(fmtDate(u.reset_requested_at)) + '">žádá reset hesla</span>' : '') + (u.must_change_password ? ' <small>(dočasné heslo)</small>' : '') + '</td>' +
       '<td>' + esc(u.username) + '</td>' +
       '<td>' + (b ? b.icon + ' ' + esc(b.name) : '—') + '</td><td class="num">' + (u.stats ? R.fmtKm(st.km).replace(' km', '') : '—') + '</td>' +
       '<td class="a-ach">' + (ach.length ? ach.map(a => '<span title="' + esc(a.name) + '">' + a.icon + '</span>').join('') : '—') + '</td>' +
@@ -310,7 +331,16 @@
       (removeId === u.id ? removeRow(u) : '') + (resetId === u.id ? resetRow(u) : '');
     }).join('')
       : '<tr><td colspan="12" class="a-empty">Žádní uživatelé.</td></tr>';
+    const heads = Array.from($('a-users').querySelectorAll('thead th')).map(th => th.textContent.replace(/ [▲▼]$/, ''));
+    tb.querySelectorAll('tr[data-uid] td').forEach(td => { const l = heads[td.cellIndex]; if(l && td.cellIndex > 0 && td.cellIndex < heads.length - 1) td.dataset.l = l; });
   }
+  $('a-users').addEventListener('click', ev => {
+    if(!window.matchMedia('(max-width:700px)').matches) return;
+    const td = ev.target.closest('td.name'); if(!td) return;
+    const tr = td.parentNode, id = Number(tr.dataset.uid);
+    if(openIds.has(id)) openIds.delete(id); else openIds.add(id);
+    tr.classList.toggle('open');
+  });
   $('a-users').querySelectorAll('th[data-k]').forEach((th, i) => th.addEventListener('click', () => {
     const k = th.dataset.k; if(uSortTh === i) uSortDesc = !uSortDesc; else { uSortK = k; uSortTh = i; uSortDesc = !(k === 'display_name' || k === 'username'); } renderUsers(users);
   }));
