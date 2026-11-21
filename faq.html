@@ -11,8 +11,8 @@
 <title>CendurOFF Nápověda – jak to funguje</title>
 <meta name="description" content="Nápověda k CendurOFF: Atlas NAVI, navigace, záznam jízdy, GPX planner, Roadbook editor a Roadbook NAVI.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.77">
-<link rel="stylesheet" href="public/faq.css?v=4.77">
+<link rel="stylesheet" href="public/style.css?v=4.77.1">
+<link rel="stylesheet" href="public/faq.css?v=4.77.1">
 </head>
 <body class="faq-page">
 <header class="topbar" data-page="faq" data-auth="auto"></header>
@@ -39,7 +39,7 @@
   <!-- ===================== O PROJEKTU ===================== -->
   <section id="o-projektu">
     <h2>O projektu</h2>
-    <details open>
+    <details>
       <summary>Kdo za CendurOFF stojí?</summary>
       <p>CendurOFF vytvořila a spravuje parta <b>Petrol Machine Silesia</b> – skupina lidí, které baví offroad, enduro a objevování tras, které nenajdete na žádné turistické mapě.</p>
       <p>Cílem je vytvořit offroad atlas, kam si každý může nahrát vlastní GPX trasu, ukázat ji ostatním a přidat pár fotek z cesty.</p>
@@ -51,7 +51,7 @@
   <!-- ===================== JAK TO CELÉ FUNGUJE ===================== -->
   <section id="jak">
     <h2>Jak to celé funguje</h2>
-    <details open>
+    <details>
       <summary>Od GPX k roadbooku – celý postup</summary>
       <ol>
         <li><b>Atlas</b> je základ. Je to mapa všech tras, do které nahráváme <b>GPX</b>. V Atlasu trasy procházíš, stahuješ, naviguješ podle nich a nahráváš projeté jízdy.</li>
@@ -73,7 +73,7 @@
   <!-- ===================== APLIKACE PRO ANDROID ===================== -->
   <section id="aplikace">
     <h2>Aplikace pro Android</h2>
-    <details open>
+    <details>
       <summary>Kde stáhnu aplikaci a jak ji nainstaluju?</summary>
       <p><a class="f-dl" href="download/CendurOFF.apk" download>⬇ Stáhnout CendurOFF.apk</a></p>
       <p>Aplikace zatím není na Google Play – instaluje se přímo ze souboru: stáhni APK v telefonu, otevři ho a povol instalaci z tohoto zdroje. Kdo měl starší vývojářskou verzi, musí ji nejdřív odinstalovat.</p>
@@ -155,7 +155,7 @@
   <!-- ===================== NAVIGACE ===================== -->
   <section id="navigace">
     <h2>Navigace v Atlas NAVI</h2>
-    <details open>
+    <details>
       <summary>Jak zapnu navigaci?</summary>
       <p>Vpravo dole klikni na zlaté tlačítko <b>NAVIGOVAT</b>. Mapa začne sledovat tvou polohu a natáčí se podle směru jízdy, šipka je ve spodní části obrazovky (ať vidíš co nejvíc trasy před sebou) a čáry tras jsou silnější. Displej během navigace nezhasne.</p>
       <p>Tlačítkem <b>Ukončit navigaci</b> se vrátíš do běžné mapy (sever nahoře, mapou jde volně posouvat). GPS i případný záznam jízdy běží dál.</p>
@@ -221,7 +221,7 @@
   <!-- ===================== ROADBOOK ===================== -->
   <section id="roadbook">
     <h2>Roadbook – co to je</h2>
-    <details open>
+    <details>
       <summary>Jak se roadbook čte?</summary>
       <p>Roadbook ve stylu rally (Dakar) je řada „krabiček“ – jedna krabička = jedna instrukce. Čte se <b>odspodu nahoru</b>: start je dole, další instrukce přibývají nahoru.</p>
       <ul>
@@ -295,7 +295,7 @@
   <!-- ===================== ROADBOOK NAVI ===================== -->
   <section id="rb-navi">
     <h2>Roadbook NAVI – jízda podle roadbooku</h2>
-    <details open>
+    <details>
       <summary>Jak jedu podle roadbooku?</summary>
       <p>Roadbook NAVI není samostatná stránka – otevře se přes celou obrazovku přímo v <b>Atlasu</b>:</p>
       <ol>
@@ -352,19 +352,26 @@
 </main>
 
 <div class="toast" id="toast"></div>
-<script src="public/config.js?v=4.77"></script>
-<script src="public/errors.js?v=4.77"></script>
-<script src="public/rider.js?v=4.77"></script>
-<script src="public/header.js?v=4.77"></script>
-<script src="public/pwa.js?v=4.77"></script>
+<script src="public/config.js?v=4.77.1"></script>
+<script src="public/errors.js?v=4.77.1"></script>
+<script src="public/rider.js?v=4.77.1"></script>
+<script src="public/header.js?v=4.77.1"></script>
+<script src="public/pwa.js?v=4.77.1"></script>
 <script>
-// otevře sekci, na kterou vede odkaz (#rb-planner apod.)
+// všechny otázky jsou při načtení sbalené (nic se neukládá); rozbalí se jen ta, na kterou vede odkaz (#rb-planner apod.)
 (function(){
+  const all = () => document.querySelectorAll('details');
   function openHash(){
     const el = location.hash && document.querySelector(location.hash);
-    if(el){ el.querySelectorAll('details').forEach((d, i) => { if(i === 0) d.open = true; }); }
+    if(!el) return;
+    const d = el.tagName === 'DETAILS' ? el : el.querySelector('details');
+    if(d){ d.open = true; const p = d.parentElement.closest('details'); if(p) p.open = true; }
+    el.scrollIntoView();
   }
-  window.addEventListener('hashchange', openHash); openHash();
+  function start(){ all().forEach(d => { d.open = false; }); openHash(); }
+  window.addEventListener('hashchange', openHash);
+  window.addEventListener('pageshow', start);   // i při návratu tlačítkem Zpět
+  start();
 })();
 </script>
 </body>
