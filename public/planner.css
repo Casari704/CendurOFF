@@ -189,3 +189,5 @@ body.pl-cross-mode #map{cursor:crosshair;}
 .pl-joinbar{flex-wrap:wrap;gap:8px;max-width:calc(100% - 24px);}
 .pl-joinbar .pl-join-btns{display:flex;gap:6px;flex-wrap:wrap;}
 #pl-join-ok{background:#4F7048;color:#fff;border-color:#4F7048;}
+
+#pl-download,.pl-grid button.pl-danger{grid-column:1 / -1;}

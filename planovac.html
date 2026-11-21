@@ -16,8 +16,8 @@
 <title>CendurOFF GPX planner</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.89">
-<link rel="stylesheet" href="public/planner.css?v=4.89">
+<link rel="stylesheet" href="public/style.css?v=4.90">
+<link rel="stylesheet" href="public/planner.css?v=4.90">
 </head>
 <body class="planner-page auth-pending">
 
@@ -79,13 +79,13 @@
     </div>
 
     <div class="pl-grid">
-      <button type="button" id="pl-clear">＋ Nová trasa</button>
+      <button type="button" id="pl-clear">+ Nová trasa</button>
       <label class="pl-file-btn" for="pl-gpx-file">📂 Otevřít GPX</label>
+      <button type="button" id="pl-join">+ Připojit trasu</button>
+      <button type="button" id="pl-cutout">✂ Vyříznout úsek</button>
       <button type="button" id="pl-reverse">⇄ Otočit směr</button>
       <button type="button" id="pl-cross">✂ Přepojit křížení</button>
-      <button type="button" id="pl-cutout">✂ Vyříznout úsek</button>
-      <button type="button" id="pl-join">＋ Připojit trasu</button>
-      <button type="button" id="pl-download">⬇ Stáhnout GPX</button>
+      <button type="button" id="pl-download">⬇ Uložit jako GPX</button>
       <button type="button" id="pl-delete-route" class="pl-danger" hidden>Odstranit trasu</button>
     </div>
     <input type="file" id="pl-gpx-file" accept=".gpx" hidden>
@@ -137,28 +137,28 @@
     <div class="form-msg" id="pl-save-msg"></div>
     <button class="primary-btn" id="pl-save-overwrite" type="button">Uložit změny (přepíše trasu)</button>
     <button class="primary-btn" id="pl-save-new" type="button">Uložit jako novou trasu</button>
-    <button class="ghost-btn pl-full" id="pl-save-download" type="button">⬇ Jen stáhnout GPX</button>
+    <button class="ghost-btn pl-full" id="pl-save-download" type="button">⬇ Jen uložit jako GPX</button>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="public/config.js?v=4.89"></script>
-<script src="public/errors.js?v=4.89"></script>
-<script src="public/rider.js?v=4.89"></script>
-<script src="public/header.js?v=4.89"></script>
-<script src="public/pwa.js?v=4.89"></script>
-<script src="public/planner-profile.js?v=4.89"></script>
-<script src="public/regiondata.js?v=4.89"></script>
-<script src="public/fuel.js?v=4.89"></script>
-<script src="public/osmpoints.js?v=4.89"></script>
-<script src="public/chko.js?v=4.89"></script>
-<script src="public/zoom.js?v=4.89"></script>
-<script src="public/basemaps.js?v=4.89"></script>
-<script src="public/route-alpha.js?v=4.89"></script>
-<script src="public/status.js?v=4.89"></script>
-<script src="public/gps.js?v=4.89"></script>
-<script src="public/planner.js?v=4.89"></script>
+<script src="public/config.js?v=4.90"></script>
+<script src="public/errors.js?v=4.90"></script>
+<script src="public/rider.js?v=4.90"></script>
+<script src="public/header.js?v=4.90"></script>
+<script src="public/pwa.js?v=4.90"></script>
+<script src="public/planner-profile.js?v=4.90"></script>
+<script src="public/regiondata.js?v=4.90"></script>
+<script src="public/fuel.js?v=4.90"></script>
+<script src="public/osmpoints.js?v=4.90"></script>
+<script src="public/chko.js?v=4.90"></script>
+<script src="public/zoom.js?v=4.90"></script>
+<script src="public/basemaps.js?v=4.90"></script>
+<script src="public/route-alpha.js?v=4.90"></script>
+<script src="public/status.js?v=4.90"></script>
+<script src="public/gps.js?v=4.90"></script>
+<script src="public/planner.js?v=4.90"></script>
 </body>
 </html>
