@@ -689,7 +689,7 @@ header.topbar .btn{line-height:1.25;font-family:inherit;box-sizing:border-box;}
 /* tlačítka nad mapou se řídí spodní hranou hlavičky (nastavuje app.js) */
 #satellite-btn, #fullscreen-btn{ top:calc(var(--hdr-bottom, 68px) + 8px); }
 #menu-btn{ display:none; }
-#routes-map-btn{ display:none; }
+#routes-map-btn{ display:none !important; }
 #zoom-in3-btn, #zoom-out3-btn{ display:none; }
 
 /* výřez displeje / zaoblené rohy (iPhone, aplikace z plochy) */
@@ -819,9 +819,6 @@ body.ride-ui .toast{
 /* tlačítko „Trasy“ v hlavičce jen v jízdním režimu; jazýček seznamu tam není */
 #open-routes{ display:none; }
 body.ride-ui #open-routes{ display:inline-flex; }
-/* jazýček seznamu jen u otevřeného seznamu (slouží k zavření) */
-body.ride-ui #route-list.collapsed #route-list-tab{ display:none; }
-body.ride-ui #route-list:not(.collapsed) #route-list-tab{ display:flex !important; }
 /* otevřený seznam tras v jízdním režimu překryje levý sloupec tlačítek */
 body.ride-ui #route-list{ z-index:970; }
 
@@ -902,8 +899,9 @@ main.mapwrap{isolation:isolate;}
 body.ride-ui #route-list,body.ride-ui #detail-panel{will-change:transform;}
 /* větší jazýček panelů na mobilu */
 body.ride-ui .panel-tab{width:40px;height:96px;font-size:1.4rem;}
-body.ride-ui #route-list-tab{right:-40px;}
+body.ride-ui #route-list-tab{right:-34px;width:34px;height:104px;}
 body.ride-ui #detail-panel-tab{left:-40px;}
+body.ride-ui #route-list.collapsed #route-list-tab{margin-right:calc(-1 * env(safe-area-inset-left, 0px));}
 /* logo Mapy.com doprostřed dolního okraje – vlevo dole překrývalo NAVIGOVAT */
 body.ride-ui .leaflet-bottom.leaflet-left{left:50%;transform:translateX(-50%);}
 body.ride-ui .leaflet-bottom.leaflet-left .leaflet-control{margin-left:0 !important;}
@@ -1090,3 +1088,19 @@ a.rb-chip:hover{background:#E4DCC6;}
 
 /* zamčené stahování GPX (v4.73) */
 .ghost-btn.locked,.primary-btn.locked{opacity:.55;filter:grayscale(1);cursor:not-allowed;}
+
+/* v4.78: jazýček seznamu tras – sbalený má vepsáno TRASY (otočené o 90°), otevřený šipku zpět */
+#route-list-tab .tab-txt{display:none;writing-mode:vertical-rl;font:700 0.72rem 'Exo 2',sans-serif;letter-spacing:0.12em;line-height:1;}
+#route-list.collapsed #route-list-tab .tab-arrow{display:none;}
+#route-list.collapsed #route-list-tab .tab-txt{display:block;}
+#route-list-tab{height:96px;}
+/* tlačítko základního menu: čtyři dlaždice jako úvodní obrazovka */
+.menu-grid{width:1em;height:1em;fill:currentColor;display:block;}
+#menu-btn .menu-grid{width:0.62em;height:0.62em;}
+body.ride-ui #menu-btn .menu-grid{width:calc(var(--rb) * 0.54);height:calc(var(--rb) * 0.54);}
+/* na šířku: výběr mapy a navigace stejně velké jako tlačítka přiblížení */
+@media (orientation:landscape){
+  body.ride-ui #satellite-btn{ width:var(--rz); height:var(--rz); border-radius:16px; }
+  body.ride-ui #locate-btn{ width:var(--rz); height:var(--rz); border-radius:16px; }
+  body.ride-ui #locate-btn .map-btn-icon{ width:calc(var(--rz) * 0.48); height:calc(var(--rz) * 0.48); }
+}

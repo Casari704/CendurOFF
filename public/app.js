@@ -38,7 +38,7 @@
   if(!document.getElementById('route-list-tab')){
     const list = document.getElementById('route-list');
     if(list) list.insertAdjacentHTML('afterbegin',
-      `<button class="panel-tab" id="route-list-tab" type="button" title="Skrýt/zobrazit seznam tras" aria-label="Skrýt/zobrazit seznam tras"><span class="tab-arrow">‹</span></button>`);
+      `<button class="panel-tab" id="route-list-tab" type="button" title="Skrýt/zobrazit seznam tras" aria-label="Skrýt/zobrazit seznam tras"><span class="tab-arrow">‹</span><span class="tab-txt">TRASY</span></button>`);
   }
   if(!document.getElementById('detail-panel-tab')){
     const panel = document.getElementById('detail-panel');
@@ -105,7 +105,7 @@
   // jízdní režim (v1.46): tlačítko ☰ a sbalení panelu záznamu
   if(!document.getElementById('menu-btn')){
     const fb = document.getElementById('satellite-btn');
-    if(fb) fb.insertAdjacentHTML('beforebegin', `<button class="map-btn map-btn-square" id="menu-btn" type="button" title="Menu" aria-label="Zobrazit / skrýt menu" aria-expanded="false">☰</button>`);
+    if(fb) fb.insertAdjacentHTML('beforebegin', `<button class="map-btn map-btn-square" id="menu-btn" type="button" title="Menu" aria-label="Zobrazit / skrýt menu" aria-expanded="false"><svg class="menu-grid" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg></button>`);
   }
   if(!document.getElementById('rec-toggle')){
     const rp = document.getElementById('rec-panel');
@@ -1761,17 +1761,6 @@ if(menuBtn) menuBtn.addEventListener('click', ()=>{
   if(!zo || document.getElementById('zoom-in3-btn')) return;
   zo.insertAdjacentHTML('afterend', '<button class="map-btn map-btn-square" id="zoom-in3-btn" type="button" aria-label="Přiblížit o 3">+3</button><button class="map-btn map-btn-square" id="zoom-out3-btn" type="button" aria-label="Oddálit o 3">−3</button>');
   window.CendurZoom.bind(()=>map, { in1:'zoom-in-btn', out1:'zoom-out-btn', in3:'zoom-in3-btn', out3:'zoom-out3-btn' }, zoomOpts);
-})();
-// v jízdním režimu je hlavička schovaná → seznam tras otevírá tlačítko nad mapou
-(function addRoutesMapButton(){
-  if(document.getElementById('routes-map-btn')) return;
-  const sat = document.getElementById('satellite-btn');
-  if(!sat) return;
-  sat.insertAdjacentHTML('afterend', '<button class="map-btn map-btn-square" id="routes-map-btn" type="button" title="Seznam tras" aria-label="Seznam tras">≣</button>');
-  document.getElementById('routes-map-btn').addEventListener('click', ()=>{
-    const b = document.getElementById('open-routes');
-    if(b) b.click();
-  });
 })();
 // v jízdním režimu se seznam tras otevírá tlačítkem „Trasy“ v hlavičce (jazýček u okraje by kolidoval s tlačítky)
 (function addRoutesButton(){
