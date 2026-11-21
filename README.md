@@ -79,6 +79,7 @@ npm test                 # testy bezpečnostních funkcí
 
 - První registrovaný účet se schválí automaticky, další schvaluje admin v `admin.html`.
 - Admina nastavíš v databázi: `UPDATE users SET role = 'admin' WHERE username = 'tvuj@email.cz';`
+- Role (sloupec `users.role`): `user` (Uživatel), `reporter` (smí psát Fotoreportáže), `moderator` (+ maže cizí chat, články a recenze, schvaluje registrace, mění role Uživatel/Reporter), `admin` (vše). Nepřihlášený je host. Role se mění v Admin sekci.
 - Zapomenuté heslo: člen klepne na „Zapomněl jsem heslo“ (žádost se ukáže v `admin.html`), admin u něj klikne na „Resetovat heslo“, předá mu vygenerované dočasné heslo a člen si po přihlášení musí zvolit nové.
 - Smazané trasy zůstávají v archivu (jen admin je vidí, obnoví nebo smaže natrvalo).
 - Záloha a obnova databáze: `admin.html` (ZIP s přehledem v Excelu, GPX, fotkami a daty pro obnovu).

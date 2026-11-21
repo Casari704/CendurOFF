@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------
 // CendurOFF Komunita – články (v4.64)
 //   kind 'aktuality'   – krátké zprávy, píše jen admin
-//   kind 'fotoreporty' – články z výletů, píše admin a členové, kterým to admin povolí (users.can_report)
+//   kind 'fotoreporty' – články z výletů, píší reporter, moderátor a admin (users.role)
 // Čtení je veřejné. Fotky se ukládají jako obrázky (bytea) a posílají se zvlášť (GET /api/posts/photo/:id),
 // takže seznam článků je malý a fotky se stahují až když jsou vidět.
 //   GET    /api/posts?kind=…&before=<id>   – 10 článků, nejnovější první
@@ -20,7 +20,7 @@ const MAX_TITLE = 120, MAX_TEXT = 8000;
 const PAGE = 10;
 const DATA_URL = /^data:image\/(jpeg|png|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/;
 
-function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
+function mount(app, { pool, requireAuth, optionalAuth, isAdmin, atLeast }) {
   let ready = null;
   function ensure() {
     if (!ready) {
@@ -52,10 +52,8 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
   const whenReady = (req, res, next) => ensure().then(() => next(), () => res.status(500).json({ error: 'Články nejsou připravené.' }));
 
   async function canWrite(req, kind) {
-    if (isAdmin(req)) return true;
-    if (kind !== 'fotoreporty') return false;
-    const r = await pool.query('SELECT can_report FROM users WHERE id = $1', [req.user.id]);
-    return !!(r.rows[0] && r.rows[0].can_report);
+    if (kind === 'aktuality') return isAdmin(req);
+    return atLeast(req, 'reporter');   // reporter, moderátor, admin
   }
   const clean = (s, n) => String(s == null ? '' : s).replace(/\r\n/g, '\n').trim().slice(0, n);
 
@@ -125,7 +123,7 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
     const r = await pool.query('SELECT id, user_id FROM posts WHERE id = $1', [Number(req.params.id)]);
     const p = r.rows[0];
     if (!p) { res.status(404).json({ error: 'Článek nenalezen.' }); return null; }
-    if (!isAdmin(req) && p.user_id !== req.user.id) { res.status(403).json({ error: 'Cizí článek může upravit jen admin.' }); return null; }
+    if (!atLeast(req, 'moderator') && p.user_id !== req.user.id) { res.status(403).json({ error: 'Cizí článek může upravit jen moderátor nebo admin.' }); return null; }
     return p;
   }
   app.put('/api/posts/:id', whenReady, requireAuth, async (req, res) => {

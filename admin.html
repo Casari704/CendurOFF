@@ -9,8 +9,8 @@
 <title>CendurOFF Admin sekce</title>
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.66.1">
-<link rel="stylesheet" href="public/faq.css?v=4.66.1">
+<link rel="stylesheet" href="public/style.css?v=4.67">
+<link rel="stylesheet" href="public/faq.css?v=4.67">
 <style>
   .a-wrap{max-width:1800px;margin:0 auto;padding:24px 20px 60px;}   /* v4.61: na velkém monitoru širší tabulky */
   .a-wrap h1{margin:0 0 4px;font-size:clamp(26px,4vw,36px);}
@@ -54,6 +54,9 @@
   .a-t .big{font-weight:800;font-family:'Exo 2',sans-serif;font-size:1rem;}
   .a-btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 10px;font-weight:600;font-size:0.82rem;color:var(--ink);cursor:pointer;margin-right:4px;}
   .a-btn:hover{border-color:var(--moss);}
+  .a-role{display:inline-flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:600;margin-right:6px;}
+  .a-role select{min-width:108px;font:inherit;padding:5px 6px;border-radius:6px;border:1px solid var(--line);background:#fff;}
+  .a-role-fixed{font-size:0.82rem;font-weight:700;color:var(--ink-soft);margin-right:6px;}
   .a-btn.red{color:#B3261E;border-color:#E3B4B0;}
   .a-btn.go{color:#fff;background:var(--moss);border-color:var(--moss);}
   .a-empty{padding:16px;color:var(--ink-soft);}
@@ -131,11 +134,11 @@
 </main>
 <div class="toast" id="toast"></div>
 
-<script src="public/config.js?v=4.66.1"></script>
-<script src="public/errors.js?v=4.66.1"></script>
-<script src="public/rider.js?v=4.66.1"></script>
-<script src="public/header.js?v=4.66.1"></script>
-<script src="public/pwa.js?v=4.66.1"></script>
+<script src="public/config.js?v=4.67"></script>
+<script src="public/errors.js?v=4.67"></script>
+<script src="public/rider.js?v=4.67"></script>
+<script src="public/header.js?v=4.67"></script>
+<script src="public/pwa.js?v=4.67"></script>
 <script>
 (function(){
   const API_URL = window.CENDUROFF_API_URL || 'https://api.cenduroff.cz';
@@ -300,6 +303,16 @@
     return u[k];
   };
   const openIds = new Set();
+  const ROLE_NAMES = { user:'Uživatel', reporter:'Reporter', moderator:'Moderátor', admin:'Admin' };
+  const isAdminMe = () => !!(me && me.role === 'admin');
+  // admin mění všechno (kromě sebe); moderátor jen Uživatel ↔ Reporter u účtů pod sebou
+  function roleSelect(u){
+    const cur = ROLE_NAMES[u.role] ? u.role : 'user';
+    const canChange = isAdminMe() || (cur === 'user' || cur === 'reporter');
+    const opts = isAdminMe() ? ['user', 'reporter', 'moderator', 'admin'] : ['user', 'reporter'];
+    if(!canChange) return '<span class="a-role-fixed">' + ROLE_NAMES[cur] + '</span>';
+    return '<label class="a-role">Role <select data-role="' + u.id + '">' + opts.map(r => '<option value="' + r + '"' + (r === cur ? ' selected' : '') + '>' + ROLE_NAMES[r] + '</option>').join('') + '</select></label>';
+  }
   function renderUsers(list){
     users = list;
     const R = window.CendurRider;
@@ -321,13 +334,13 @@
     tb.innerHTML = users.length ? users.map(u => {
       const st = u.stats || {}; const b = R ? R.badgeFor(st.km) : null;
       const ach = R && u.stats ? R.achievements(st, u.earned).filter(a => a.got) : [];
-      return '<tr data-uid="' + u.id + '" class="' + (u.is_approved ? '' : 'a-pend ') + (openIds.has(u.id) ? 'open' : '') + '"><td class="name">' + esc(u.display_name) + (u.role === 'admin' ? ' <small>(admin)</small>' : '') + (u.is_approved ? '' : ' <span class="a-deleted">čeká na schválení</span>') + (u.reset_requested_at ? ' <span class="a-deleted" title="' + esc(fmtDate(u.reset_requested_at)) + '">žádá reset hesla</span>' : '') + (u.must_change_password ? ' <small>(dočasné heslo)</small>' : '') + '</td>' +
+      return '<tr data-uid="' + u.id + '" class="' + (u.is_approved ? '' : 'a-pend ') + (openIds.has(u.id) ? 'open' : '') + '"><td class="name">' + esc(u.display_name) + (u.role !== 'user' && ROLE_NAMES[u.role] ? ' <small>(' + ROLE_NAMES[u.role].toLowerCase() + ')</small>' : '') + (u.is_approved ? '' : ' <span class="a-deleted">čeká na schválení</span>') + (u.reset_requested_at ? ' <span class="a-deleted" title="' + esc(fmtDate(u.reset_requested_at)) + '">žádá reset hesla</span>' : '') + (u.must_change_password ? ' <small>(dočasné heslo)</small>' : '') + '</td>' +
       '<td>' + esc(u.username) + '</td>' +
       '<td>' + (b ? b.icon + ' ' + esc(b.name) : '—') + '</td><td class="num">' + (u.stats ? R.fmtKm(st.km).replace(' km', '') : '—') + '</td><td class="num">' + u.routes + '</td><td class="num">' + u.rides + '</td>' +
       '<td class="a-ach">' + (ach.length ? ach.map(a => '<span title="' + esc(a.name) + '">' + a.icon + '</span>').join('') : '—') + '</td>' +
       '<td>' + ago(u.last_seen_at) + '</td><td class="num big">' + u.logins_30d + '</td><td class="num big">' + u.logins_total + '</td>' +
       '<td>' + fmtDate(u.created_at) + '</td>' +
-      '<td>' + (u.is_approved ? (me && u.id !== me.id ? (u.role === 'admin' ? '' : '<button class="a-btn' + (u.can_report ? ' go' : '') + '" type="button" data-reporter="' + u.id + '" title="Smí přidávat fotoreportáže v Komunitě">Fotoreportér: ' + (u.can_report ? 'ano' : 'ne') + '</button>') + '<button class="a-btn" type="button" data-reset="' + u.id + '">Resetovat heslo</button><button class="a-btn red" type="button" data-remove="' + u.id + '">Smazat účet</button>' : '') : '<button class="a-btn green" type="button" data-approve="' + u.id + '">✓ Schválit</button><button class="a-btn red" type="button" data-reject="' + u.id + '">Zamítnout</button>') + '</td></tr>' +
+      '<td>' + (u.is_approved ? (me && u.id !== me.id ? roleSelect(u) + (isAdminMe() ? '<button class="a-btn" type="button" data-reset="' + u.id + '">Resetovat heslo</button><button class="a-btn red" type="button" data-remove="' + u.id + '">Smazat účet</button>' : '') : '') : '<button class="a-btn green" type="button" data-approve="' + u.id + '">✓ Schválit</button><button class="a-btn red" type="button" data-reject="' + u.id + '">Zamítnout</button>') + '</td></tr>' +
       (removeId === u.id ? removeRow(u) : '') + (resetId === u.id ? resetRow(u) : '');
     }).join('')
       : '<tr><td colspan="12" class="a-empty">Žádní uživatelé.</td></tr>';
@@ -372,14 +385,14 @@
       '<button class="a-btn red" type="button" data-remove-ok="' + u.id + '">Smazat účet natrvalo</button><button class="a-btn" type="button" data-remove-cancel="1">Zrušit</button>' +
       '</td></tr>';
   }
-  $('a-users').addEventListener('click', async ev => {
-    const rp = ev.target.closest('[data-reporter]'); if(!rp) return;
-    const u = users.find(x => x.id === Number(rp.dataset.reporter)); if(!u) return;
+  $('a-users').addEventListener('change', async ev => {
+    const sel = ev.target.closest('select[data-role]'); if(!sel) return;
+    const u = users.find(x => x.id === Number(sel.dataset.role)); if(!u) return;
     try{
-      await api('/api/admin/users/' + u.id + '/reporter', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ allowed: !u.can_report }) });
-      toast(u.display_name + (u.can_report ? ' už nesmí' : ' teď smí') + ' přidávat fotoreportáže.');
-      renderUsers(await api('/api/admin/users'));
+      await api('/api/admin/users/' + u.id + '/role', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ role: sel.value }) });
+      toast(u.display_name + ': role ' + ROLE_NAMES[sel.value] + '.');
     }catch(e2){ toast(e2.message); }
+    renderUsers(await api('/api/admin/users'));
   });
   $('a-users').addEventListener('click', async ev => {
     const rs = ev.target.closest('[data-reset]'), rok = ev.target.closest('[data-reset-ok]'), rcl = ev.target.closest('[data-reset-close]'), rcp = ev.target.closest('[data-reset-copy]');
@@ -483,6 +496,7 @@
   $('a-pending').addEventListener('click', () => { const sec = $('a-users-sec'); setFold(sec, true, true); sec.scrollIntoView({ behavior:'smooth', block:'start' }); });
 
   async function loadAll(){
+    if(!isAdminMe()){ renderUsers(await api('/api/admin/users')); return; }   // moderátor vidí jen uživatele
     const [s, ar, us] = await Promise.all([ api('/api/admin/stats'), api('/api/admin/archive'), api('/api/admin/users') ]);
     stats = s; arch = ar; renderStats(); renderArch(); renderUsers(us);
     try{ await loadErrs(); $('a-err-sec').hidden = false; }catch(e){}
@@ -494,8 +508,8 @@
     if(window.CendurHeader) window.CendurHeader.setUser(user);
     me = user;
     if(!user){ location.replace('index.html?next=' + encodeURIComponent('admin.html')); return; }
-    if(user.role !== 'admin'){ $('a-msg').textContent = 'Tahle stránka je jen pro admina.'; return; }
-    try{ await loadAll(); $('a-msg').textContent = 'Uživatelé, statistiky projetí tras, archiv smazaných tras a chyby z telefonů.'; $('a-bak-sec').hidden = false; $('a-users-sec').hidden = false; $('a-stats-sec').hidden = false; $('a-arch-sec').hidden = false; }
+    if(user.role !== 'admin' && user.role !== 'moderator'){ $('a-msg').textContent = 'Tahle stránka je jen pro moderátory a admina.'; return; }
+    try{ await loadAll(); $('a-users-sec').hidden = false; if(isAdminMe()){ $('a-msg').textContent = 'Uživatelé, statistiky projetí tras, archiv smazaných tras a chyby z telefonů.'; $('a-bak-sec').hidden = false; $('a-stats-sec').hidden = false; $('a-arch-sec').hidden = false; } else { $('a-msg').textContent = 'Správa uživatelů a rolí.'; } }
     catch(e){ $('a-msg').textContent = 'Nepodařilo se načíst: ' + e.message; }
   })();
 })();

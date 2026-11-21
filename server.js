@@ -110,6 +110,9 @@ async function initDb() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_requested_at TIMESTAMPTZ`);
   // v4.64: smí psát fotoreportáže v Komunitě (nastavuje admin)
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS can_report BOOLEAN NOT NULL DEFAULT false`);
+  // v4.67: dřívější příznak „fotoreportér“ se převádí do role (jednorázově, pak se příznak vynuluje)
+  await pool.query(`UPDATE users SET role = 'reporter', can_report = false WHERE can_report = true AND role = 'user'`);
+  await pool.query(`UPDATE users SET can_report = false WHERE can_report = true`);
   await pool.query(`CREATE TABLE IF NOT EXISTS user_logins (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, created_at TIMESTAMPTZ NOT NULL DEFAULT now())`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_user_logins_user ON user_logins(user_id, created_at)`);
 
@@ -233,7 +236,7 @@ async function requireAuth(req, res, next) {
     // roli čteme vždy čerstvě z databáze - změna role v DB platí hned, bez nového přihlášení
     const r = await pool.query('SELECT role, display_name FROM users WHERE id = $1', [req.user.id]);
     if (!r.rows[0]) return res.status(401).json({ error: 'Účet už neexistuje.' });
-    req.user.role = r.rows[0].role || 'user';
+    req.user.role = ROLES.includes(r.rows[0].role) ? r.rows[0].role : 'user';
     req.user.displayName = r.rows[0].display_name;   // přezdívku čteme také čerstvě (v4.65: jde změnit)
     touchSeen(req.user.id);
   } catch (e) {
@@ -245,6 +248,12 @@ async function requireAuth(req, res, next) {
 
 function isAdmin(req) {
   return !!(req.user && req.user.role === 'admin');
+}
+// v4.67: úrovně účtu – user < reporter < moderator < admin (nepřihlášený je host)
+const ROLES = ['user', 'reporter', 'moderator', 'admin'];
+const roleRank = r => Math.max(0, ROLES.indexOf(r));
+function atLeast(req, role) {
+  return !!req.user && roleRank(req.user.role) >= roleRank(role);
 }
 // smí uživatel upravovat/mazat věc, jejímž vlastníkem je ownerId? (vlastník nebo admin)
 function canEdit(req, ownerId) {
@@ -666,7 +675,7 @@ app.delete('/api/routes/:id/review', requireAuth, async (req, res) => {
     // admin může smazat i cizí recenzi: DELETE /api/routes/:id/review?userId=123
     let targetUserId = req.user.id;
     if (req.query.userId != null && Number(req.query.userId) !== req.user.id) {
-      if (!isAdmin(req)) return res.status(403).json({ error: 'Cizí recenzi může smazat jen admin.' });
+      if (!atLeast(req, 'moderator')) return res.status(403).json({ error: 'Cizí recenzi může smazat jen moderátor nebo admin.' });
       targetUserId = Number(req.query.userId);
       if (!Number.isInteger(targetUserId)) return res.status(400).json({ error: 'Neplatný uživatel.' });
     }
@@ -786,7 +795,7 @@ app.use('/api/routes/:id/terrain', mapDataLimit);
 // ---------------------------------------------------------------
 require('./roadbook-api').mount(app, { pool, requireAuth, optionalAuth, canEdit });
 // Admin (v2.5) – archiv smazaných tras a statistiky projetí tras
-require('./admin-api').mount(app, { pool, requireAuth, isAdmin });
+require('./admin-api').mount(app, { pool, requireAuth, isAdmin, atLeast });
 // Profil jezdce a hlášení chyb (v4.3) – samostatný modul; kdyby selhal, zbytek serveru běží dál
 try {
   require('./profile-api').mount(app, { pool, requireAuth, optionalAuth, isAdmin });
@@ -795,13 +804,13 @@ try {
 }
 // Články v Komunitě – aktuality a fotoreportáže (v4.64)
 try {
-  require('./posts-api').mount(app, { pool, requireAuth, optionalAuth, isAdmin });
+  require('./posts-api').mount(app, { pool, requireAuth, optionalAuth, isAdmin, atLeast });
 } catch (e) {
   console.error('Články: modul se nepodařilo připojit:', e);
 }
 // Skupinový chat v Komunitě (v4.63)
 try {
-  require('./chat-api').mount(app, { pool, requireAuth, isAdmin });
+  require('./chat-api').mount(app, { pool, requireAuth, isAdmin, atLeast });
 } catch (e) {
   console.error('Chat: modul se nepodařilo připojit:', e);
 }

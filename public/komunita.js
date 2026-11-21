@@ -8,6 +8,8 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const num = n => (Number(n) || 0).toLocaleString('cs-CZ');
   let me = null, meId = null;
+  const roleTag = r => ({ admin:' (admin)', moderator:' (moderátor)', reporter:' (reporter)' }[r] || '');
+  const isMod = () => !!(me && (me.role === 'admin' || me.role === 'moderator'));
 
   async function api(path){
     const o = { credentials:'include' };
@@ -26,12 +28,12 @@
       const st = u.stats || {};
       const rank = R ? R.badgeFor(st.km) : null;
       const ach = R ? R.achievements(st, u.earned).filter(a => a.got) : [];
-      return { id:u.id, nick:u.nick, admin:u.role === 'admin', km:Number(st.km) || 0, ridden:st.ridden || 0, own:st.ownRoutes || 0, rank, ach };
+      return { id:u.id, nick:u.nick, tag:roleTag(u.role), km:Number(st.km) || 0, ridden:st.ridden || 0, own:st.ownRoutes || 0, rank, ach };
     }).sort((a, b) => (b.km - a.km) || (b.ach.length - a.ach.length) || String(a.nick).localeCompare(String(b.nick), 'cs'));
     if(!rows.length){ box.innerHTML = '<p class="k-empty">Zatím tu nikdo není.</p>'; return; }
     rows.length = Math.min(rows.length, 10);
     box.innerHTML = '<table class="k-t"><thead><tr><th class="num">#</th><th>Nick</th><th class="num">Najeto</th><th class="num">Projeté trasy</th><th class="num">Přidané trasy</th><th>Hodnost</th><th>Odznaky</th></tr></thead><tbody>' +
-      rows.map((u, i) => '<tr class="' + (i === 0 ? 'top1 ' : '') + (u.id === meId ? 'me' : '') + '"><td class="pos num">' + (i + 1) + '.</td><td class="nick">' + esc(u.nick) + (u.admin ? ' (admin)' : '') + '</td>' +
+      rows.map((u, i) => '<tr class="' + (i === 0 ? 'top1 ' : '') + (u.id === meId ? 'me' : '') + '"><td class="pos num">' + (i + 1) + '.</td><td class="nick">' + esc(u.nick) + esc(u.tag) + '</td>' +
         '<td class="num big">' + (R ? R.fmtKm(u.km) : num(u.km) + ' km') + '</td><td class="num">' + num(u.ridden) + '</td><td class="num">' + num(u.own) + '</td>' +
         '<td>' + (u.rank ? u.rank.icon + ' ' + esc(u.rank.name) : '') + '</td>' +
         '<td class="k-ach">' + (u.ach.length ? u.ach.map(a => '<span title="' + esc(a.name) + '">' + a.icon + '</span>').join('') : '—') + '</td></tr>').join('') +
@@ -96,10 +98,10 @@
     const row = document.createElement('div');
     row.className = 'k-msg' + (m.user_id === meId ? ' mine' : ''); row.dataset.id = m.id;
     const head = document.createElement('div'); head.className = 'k-mh';
-    const nick = document.createElement('b'); nick.textContent = (m.nick || 'smazaný účet') + (m.role === 'admin' ? ' (admin)' : '');
+    const nick = document.createElement('b'); nick.textContent = (m.nick || 'smazaný účet') + roleTag(m.role);
     const time = document.createElement('span'); time.textContent = fmtTime(m.created_at);
     head.appendChild(nick); head.appendChild(time);
-    if(m.user_id === meId || (me && me.role === 'admin')){
+    if(m.user_id === meId || isMod()){
       const del = document.createElement('button'); del.type = 'button'; del.className = 'k-del'; del.textContent = 'Smazat'; del.dataset.del = m.id; head.appendChild(del);
     }
     const body = document.createElement('div'); body.className = 'k-mt'; body.textContent = m.text;
@@ -177,8 +179,8 @@
     const art = document.createElement('article'); art.className = 'k-post'; art.dataset.id = p.id;
     const h = document.createElement('h3'); h.textContent = p.title; art.appendChild(h);
     const meta = document.createElement('div'); meta.className = 'k-pmeta';
-    meta.textContent = (p.nick || 'smazaný účet') + (p.role === 'admin' ? ' (admin)' : '') + ' · ' + fmtDate(p.created_at) + (p.updated_at ? ' · upraveno' : '');
-    if(me && (me.role === 'admin' || p.user_id === meId)){
+    meta.textContent = (p.nick || 'smazaný účet') + roleTag(p.role) + ' · ' + fmtDate(p.created_at) + (p.updated_at ? ' · upraveno' : '');
+    if(me && (isMod() || p.user_id === meId)){
       const ed = document.createElement('button'); ed.type = 'button'; ed.className = 'k-del k-edit'; ed.textContent = 'Upravit'; ed.dataset.edit = p.id;
       const del = document.createElement('button'); del.type = 'button'; del.className = 'k-del'; del.textContent = 'Smazat'; del.dataset.delpost = p.id;
       meta.appendChild(ed); meta.appendChild(del);

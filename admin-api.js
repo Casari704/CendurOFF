@@ -32,7 +32,7 @@ CREATE INDEX IF NOT EXISTS idx_user_logins_user ON user_logins(user_id, created_
 const RIDE_MIN_COVERAGE = 0.2;
 const SOURCES = ['atlas', 'roadbook', 'record'];
 
-function mount(app, { pool, requireAuth, isAdmin }) {
+function mount(app, { pool, requireAuth, isAdmin, atLeast }) {
   let ready = null;
   function ensure() {
     if (!ready) {
@@ -44,12 +44,14 @@ function mount(app, { pool, requireAuth, isAdmin }) {
 
   const whenReady = (req, res, next) => ensure().then(() => next(), () => res.status(500).json({ error: 'Databáze není připravená.' }));
   const adminOnly = (req, res, next) => isAdmin(req) ? next() : res.status(403).json({ error: 'Jen pro admina.' });
+  const modOnly = (req, res, next) => atLeast(req, 'moderator') ? next() : res.status(403).json({ error: 'Jen pro moderátora a admina.' });
+  const ROLES = ['user', 'reporter', 'moderator', 'admin'];
 
   // ---------------- uživatelé: kdy se naposledy přihlásili ----------------
-  app.get('/api/admin/users', whenReady, requireAuth, adminOnly, async (req, res) => {
+  app.get('/api/admin/users', whenReady, requireAuth, modOnly, async (req, res) => {
     try {
       const r = await pool.query(`
-        SELECT u.id, u.username, u.display_name, u.role, u.is_approved, u.created_at, u.last_login_at, u.last_seen_at, u.must_change_password, u.reset_requested_at, u.can_report,
+        SELECT u.id, u.username, u.display_name, u.role, u.is_approved, u.created_at, u.last_login_at, u.last_seen_at, u.must_change_password, u.reset_requested_at,
                (SELECT COUNT(*)::int FROM routes x WHERE x.owner_id = u.id AND x.deleted_at IS NULL) AS routes,
                (SELECT COUNT(*)::int FROM routes x WHERE x.owner_id = u.id AND x.deleted_at IS NOT NULL) AS routes_archived,
                (SELECT COUNT(*)::int FROM route_rides rr WHERE rr.user_id = u.id) AS rides,
@@ -67,7 +69,7 @@ function mount(app, { pool, requireAuth, isAdmin }) {
   });
 
   // ---------------- v4.5: schválení / zamítnutí registrace (místo ruční úpravy v databázi) ----------------
-  app.post('/api/admin/users/:id/approve', whenReady, requireAuth, adminOnly, async (req, res) => {
+  app.post('/api/admin/users/:id/approve', whenReady, requireAuth, modOnly, async (req, res) => {
     try {
       const r = await pool.query('UPDATE users SET is_approved = true WHERE id = $1 RETURNING id, display_name', [Number(req.params.id)]);
       if (!r.rows[0]) return res.status(404).json({ error: 'Uživatel nenalezen.' });
@@ -75,7 +77,7 @@ function mount(app, { pool, requireAuth, isAdmin }) {
     } catch (e) { console.error(e); res.status(500).json({ error: 'Schválení se nepovedlo.' }); }
   });
   // zamítnout jde jen registraci, která ještě nebyla schválená (schválený účet se tu smazat nedá)
-  app.delete('/api/admin/users/:id', whenReady, requireAuth, adminOnly, async (req, res) => {
+  app.delete('/api/admin/users/:id', whenReady, requireAuth, modOnly, async (req, res) => {
     try {
       const r = await pool.query('DELETE FROM users WHERE id = $1 AND is_approved = false RETURNING id', [Number(req.params.id)]);
       if (!r.rows[0]) return res.status(400).json({ error: 'Zamítnout jde jen registraci, která čeká na schválení.' });
@@ -108,15 +110,25 @@ function mount(app, { pool, requireAuth, isAdmin }) {
     } catch (e) { console.error(e); res.status(500).json({ error: 'Účet se nepodařilo smazat.' }); }
   });
 
-  // ---------------- v4.64: kdo smí psát fotoreportáže ----------------
-  app.post('/api/admin/users/:id/reporter', whenReady, requireAuth, adminOnly, async (req, res) => {
+  // ---------------- v4.67: změna role ----------------
+  // admin nastaví kterékoli roli (kromě sebe); moderátor jen mezi user a reporter a jen u účtů, které jsou pod ním
+  app.post('/api/admin/users/:id/role', whenReady, requireAuth, modOnly, async (req, res) => {
     try {
-      await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS can_report BOOLEAN NOT NULL DEFAULT false');
-      const allowed = !!(req.body && req.body.allowed);
-      const r = await pool.query('UPDATE users SET can_report = $2 WHERE id = $1 AND is_approved = true RETURNING id, display_name, can_report', [Number(req.params.id), allowed]);
-      if (!r.rows[0]) return res.status(404).json({ error: 'Uživatel nenalezen.' });
-      res.json({ ok: true, can_report: r.rows[0].can_report });
-    } catch (e) { console.error(e); res.status(500).json({ error: 'Oprávnění se nepodařilo změnit.' }); }
+      const id = Number(req.params.id), role = String(req.body && req.body.role || '');
+      if (!ROLES.includes(role)) return res.status(400).json({ error: 'Neznámá role.' });
+      if (id === req.user.id) return res.status(400).json({ error: 'Vlastní roli změnit nejde.' });
+      const t = await pool.query('SELECT role, is_approved FROM users WHERE id = $1', [id]);
+      if (!t.rows[0]) return res.status(404).json({ error: 'Uživatel nenalezen.' });
+      if (!t.rows[0].is_approved) return res.status(400).json({ error: 'Nejdřív je potřeba účet schválit.' });
+      if (!isAdmin(req)) {
+        const rank = r => Math.max(0, ROLES.indexOf(r));
+        if (rank(t.rows[0].role) >= rank('moderator') || rank(role) >= rank('moderator')) {
+          return res.status(403).json({ error: 'Moderátor smí měnit jen role Uživatel a Reporter.' });
+        }
+      }
+      const r = await pool.query('UPDATE users SET role = $2 WHERE id = $1 RETURNING id, display_name, role', [id, role]);
+      res.json({ ok: true, role: r.rows[0].role });
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Roli se nepodařilo změnit.' }); }
   });
 
   // ---------------- v4.60: reset hesla ----------------

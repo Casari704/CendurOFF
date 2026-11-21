@@ -265,9 +265,9 @@
     if(user && user.mustChangePassword && page !== 'nastaveni'){ location.replace('nastaveni.html?zmena=1'); return; }   // v4.60: dočasné heslo
     userBtn.hidden = !user;
     loginLink.hidden = !!user;
-    if(user) userBtn.textContent = user.displayName + (user.role==='admin' ? ' · admin' : '');
+    if(user) userBtn.textContent = user.displayName + ({ admin:' · admin', moderator:' · moderátor', reporter:' · reporter' }[user.role] || '');
     const tu = document.getElementById('tm-user');
-    if(tu) tu.textContent = user ? user.displayName + (user.role==='admin' ? ' · admin' : '') : '';
+    if(tu) tu.textContent = user ? user.displayName + ({ admin:' · admin', moderator:' · moderátor', reporter:' · reporter' }[user.role] || '') : '';
     const ta = document.getElementById('tm-account');
     if(ta) ta.textContent = user ? 'Nastavení účtu' : 'Přihlásit se';
     window.dispatchEvent(new Event('resize')); // hlavička mohla změnit výšku (mobil)

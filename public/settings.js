@@ -27,8 +27,8 @@
     document.body.classList.remove('auth-pending');
     if(window.CendurHeader) window.CendurHeader.setUser(user);
     $('s-name').textContent = user.displayName;
-    $('s-role').textContent = (user.role === 'admin' ? 'administrátor' : 'uživatel') + (user.username && user.username.toLowerCase() !== String(user.displayName).toLowerCase() ? ' · přihlašovací jméno ' + user.username : '');
-    $('s-admin-row').hidden = user.role !== 'admin';
+    $('s-role').textContent = ({ admin:'administrátor', moderator:'moderátor', reporter:'reporter' }[user.role] || 'uživatel') + (user.username && user.username.toLowerCase() !== String(user.displayName).toLowerCase() ? ' · přihlašovací jméno ' + user.username : '');
+    $('s-admin-row').hidden = user.role !== 'admin' && user.role !== 'moderator';
     // v4.60: přihlášen dočasným heslem od admina → rovnou formulář pro nové heslo
     if(user.mustChangePassword){
       setPw(true);

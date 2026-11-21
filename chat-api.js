@@ -9,7 +9,7 @@ const MAX_LEN = 1000;
 const KEEP = 3000;                 // starší zprávy se občas mažou
 const PER_MIN = 15;                // nejvýš zpráv za minutu od jednoho člena
 
-function mount(app, { pool, requireAuth, isAdmin }) {
+function mount(app, { pool, requireAuth, isAdmin, atLeast }) {
   let ready = null;
   function ensure() {
     if (!ready) {
@@ -60,7 +60,7 @@ function mount(app, { pool, requireAuth, isAdmin }) {
   app.delete('/api/chat/:id', whenReady, requireAuth, async (req, res) => {
     try {
       const id = Number(req.params.id);
-      const r = isAdmin(req)
+      const r = atLeast(req, 'moderator')
         ? await pool.query('DELETE FROM chat_messages WHERE id = $1 RETURNING id', [id])
         : await pool.query('DELETE FROM chat_messages WHERE id = $1 AND user_id = $2 RETURNING id', [id, req.user.id]);
       if (!r.rows[0]) return res.status(404).json({ error: 'Zpráva nenalezena (nebo není tvoje).' });
