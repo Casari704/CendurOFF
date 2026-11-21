@@ -40,6 +40,7 @@ chat-api.js           skupinový chat v Komunitě (jen přihlášení)
 posts-api.js          články v Komunitě: Aktuality (admin) a Články (reporter a výš), komentáře pod články
 events-api.js         Akce v Komunitě: přehled 5 nejbližších akcí, přidání akce, potvrzení účasti
 places-api.js         Místa v Komunitě: zajímavá místa (POI) s fotkami, kategoriemi a komentáři
+photo-util.js         společné ověření a úprava fotek (články, místa, akce)
 backup-api.js         záloha a obnova databáze (jen admin)
 osm-api.js, region-api.js, elevation.js   data z OpenStreetMap, benzínky/CHKO, výšky
 export-zip.js         ZIP a XLSX pro zálohu

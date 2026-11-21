@@ -12,6 +12,7 @@
 //   POST   /api/events/:id/join, DELETE /api/events/:id/join – potvrdit / zrušit účast
 // ---------------------------------------------------------------
 const { detectImageType } = require('./security');
+const { decodePhotos } = require('./photo-util');
 
 const MAX_PHOTO_BYTES = 1500000;
 const DATA_URL = /^data:image\/(jpeg|png|webp|gif);base64,([A-Za-z0-9+/]+={0,2})$/;
@@ -37,6 +38,7 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
         // v4.71: akce má termín od–do (jen dny, bez času); starts_at zůstává jen u starších záznamů
         await pool.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS date_from DATE`);
         await pool.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS date_to DATE`);
+        await pool.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS photo_at TIMESTAMPTZ`);   // kvůli výměně fotky (cache prohlížeče)
         await pool.query(`ALTER TABLE events ALTER COLUMN starts_at DROP NOT NULL`);
         await pool.query(`UPDATE events SET date_from = (starts_at AT TIME ZONE 'Europe/Prague')::date, date_to = (starts_at AT TIME ZONE 'Europe/Prague')::date WHERE date_from IS NULL AND starts_at IS NOT NULL`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_from ON events(date_from)`);
@@ -54,7 +56,7 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
   const whenReady = (req, res, next) => ensure().then(() => next(), () => res.status(500).json({ error: 'Akce nejsou připravené.' }));
 
   const clean = (s, n) => String(s == null ? '' : s).replace(/\r\n/g, '\n').trim().slice(0, n);
-  const SELECT = `SELECT e.id, e.title, e.date_from::text AS date_from, e.date_to::text AS date_to, e.place, e.description, e.url, e.user_id, (e.photo_mime IS NOT NULL) AS has_photo,
+  const SELECT = `SELECT e.id, e.title, e.date_from::text AS date_from, e.date_to::text AS date_to, e.place, e.description, e.url, e.user_id, (e.photo_mime IS NOT NULL) AS has_photo, COALESCE(floor(extract(epoch from e.photo_at))::bigint, 0) AS photo_v,
                          u.display_name AS nick, u.role,
                          (SELECT COUNT(*)::int FROM event_rsvps r WHERE r.event_id = e.id) AS going,
                          EXISTS(SELECT 1 FROM event_rsvps r WHERE r.event_id = e.id AND r.user_id = $1) AS joined
@@ -129,7 +131,7 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
       list.push(now); hits.set(req.user.id, list);
       if (hits.size > 5000) hits.clear();
       const ins = await pool.query(
-        'INSERT INTO events (user_id, title, date_from, date_to, place, description, url, photo_mime, photo) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',
+        'INSERT INTO events (user_id, title, date_from, date_to, place, description, url, photo_mime, photo, photo_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, CASE WHEN $9::bytea IS NULL THEN NULL ELSE now() END) RETURNING id',
         [req.user.id, p.v.title, p.v.dateFrom, p.v.dateTo, p.v.place, p.v.description, p.v.url, mime, buf]);
       res.status(201).json({ id: ins.rows[0].id });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Akci se nepodařilo uložit.' }); }
@@ -147,6 +149,12 @@ function mount(app, { pool, requireAuth, optionalAuth, atLeast }) {
       const ev = await own(req, res); if (!ev) return;
       const b = req.body || {};
       const p = parse(b); if (p.error) return res.status(400).json({ error: p.error });
+      if (b.photo) {          // nová fotka nahradí starou
+        const dec = decodePhotos([b.photo]); if (dec.error) return res.status(400).json({ error: dec.error });
+        await pool.query('UPDATE events SET photo_mime = $2, photo = $3, photo_at = now() WHERE id = $1', [ev.id, dec.bufs[0].type, dec.bufs[0].buf]);
+      } else if (b.removePhoto) {
+        await pool.query('UPDATE events SET photo_mime = NULL, photo = NULL WHERE id = $1', [ev.id]);
+      }
       await pool.query('UPDATE events SET title=$2, date_from=$3, date_to=$4, place=$5, description=$6, url=$7 WHERE id=$1', [ev.id, p.v.title, p.v.dateFrom, p.v.dateTo, p.v.place, p.v.description, p.v.url]);
       res.json({ ok: true });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Akci se nepodařilo upravit.' }); }

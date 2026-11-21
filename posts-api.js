@@ -12,6 +12,7 @@
 //   DELETE /api/posts/:id                  – autor nebo admin
 // ---------------------------------------------------------------
 const { detectImageType } = require('./security');
+const { syncPhotos } = require('./photo-util');
 
 const KINDS = ['aktuality', 'fotoreporty'];
 const MAX_PHOTOS = { aktuality: 4, fotoreporty: 12 };
@@ -178,6 +179,9 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin, atLeast }) {
       const p = await ownPost(req, res); if (!p) return;
       const title = clean(req.body && req.body.title, MAX_TITLE), text = clean(req.body && req.body.text, MAX_TEXT);
       if (title.length < 3 || !text) return res.status(400).json({ error: 'Nadpis i text musí být vyplněné.' });
+      const kind = (await pool.query('SELECT kind FROM posts WHERE id = $1', [p.id])).rows[0].kind;
+      const perr = await syncPhotos(pool, 'post_photos', 'post_id', p.id, req.body || {}, MAX_PHOTOS[kind]);
+      if (perr) return res.status(400).json({ error: perr });
       await pool.query('UPDATE posts SET title = $2, body = $3, updated_at = now() WHERE id = $1', [p.id, title, text]);
       res.json({ ok: true });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Článek se nepodařilo upravit.' }); }

@@ -179,7 +179,7 @@
     return data;
   }
   function postEl(kind, p){
-    const art = document.createElement('article'); art.className = 'k-post'; art.dataset.id = p.id;
+    const art = document.createElement('article'); art.className = 'k-post'; art.dataset.id = p.id; art.dataset.photos = JSON.stringify(p.photos || []);
     const h = document.createElement('h3'); h.textContent = p.title; art.appendChild(h);
     const meta = document.createElement('div'); meta.className = 'k-pmeta';
     meta.textContent = (p.nick || 'smazaný účet') + roleTag(p.role) + ' · ' + fmtDate(p.created_at) + (p.updated_at ? ' · upraveno' : '');
@@ -252,7 +252,7 @@
     }catch(e){ if(!more) fail(box, e); }
   }
   async function openPosts(kind){
-    if(!posts[kind]) posts[kind] = { files:[], oldest:0, editId:0 };
+    if(!posts[kind]) posts[kind] = { files:[], old:[], oldest:0, editId:0 };
     const st = posts[kind];
     if(!st.loaded){
       st.loaded = true;
@@ -276,17 +276,24 @@
   function drawThumbs(kind){
     const f = document.getElementById('k-form-' + kind), st = posts[kind];
     const th = f.querySelector('.k-thumbs'); th.innerHTML = '';
+    st.old.forEach((id, i) => {
+      const w = document.createElement('div'); w.className = 'k-th';
+      const im = document.createElement('img'); im.src = API() + '/api/posts/photo/' + id; im.alt = '';
+      const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.dataset.rmold = i; x.setAttribute('aria-label', 'Odebrat fotku');
+      w.appendChild(im); w.appendChild(x); th.appendChild(w);
+    });
     st.files.forEach((u, i) => {
       const w = document.createElement('div'); w.className = 'k-th';
       const im = document.createElement('img'); im.src = u; im.alt = '';
       const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.dataset.rm = i; x.setAttribute('aria-label', 'Odebrat fotku');
       w.appendChild(im); w.appendChild(x); th.appendChild(w);
     });
-    f.querySelector('.k-fhint').textContent = st.files.length ? st.files.length + ' / ' + MAXP[kind] : 'Nejvýš ' + MAXP[kind] + ' fotek';
+    const n = st.old.length + st.files.length;
+    f.querySelector('.k-fhint').textContent = n ? n + ' / ' + MAXP[kind] : 'Nejvýš ' + MAXP[kind] + ' fotek';
   }
   function closeForm(kind){
     const f = document.getElementById('k-form-' + kind), st = posts[kind];
-    f.hidden = true; f.reset(); st.files = []; st.editId = 0; f.querySelector('.k-err').textContent = '';
+    f.hidden = true; f.reset(); st.files = []; st.old = []; st.editId = 0; f.querySelector('.k-err').textContent = '';
     f.querySelector('.k-files').hidden = false; f.querySelector('button[type=submit]').textContent = 'Publikovat';
     drawThumbs(kind);
   }
@@ -299,18 +306,19 @@
       const st = posts[kind], err = f.querySelector('.k-err'); err.textContent = '';
       const list = Array.from(f.photos.files); f.photos.value = '';
       for(const file of list){
-        if(st.files.length >= MAXP[kind]){ err.textContent = 'Nejvýš ' + MAXP[kind] + ' fotek.'; break; }
+        if(st.old.length + st.files.length >= MAXP[kind]){ err.textContent = 'Nejvýš ' + MAXP[kind] + ' fotek.'; break; }
         try{ st.files.push(await shrink(file)); }catch(e){ err.textContent = e.message; }
       }
       drawThumbs(kind);
     });
     f.querySelector('.k-thumbs').addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if(!b) return; posts[kind].files.splice(Number(b.dataset.rm), 1); drawThumbs(kind); });
+    f.querySelector('.k-thumbs').addEventListener('click', e => { const b = e.target.closest('[data-rmold]'); if(!b) return; posts[kind].old.splice(Number(b.dataset.rmold), 1); drawThumbs(kind); });
     f.addEventListener('submit', async e => {
       e.preventDefault();
       const st = posts[kind], err = f.querySelector('.k-err'), btn = f.querySelector('button[type=submit]');
       err.textContent = ''; btn.disabled = true;
       try{
-        if(st.editId) await send('PUT', '/api/posts/' + st.editId, { title:f.title.value, text:f.text.value });
+        if(st.editId) await send('PUT', '/api/posts/' + st.editId, { title:f.title.value, text:f.text.value, keep:st.old, photos:st.files });
         else await send('POST', '/api/posts', { kind, title:f.title.value, text:f.text.value, photos:st.files });
         closeForm(kind); st.oldest = 0; await loadPosts(kind, false);
       }catch(e2){ err.textContent = e2.message; }
@@ -349,7 +357,7 @@
       if(ed){
         const art = ed.closest('.k-post'); closeForm(kind);
         f.title.value = art.querySelector('h3').textContent; f.text.value = art.querySelector('.k-ptext').textContent;
-        st.editId = Number(ed.dataset.edit); f.querySelector('.k-files').hidden = true; f.querySelector('button[type=submit]').textContent = 'Uložit změny';
+        st.editId = Number(ed.dataset.edit); st.old = JSON.parse(art.dataset.photos || '[]'); drawThumbs(kind); f.querySelector('button[type=submit]').textContent = 'Uložit změny';
         f.hidden = false; f.scrollIntoView({ block:'nearest' }); f.title.focus(); return;
       }
       const dl = e.target.closest('[data-delpost]');
@@ -369,7 +377,7 @@
 
 
   // ---------- Akce (v4.69) ----------
-  const ev = { loaded:false, editId:0, photo:null, pastOff:0 };
+  const ev = { loaded:false, editId:0, photo:null, old:null, pastOff:0 };
   const dayOf = s => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s); return new Date(+m[1], +m[2] - 1, +m[3]); };
   const whenFmt = e => {
     const a = dayOf(e.date_from), b = dayOf(e.date_to || e.date_from);
@@ -382,7 +390,7 @@
   function mapLink(place){ return 'https://mapy.com/cs/zakladni?q=' + encodeURIComponent(place); }
   function eventEl(e, past){
     const art = document.createElement('article'); art.className = 'k-post k-event'; art.dataset.eid = e.id; art.id = 'sraz-' + e.id;
-    art.dataset.ev = JSON.stringify({ title:e.title, date_from:e.date_from, date_to:e.date_to, place:e.place, description:e.description, url:e.url });
+    art.dataset.ev = JSON.stringify({ title:e.title, has_photo:e.has_photo, photo_v:e.photo_v, date_from:e.date_from, date_to:e.date_to, place:e.place, description:e.description, url:e.url });
     const h = document.createElement('h3'); h.textContent = e.title; art.appendChild(h);
     const when = document.createElement('div'); when.className = 'k-ewhen'; when.textContent = whenFmt(e); art.appendChild(when);
     const pl = document.createElement('div'); pl.className = 'k-eplace';
@@ -401,7 +409,7 @@
     if(e.url){ const p = document.createElement('p'); p.className = 'k-elink'; const a = document.createElement('a'); a.href = e.url; a.target = '_blank'; a.rel = 'noopener nofollow'; a.textContent = e.url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 60); p.appendChild(a); art.appendChild(p); }
     if(e.has_photo){
       const g = document.createElement('div'); g.className = 'k-pgal one';
-      const a = document.createElement('a'); a.href = API() + '/api/events/photo/' + e.id; a.className = 'k-ph'; a.dataset.photo = '1';
+      const a = document.createElement('a'); a.href = API() + '/api/events/photo/' + e.id + '?v=' + (e.photo_v || 0); a.className = 'k-ph'; a.dataset.photo = '1';
       const im = document.createElement('img'); im.loading = 'lazy'; im.decoding = 'async'; im.alt = e.title; im.src = a.href; a.appendChild(im); g.appendChild(a); art.appendChild(g);
     }
     const bar = document.createElement('div'); bar.className = 'k-ebar2';
@@ -447,7 +455,7 @@
     loadEvents();
   }
   function eClose(){
-    const f = eEl('k-eform'); f.hidden = true; f.reset(); ev.photo = null; ev.editId = 0;
+    const f = eEl('k-eform'); f.hidden = true; f.reset(); ev.photo = null; ev.old = null; ev.editId = 0;
     f.querySelector('.k-err').textContent = ''; f.querySelector('.k-thumbs').innerHTML = '';
     f.querySelector('.k-files').hidden = false; f.querySelector('button[type=submit]').textContent = 'Přidat akci';
   }
@@ -457,18 +465,21 @@
     eEl('k-ecancel').addEventListener('click', eClose);
     eEl('k-epast').addEventListener('click', () => { eEl('k-epast').hidden = true; loadPast(false); });
     eEl('k-epast-more').addEventListener('click', () => loadPast(true));
+    // jedna fotka: nová nahradí současnou; × odebere (novou i současnou)
+    function drawEThumb(){
+      const th = f.querySelector('.k-thumbs'); th.innerHTML = '';
+      const src = ev.photo || (ev.old ? API() + '/api/events/photo/' + ev.old.id + '?v=' + ev.old.v : null);
+      if(!src) return;
+      const w = document.createElement('div'); w.className = 'k-th';
+      const im = document.createElement('img'); im.src = src; im.alt = '';
+      const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Odebrat fotku');
+      x.addEventListener('click', () => { if(ev.photo) ev.photo = null; else ev.old = null; drawEThumb(); });
+      w.appendChild(im); w.appendChild(x); th.appendChild(w);
+    }
     f.photo.addEventListener('change', async () => {
       const err = f.querySelector('.k-err'); err.textContent = '';
       const file = f.photo.files[0]; f.photo.value = ''; if(!file) return;
-      try{
-        ev.photo = await shrink(file);
-        const th = f.querySelector('.k-thumbs'); th.innerHTML = '';
-        const w = document.createElement('div'); w.className = 'k-th';
-        const im = document.createElement('img'); im.src = ev.photo; im.alt = '';
-        const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Odebrat fotku');
-        x.addEventListener('click', () => { ev.photo = null; th.innerHTML = ''; });
-        w.appendChild(im); w.appendChild(x); th.appendChild(w);
-      }catch(e){ err.textContent = e.message; }
+      try{ ev.photo = await shrink(file); drawEThumb(); }catch(e){ err.textContent = e.message; }
     });
     f.addEventListener('submit', async e => {
       e.preventDefault();
@@ -476,7 +487,7 @@
       err.textContent = ''; btn.disabled = true;
       try{
         const body = { title:f.title.value, dateFrom:f.dfrom.value, dateTo:f.dto.value, place:f.place.value, description:f.description.value, url:f.url.value };
-        if(ev.editId) await send('PUT', '/api/events/' + ev.editId, body);
+        if(ev.editId){ if(ev.photo) body.photo = ev.photo; else if(!ev.old) body.removePhoto = true; await send('PUT', '/api/events/' + ev.editId, body); }
         else{ if(ev.photo) body.photo = ev.photo; await send('POST', '/api/events', body); }
         eClose(); await loadEvents();
       }catch(e2){ err.textContent = e2.message; }
@@ -516,7 +527,7 @@
       if(ed){
         const d = JSON.parse(art.dataset.ev); eClose();
         f.title.value = d.title; f.dfrom.value = d.date_from; f.dto.value = d.date_to && d.date_to !== d.date_from ? d.date_to : ''; f.place.value = d.place; f.description.value = d.description || ''; f.url.value = d.url || '';
-        ev.editId = Number(ed.dataset.eedit); f.querySelector('.k-files').hidden = true; f.querySelector('button[type=submit]').textContent = 'Uložit změny';
+        ev.editId = Number(ed.dataset.eedit); ev.old = d.has_photo ? { id:ev.editId, v:d.photo_v || 0 } : null; ev.photo = null; drawEThumb(); f.querySelector('button[type=submit]').textContent = 'Uložit změny';
         f.hidden = false; f.scrollIntoView({ block:'nearest' }); f.title.focus(); return;
       }
       const dl = e.target.closest('[data-edel]');
@@ -538,10 +549,10 @@
 
   // ---------- Místa (v4.70) ----------
   const PCATS = { vyhlidka:'Vyhlídka', obcerstveni:'Občerstvení', terenni:'Terénní zajímavost', pamatka:'Památka', priroda:'Příroda', opustene:'Opuštěné místo', ostatni:'Ostatní' };
-  const pl = { loaded:false, cat:'', oldest:0, editId:0, files:[] };
+  const pl = { loaded:false, cat:'', oldest:0, editId:0, files:[], old:[] };
   function pmapLink(p){ return 'https://mapy.com/cs/zakladni?q=' + encodeURIComponent(p.lat != null ? p.lat + ',' + p.lon : p.locality); }
   function placeEl(p){
-    const art = document.createElement('article'); art.className = 'k-post k-place'; art.dataset.pid = p.id;
+    const art = document.createElement('article'); art.className = 'k-post k-place'; art.dataset.pid = p.id; art.dataset.photos = JSON.stringify(p.photos || []);
     art.dataset.pl = JSON.stringify({ name:p.name, category:p.category, locality:p.locality, lat:p.lat, lon:p.lon, description:p.description, url:p.url });
     const h = document.createElement('h3'); h.textContent = p.name; art.appendChild(h);
     const cat = document.createElement('div'); cat.className = 'k-pcat'; cat.textContent = PCATS[p.category] || 'Ostatní'; art.appendChild(cat);
@@ -584,16 +595,23 @@
   }
   function drawPThumbs(){
     const f = eEl('k-pform'), th = f.querySelector('.k-thumbs'); th.innerHTML = '';
+    pl.old.forEach((id, i) => {
+      const w = document.createElement('div'); w.className = 'k-th';
+      const im = document.createElement('img'); im.src = API() + '/api/places/photo/' + id; im.alt = '';
+      const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.dataset.rmold = i; x.setAttribute('aria-label', 'Odebrat fotku');
+      w.appendChild(im); w.appendChild(x); th.appendChild(w);
+    });
     pl.files.forEach((u, i) => {
       const w = document.createElement('div'); w.className = 'k-th';
       const im = document.createElement('img'); im.src = u; im.alt = '';
       const x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.dataset.rm = i; x.setAttribute('aria-label', 'Odebrat fotku');
       w.appendChild(im); w.appendChild(x); th.appendChild(w);
     });
-    f.querySelector('.k-fhint').textContent = pl.files.length ? pl.files.length + ' / 4' : 'Nejvýš 4 fotky';
+    const n = pl.old.length + pl.files.length;
+    f.querySelector('.k-fhint').textContent = n ? n + ' / 4' : 'Nejvýš 4 fotky';
   }
   function pClose(){
-    const f = eEl('k-pform'); f.hidden = true; f.reset(); pl.files = []; pl.editId = 0;
+    const f = eEl('k-pform'); f.hidden = true; f.reset(); pl.files = []; pl.old = []; pl.editId = 0;
     f.querySelector('.k-err').textContent = ''; f.querySelector('.k-files').hidden = false; f.querySelector('button[type=submit]').textContent = 'Přidat místo'; drawPThumbs();
   }
   function parseCoords(v){
@@ -624,12 +642,13 @@
       const err = f.querySelector('.k-err'); err.textContent = '';
       const list = Array.from(f.photos.files); f.photos.value = '';
       for(const file of list){
-        if(pl.files.length >= 4){ err.textContent = 'Nejvýš 4 fotky.'; break; }
+        if(pl.old.length + pl.files.length >= 4){ err.textContent = 'Nejvýš 4 fotky.'; break; }
         try{ pl.files.push(await shrink(file)); }catch(e){ err.textContent = e.message; }
       }
       drawPThumbs();
     });
     f.querySelector('.k-thumbs').addEventListener('click', e => { const b = e.target.closest('[data-rm]'); if(!b) return; pl.files.splice(Number(b.dataset.rm), 1); drawPThumbs(); });
+    f.querySelector('.k-thumbs').addEventListener('click', e => { const b = e.target.closest('[data-rmold]'); if(!b) return; pl.old.splice(Number(b.dataset.rmold), 1); drawPThumbs(); });
     f.addEventListener('submit', async e => {
       e.preventDefault();
       const err = f.querySelector('.k-err'), btn = f.querySelector('button[type=submit]');
@@ -639,7 +658,7 @@
       btn.disabled = true;
       try{
         const body = { name:f.name.value, category:f.category.value, locality:f.locality.value, lat:c.lat, lon:c.lon, description:f.description.value, url:f.url.value };
-        if(pl.editId) await send('PUT', '/api/places/' + pl.editId, body);
+        if(pl.editId){ body.keep = pl.old; body.photos = pl.files; await send('PUT', '/api/places/' + pl.editId, body); }
         else{ body.photos = pl.files; await send('POST', '/api/places', body); }
         pClose(); await loadPlaces(false);
       }catch(e2){ err.textContent = e2.message; }
@@ -680,7 +699,7 @@
         const d = JSON.parse(art.dataset.pl); pClose();
         f.name.value = d.name; f.category.value = d.category; f.locality.value = d.locality || '';
         f.coords.value = d.lat != null ? d.lat + ', ' + d.lon : ''; f.description.value = d.description || ''; f.url.value = d.url || '';
-        pl.editId = Number(ed.dataset.pedit); f.querySelector('.k-files').hidden = true; f.querySelector('button[type=submit]').textContent = 'Uložit změny';
+        pl.editId = Number(ed.dataset.pedit); pl.old = JSON.parse(art.dataset.photos || '[]'); drawPThumbs(); f.querySelector('button[type=submit]').textContent = 'Uložit změny';
         f.hidden = false; f.scrollIntoView({ block:'nearest' }); f.name.focus(); return;
       }
       const dl = e.target.closest('[data-pdel]');

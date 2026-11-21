@@ -11,6 +11,7 @@
 //   DELETE /api/places/comments/:cid
 // ---------------------------------------------------------------
 const { detectImageType } = require('./security');
+const { syncPhotos } = require('./photo-util');
 
 const CATS = ['vyhlidka', 'obcerstveni', 'terenni', 'pamatka', 'priroda', 'opustene', 'ostatni'];
 const MAX_PHOTOS = 4, MAX_PHOTO_BYTES = 1500000, PAGE = 10;
@@ -143,6 +144,8 @@ function mount(app, { pool, requireAuth, atLeast }) {
       const pl = await own(req, res); if (!pl) return;
       const p = parse(req.body || {}); if (p.error) return res.status(400).json({ error: p.error });
       const v = p.v;
+      const perr = await syncPhotos(pool, 'place_photos', 'place_id', pl.id, req.body || {}, MAX_PHOTOS);
+      if (perr) return res.status(400).json({ error: perr });
       await pool.query('UPDATE places SET name=$2, category=$3, locality=$4, lat=$5, lon=$6, description=$7, url=$8 WHERE id=$1', [pl.id, v.name, v.category, v.locality, v.lat, v.lon, v.description, v.url]);
       res.json({ ok: true });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Místo se nepodařilo upravit.' }); }
