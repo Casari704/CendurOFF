@@ -49,7 +49,7 @@
       <span class="brand">CendurOFF <span class="brand-sub">${current.label}</span></span>
     </a>
     <div class="site-actions">
-      ${page==='atlas' || page==='planovac' ? '<button class="btn solid hdr-up" id="open-upload" type="button">+ Nahrát<span class="hdr-up-l">${page==='planovac' ? ' GPX' : ' trasu'}</span></button>' : ''}
+      ${page==='atlas' || page==='planovac' ? '<button class="btn solid hdr-up" id="open-upload" type="button">+ Nahrát<span class="hdr-up-l"> ' + (page==='planovac' ? 'GPX' : 'trasu') + '</span></button>' : ''}
       <button class="btn hdr-back" id="hdr-back" type="button" aria-label="Zpět na úvodní dlaždice">← Zpět</button>
       <button class="btn" id="open-about" type="button" hidden>O projektu</button>
       <button class="btn user-btn hdr-wide" id="user-chip" type="button" hidden></button>
