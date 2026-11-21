@@ -32,11 +32,12 @@
     }).sort((a, b) => (b.km - a.km) || (b.ach.length - a.ach.length) || String(a.nick).localeCompare(String(b.nick), 'cs'));
     if(!rows.length){ box.innerHTML = '<p class="k-empty">Zatím tu nikdo není.</p>'; return; }
     rows.length = Math.min(rows.length, 10);
-    box.innerHTML = '<table class="k-t"><thead><tr><th class="num">#</th><th>Nick</th><th class="num">Najeto</th><th class="num">Projeté trasy</th><th class="num">Přidané trasy</th><th>Hodnost</th><th>Odznaky</th></tr></thead><tbody>' +
+    box.innerHTML = '<table class="k-t"><thead><tr><th class="num">#</th><th>Nick</th><th class="num">Najeto</th><th>Hodnost</th><th>Odznaky</th><th class="num">Projeté trasy</th><th class="num">Přidané trasy</th></tr></thead><tbody>' +
       rows.map((u, i) => '<tr class="' + (i === 0 ? 'top1 ' : '') + (u.id === meId ? 'me' : '') + '"><td class="pos num">' + (i + 1) + '.</td><td class="nick">' + esc(u.nick) + esc(u.tag) + '</td>' +
-        '<td class="num big">' + (R ? R.fmtKm(u.km) : num(u.km) + ' km') + '</td><td class="num">' + num(u.ridden) + '</td><td class="num">' + num(u.own) + '</td>' +
+        '<td class="num big">' + (R ? R.fmtKm(u.km) : num(u.km) + ' km') + '</td>' +
         '<td>' + (u.rank ? u.rank.icon + ' ' + esc(u.rank.name) : '') + '</td>' +
-        '<td class="k-ach">' + (u.ach.length ? u.ach.map(a => '<span title="' + esc(a.name) + '">' + a.icon + '</span>').join('') : '—') + '</td></tr>').join('') +
+        '<td class="k-ach">' + (u.ach.length ? u.ach.map(a => '<span title="' + esc(a.name) + '">' + a.icon + '</span>').join('') : '—') + '</td>' +
+        '<td class="num">' + num(u.ridden) + '</td><td class="num">' + num(u.own) + '</td></tr>').join('') +
       '</tbody></table>';
   }
 
