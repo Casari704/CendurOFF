@@ -185,5 +185,3 @@ body.auth-pending #app-screen{visibility:hidden;}
 .pl-crossbar[hidden]{display:none;}
 .pl-crossbar button{min-height:40px;padding:0 14px;border-radius:9px;border:1px solid rgba(255,255,255,.4);background:transparent;color:#fff;font:inherit;cursor:pointer;}
 body.pl-cross-mode #map{cursor:crosshair;}
-
-.pl-wp.pl-wp-sel{outline:4px solid #F5B700;outline-offset:2px;border-radius:50%;}
