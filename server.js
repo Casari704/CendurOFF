@@ -371,7 +371,7 @@ app.post('/api/auth/login', async (req, res) => {
     pool.query('INSERT INTO user_logins (user_id) VALUES ($1)', [user.id]).catch(e => console.error(e));
     const token = signToken(user);
     setAuthCookie(res, token);
-    res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true, role: user.role || 'user', mustChangePassword: !!user.must_change_password, token });
+    res.json({ id: user.id, username: user.username, displayName: user.display_name, approved: true, role: user.role || 'user', ownRoutes: await ownRoutes(user.id), mustChangePassword: !!user.must_change_password, token });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Přihlášení se nepovedlo.' });
@@ -383,10 +383,15 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+// v4.73: počet nahraných tras (odemyká stahování GPX)
+async function ownRoutes(id) {
+  try { return (await pool.query('SELECT COUNT(*)::int AS n FROM routes WHERE owner_id = $1 AND deleted_at IS NULL', [id])).rows[0].n; } catch (e) { return 0; }
+}
+
 app.get('/api/auth/me', requireAuth, async (req, res) => {
   let must = false;
   try { const r = await pool.query('SELECT must_change_password FROM users WHERE id = $1', [req.user.id]); must = !!(r.rows[0] && r.rows[0].must_change_password); } catch (e) {}
-  res.json({ id: req.user.id, username: req.user.username, displayName: req.user.displayName, role: req.user.role, mustChangePassword: must });
+  res.json({ id: req.user.id, username: req.user.username, displayName: req.user.displayName, role: req.user.role, ownRoutes: await ownRoutes(req.user.id), mustChangePassword: must });
 });
 
 // v4.60: „Zapomněl jsem heslo“ – jen zapíše žádost, admin v administraci nastaví dočasné heslo.

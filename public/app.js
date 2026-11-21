@@ -428,6 +428,19 @@ function colorFor(id){
 // Auth
 // ---------------------------------------------------------------
 let currentUser = null; // {id, username, displayName, role}
+// v4.73: stahování GPX tras se odemyká nahráním první trasy (správci a moderátoři ho mají hned)
+const GPX_LOCK_MSG = 'Stahování GPX se odemkne po nahrání první trasy.';
+function gpxAllowed(){
+  const u = currentUser;
+  return !!u && (u.role === 'admin' || u.role === 'moderator' || (u.ownRoutes || 0) > 0);
+}
+function gpxGuard(){
+  if(gpxAllowed()) return true;
+  const msg = currentUser ? GPX_LOCK_MSG + ' Nahraj trasu (tlačítko Nahrát GPX) nebo ulož svou jízdu a stahování se ti zpřístupní.' : 'Stahování GPX je pro přihlášené. Přihlas se a nahraj svoji první trasu, tím se stahování odemkne.';
+  if(window.CendurHeader && window.CendurHeader.ask) window.CendurHeader.ask({ title:'Stahování GPX je zamčené', msg, yes: currentUser ? { label:'Rozumím' } : { label:'Přihlásit se', fn: () => showLoginOverlay('stahování GPX') }, no: currentUser ? undefined : { label:'Zavřít' } });
+  else toast(msg, 5000);
+  return false;
+}
 function isAdminUser(){ return !!(currentUser && currentUser.role === 'admin'); }
 let mode = 'login';
 
@@ -773,6 +786,7 @@ function updateSelectionBar(){
   const n = selectedIds.size;
   selectionCount.textContent = n===0 ? 'Klikej na trasy na mapě nebo v seznamu' : 'Vybráno tras: ' + n;
   selectionDownloadBtn.disabled = n===0;
+  selectionDownloadBtn.classList.toggle('locked', !gpxAllowed());
 }
 function setSelectMode(on){
   selectMode = on;
@@ -805,7 +819,7 @@ function selectedTracks(){
 }
 selectToggleBtn.addEventListener('click', ()=> setSelectMode(!selectMode));
 document.getElementById('selection-cancel').addEventListener('click', ()=> setSelectMode(false));
-selectionDownloadBtn.addEventListener('click', ()=> downloadTracks(selectedTracks()));
+selectionDownloadBtn.addEventListener('click', ()=> { if(gpxGuard()) downloadTracks(selectedTracks()); });
 
 // ---------------------------------------------------------------
 // Hodnocení tras
@@ -1329,7 +1343,10 @@ async function openDetail(id){
     }).catch(() => {});
   }
 
-  document.getElementById('download-gpx-btn').addEventListener('click', ()=> downloadGPX(route.points, route.name));
+  const dlBtn = document.getElementById('download-gpx-btn');
+  dlBtn.classList.toggle('locked', !gpxAllowed());
+  if(!gpxAllowed()) dlBtn.title = GPX_LOCK_MSG;
+  dlBtn.addEventListener('click', ()=> { if(gpxGuard()) downloadGPX(route.points, route.name); });
   if(currentUser && currentUser.role === 'admin') loadAdminStats(route.id);
   loadTerrain(route.id);
   document.getElementById('share-route-btn').addEventListener('click', ()=> shareRoute(route));
@@ -1594,6 +1611,7 @@ document.getElementById('confirm-upload').addEventListener('click', async ()=>{
     });
     overlay.classList.remove('open');
     toast('Trasa byla nahrána.');
+    if(currentUser) currentUser.ownRoutes = (currentUser.ownRoutes || 0) + 1;
     await loadRoutes();
     const layer = layersById[route.id];
     if(layer) map.fitBounds(layer.getBounds(), {maxZoom:14});
@@ -3195,6 +3213,7 @@ if(recBtn){
       resetRideForm();
       recClear();
       toast('Jízda byla uložena do CendurOFF.');
+      if(currentUser) currentUser.ownRoutes = (currentUser.ownRoutes || 0) + 1;
       await loadRoutes();
       openDetail(route.id);
     }catch(e){

@@ -1087,3 +1087,6 @@ a.rb-chip:hover{background:#E4DCC6;}
 /* v4.60: Zapomněl jsem heslo */
 .li-forgot{background:none;border:0;padding:6px 0;margin-top:2px;font:inherit;font-size:.9rem;color:var(--moss-dark,#3C5636);text-decoration:underline;cursor:pointer;}
 .li-forgot[hidden]{display:none;}
+
+/* zamčené stahování GPX (v4.73) */
+.ghost-btn.locked,.primary-btn.locked{opacity:.55;filter:grayscale(1);cursor:not-allowed;}
