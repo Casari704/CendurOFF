@@ -191,11 +191,11 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
   });
 
   // ---------------- v4.62: Komunita – žebříčky (veřejné; žádné e-maily, jen přezdívky) ----------------
-  // výsledek se na minutu uloží do paměti, aby veřejné načítání nezatěžovalo databázi
+  // výsledek se na 10 minut uloží do paměti, aby veřejné načítání nezatěžovalo databázi
   const commCache = {};
   const cached = async (key, fn) => {
     const c = commCache[key];
-    if (c && Date.now() - c.t < 60000) return c.v;
+    if (c && Date.now() - c.t < 600000) return c.v;
     const v = await fn(); commCache[key] = { t: Date.now(), v }; return v;
   };
   app.get('/api/community/users', whenReady, async (req, res) => {
