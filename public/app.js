@@ -1755,10 +1755,10 @@ const HEADING_SPEED_THRESHOLD_KMH = 5;     // nad touto rychlostí bereme směr 
 const HEADING_FILTER_ALPHA_GPS = 0.35;     // vyhlazení GPS kurzu (0-1, vyšší = pružnější reakce)
 const HEADING_FILTER_ALPHA_COMPASS = 0.06; // vyhlazení kompasu (silný filtr - magnetometr je v klidu i za jízdy dost "cukavý")
 const HEADING_UPDATE_THRESHOLD_DEG_GPS = 2;      // GPS kurz: změny menší než toto se ignorují (v4.31: z 4°, otočení je teď plynulé)
-const HEADING_UPDATE_THRESHOLD_DEG_COMPASS = 5;   // kompas: práh (v5.03: z 3° na 5° – klidnější mapa při pomalé jízdě)
+const HEADING_UPDATE_THRESHOLD_DEG_COMPASS = 3;   // kompas: práh (v4.30: 3° – po opravě zdroje stačí malý, šipka nekrokuje)
 const HEADING_MIN_UPDATE_MS_GPS = 0;             // GPS: kurz chodí ~1× za s, každý se použije (v4.31)
 const HEADING_MIN_UPDATE_MS_COMPASS = 66;        // kompas: přepočet max ~15x/s (v4.30)
-const HEADING_COMPASS_TAU_MS = 500;              // časová konstanta vyhlazení kompasu (v5.03: z 0,25 s na 0,5 s – méně cukání)
+const HEADING_COMPASS_TAU_MS = 250;              // časová konstanta vyhlazení kompasu (v4.30: 0,25 s – menší prodleva)
 // poloha šipky na obrazovce při sledování (0 = nahoře, 1 = dole): na výšku 80 %, na šířku
 // (nízký displej) 75 % – ať je před šipkou vidět co nejvíc trasy
 const FOLLOW_MARKER_Y_PORTRAIT = 0.80;
