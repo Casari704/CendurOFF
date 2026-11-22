@@ -311,6 +311,11 @@
     fetch('download/app-version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => {
       if(!d || !d.version) return;
       document.querySelectorAll('a[data-apk]').forEach(a => { if(d.apk){ a.href = 'download/' + d.apk; if(a.classList.contains('f-dl')) a.textContent = '⬇ Stáhnout ' + d.apk; } });
+      // v5.07: uvnitř aplikace WebView stažení z vlastní domény neotevře → stejně jako okno „Nová verze“ jdeme na GitHub (stáhne Chrome)
+      document.querySelectorAll('a[data-apk]').forEach(a => a.addEventListener('click', e => {
+        let inApp = false; try{ inApp = !!(window.CendurApp && window.CendurApp.version); }catch(x){}
+        if(inApp){ e.preventDefault(); location.href = apkUrl(d); }
+      }));
       let app = null; try{ if(window.CendurApp && window.CendurApp.version) app = String(window.CendurApp.version()); }catch(e){}
       if(!app || verCmp(d.min || d.version, app) <= 0) return;
       if(document.getElementById('c-force')) return;
