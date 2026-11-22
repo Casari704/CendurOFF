@@ -11,8 +11,8 @@
 <title>CendurOFF Komunita</title>
 <meta name="description" content="Komunita CendurOFF: uživatelé, trasy a chat.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="public/style.css?v=4.98">
-<link rel="stylesheet" href="public/komunita.css?v=4.98">
+<link rel="stylesheet" href="public/style.css?v=4.99">
+<link rel="stylesheet" href="public/komunita.css?v=4.99">
 </head>
 <body class="kom-page">
 <header class="topbar" data-page="komunita" data-auth="auto"></header>
@@ -22,9 +22,10 @@
   <nav class="k-tabs" role="tablist" aria-label="Komunita">
     <a class="k-tab" role="tab" href="#aktuality" data-tab="aktuality">Aktuality</a>
     <a class="k-tab" role="tab" href="#top10" data-tab="top10">TOP 10</a>
-    <a class="k-tab" role="tab" href="#mista" data-tab="mista">Místa</a>
-    <a class="k-tab" role="tab" href="#srazy" data-tab="srazy">Akce</a>
+    <a class="k-tab" role="tab" href="#recenze" data-tab="recenze">Recenze</a>
     <a class="k-tab" role="tab" href="#chat" data-tab="chat">Chat</a>
+    <a class="k-tab" role="tab" href="#srazy" data-tab="srazy">Akce</a>
+    <a class="k-tab" role="tab" href="#mista" data-tab="mista">Místa</a>
     <a class="k-tab" role="tab" href="#fotoreporty" data-tab="fotoreporty">Články</a>
   </nav>
 
@@ -58,6 +59,30 @@
   </section>
   <section class="k-panel" id="top10" role="tabpanel" hidden><h2>TOP 10 uživatelů</h2><p class="k-note">Deset nejlepších, řazeno podle najetých kilometrů, při shodě podle počtu odznaků.</p><div class="k-box" id="k-users-box"><p class="k-empty">Načítám…</p></div>
     <h2 class="k-h2b">TOP 10 tras</h2><p class="k-note">Deset nejprojížděnějších tras, při shodě podle hodnocení.</p><div class="k-box" id="k-routes-box"><p class="k-empty">Načítám…</p></div></section>
+  <section class="k-panel" id="recenze" role="tabpanel" hidden><h2>Recenze</h2>
+    <p class="k-note">Hodnocení a komentáře ke všem trasám z Atlasu. Přidat recenzi může každý přihlášený.</p>
+    <div class="k-postbar" id="k-rbar"><button class="k-btn k-new" type="button" id="k-rnew">+ Napsat recenzi</button></div>
+    <form class="k-form k-rform" id="k-rform" hidden>
+      <select class="k-in" name="route" aria-label="Trasa" required></select>
+      <div class="k-rstars" id="k-rstars" role="radiogroup" aria-label="Hodnocení"></div>
+      <textarea class="k-in" name="text" rows="4" maxlength="4000" placeholder="Komentář: jaká byla cesta, na co si dát pozor, komu trasu doporučíš…" aria-label="Komentář"></textarea>
+      <div class="k-fhint" id="k-rcount">0 / 200 slov</div>
+      <div class="k-fbtns"><button class="k-btn" type="submit">Uložit recenzi</button><button class="k-btn k-ghost" type="button" id="k-rcancel">Zrušit</button></div>
+      <div class="k-err" role="alert"></div>
+    </form>
+    <div class="k-todo" id="k-rtodo" hidden>
+      <h3>Trasy čekající na první recenzi</h3>
+      <div class="k-todo-list" id="k-rtodo-list"></div>
+    </div>
+    <div class="k-rfilters">
+      <div class="k-chips" id="k-rstarsf"></div>
+      <select class="k-in" id="k-rroute" aria-label="Filtr podle trasy"><option value="">Všechny trasy</option></select>
+      <select class="k-in" id="k-rsort" aria-label="Řazení"><option value="new">Nejnovější</option><option value="best">Nejlepší</option><option value="worst">Nejhorší</option></select>
+      <label class="k-rcheck"><input type="checkbox" id="k-rtext" checked> Jen s komentářem</label>
+    </div>
+    <div class="k-posts" id="k-reviews"><p class="k-empty">Načítám…</p></div>
+    <div class="k-morewrap"><button class="k-btn k-ghost" type="button" id="k-rmore" hidden>Další recenze</button></div>
+  </section>
   <section class="k-panel" id="chat" role="tabpanel" hidden><h2>Chat</h2>
     <p class="k-note">Společná místnost pro všechny členy.</p>
     <div class="k-chat" id="k-chat">
@@ -111,11 +136,11 @@
   </section>
 </main>
 
-<script src="public/config.js?v=4.98"></script>
-<script src="public/errors.js?v=4.98"></script>
-<script src="public/rider.js?v=4.98"></script>
-<script src="public/header.js?v=4.98"></script>
-<script src="public/pwa.js?v=4.98"></script>
-<script src="public/komunita.js?v=4.98"></script>
+<script src="public/config.js?v=4.99"></script>
+<script src="public/errors.js?v=4.99"></script>
+<script src="public/rider.js?v=4.99"></script>
+<script src="public/header.js?v=4.99"></script>
+<script src="public/pwa.js?v=4.99"></script>
+<script src="public/komunita.js?v=4.99"></script>
 </body>
 </html>

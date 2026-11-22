@@ -228,6 +228,52 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
     } catch (e) { console.error(e); res.status(500).json({ error: 'Žebříček tras se nepodařilo načíst.' }); }
   });
 
+  // ---------------- v4.99: Recenze v Komunitě ----------------
+  // Položka = dvojice (trasa, uživatel), která má textovou recenzi a/nebo hvězdičky. „rode“ = uživatel trasu projel.
+  app.get('/api/community/reviews', whenReady, async (req, res) => {
+    try {
+      const t = await pool.query(`SELECT to_regclass('public.route_rides') IS NOT NULL AS rr`);
+      const rode = t.rows[0].rr ? 'EXISTS (SELECT 1 FROM route_rides rr WHERE rr.route_id = p.route_id AND rr.user_id = p.user_id)' : 'false';
+      const where = ['r.deleted_at IS NULL', 'u.is_approved = true'], args = [];
+      const route = Number(req.query.route), stars = Number(req.query.stars);
+      if (Number.isInteger(route) && route > 0) { args.push(route); where.push('p.route_id = $' + args.length); }
+      if (Number.isInteger(stars) && stars >= 1 && stars <= 5) { args.push(stars); where.push('rt.stars = $' + args.length); }
+      if (req.query.text === '1') where.push('rv.text IS NOT NULL');
+      const sort = req.query.sort === 'best' ? 'rt.stars DESC NULLS LAST, ts DESC'
+                 : req.query.sort === 'worst' ? 'rt.stars ASC NULLS LAST, ts DESC' : 'ts DESC';
+      const off = Math.max(0, Math.min(5000, Number(req.query.offset) || 0));
+      const LIM = 15;
+      args.push(LIM + 1, off);
+      const q = `
+        WITH p AS (SELECT route_id, user_id FROM reviews UNION SELECT route_id, user_id FROM ratings)
+        SELECT p.route_id, p.user_id, r.name AS route_name, r.route_type, u.display_name AS nick, u.role,
+               ROUND(COALESCE(u.ride_m, 0) / 1000.0, 1)::float AS km,
+               rt.stars, rv.text, GREATEST(rv.updated_at, rt.updated_at) AS ts, ${rode} AS rode
+        FROM p
+        JOIN routes r ON r.id = p.route_id
+        JOIN users u ON u.id = p.user_id
+        LEFT JOIN reviews rv ON rv.route_id = p.route_id AND rv.user_id = p.user_id
+        LEFT JOIN ratings rt ON rt.route_id = p.route_id AND rt.user_id = p.user_id
+        WHERE ${where.join(' AND ')}
+        ORDER BY ${sort}
+        LIMIT $${args.length - 1} OFFSET $${args.length}`;
+      const r = await pool.query(q, args);
+      res.json({ items: r.rows.slice(0, LIM), more: r.rows.length > LIM });
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Recenze se nepodařilo načíst.' }); }
+  });
+  // lehký seznam tras (bez bodů) pro filtr, psaní recenze a „trasy čekající na recenzi“
+  app.get('/api/community/route-list', whenReady, async (req, res) => {
+    try {
+      const r = await pool.query(
+        `SELECT r.id, r.name, r.owner_id, r.route_type, r.distance_km,
+                (SELECT COUNT(*)::int FROM ratings x WHERE x.route_id = r.id) AS votes,
+                (SELECT COUNT(*)::int FROM reviews x WHERE x.route_id = r.id) AS texts
+         FROM routes r WHERE r.deleted_at IS NULL ORDER BY r.name`);
+      r.rows.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'cs', { sensitivity: 'base', numeric: true }));
+      res.json(r.rows);
+    } catch (e) { console.error(e); res.status(500).json({ error: 'Seznam tras se nepodařilo načíst.' }); }
+  });
+
   // ---------------- hlášení chyb z webu ----------------
   const hits = new Map();   // ip -> [časy] (omezení počtu hlášení)
   app.post('/api/errors', whenReady, optionalAuth, async (req, res) => {

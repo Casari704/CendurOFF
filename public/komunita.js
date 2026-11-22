@@ -85,6 +85,7 @@
     if(loaded && (id === 'aktuality' || id === 'fotoreporty')) openPosts(id);
     if(loaded && id === 'srazy') openEvents();
     if(loaded && id === 'mista') openPlaces();
+    if(loaded && id === 'recenze') openReviews();
   }
   window.addEventListener('hashchange', showTab);
 
@@ -793,6 +794,127 @@
         const run = async () => { try{ await send('DELETE', '/api/places/' + dl.dataset.pdel); art.remove(); }catch(e2){ alert(e2.message); } };
         if(window.CendurHeader && window.CendurHeader.ask) window.CendurHeader.ask({ title:'Smazat místo?', msg:'Místo zmizí i s fotkami a komentáři.', yes:{ label:'Smazat', fn:run } });
         else if(confirm('Smazat místo?')) run();
+      }
+    });
+  })();
+
+  // ---------- Recenze (v4.99) ----------
+  // Položka = hodnocení (hvězdičky) a/nebo komentář jednoho člena k jedné trase; „Projel/a“ = člen trasu skutečně projel.
+  const rv = { loaded:false, offset:0, routes:[], stars:'', route:'', sort:'new', text:true, s:0, editing:false };
+  const rvStars = n => '<span class="k-rs" aria-label="' + n + ' z 5">' + '★'.repeat(n) + '<i>' + '★'.repeat(5 - n) + '</i></span>';
+  const rvDate = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.getDate() + '. ' + (d.getMonth() + 1) + '. ' + d.getFullYear(); };
+  function rvLogin(msg){
+    const go = () => { location.href = 'index.html?next=' + encodeURIComponent('komunita.html#recenze'); };
+    if(window.CendurHeader && window.CendurHeader.ask) window.CendurHeader.ask({ title:'Přihlášení', msg, yes:{ label:'Přihlásit se', fn:go } });
+    else go();
+  }
+  function reviewEl(it){
+    const art = document.createElement('article'); art.className = 'k-review' + (it.user_id === meId ? ' mine' : '');
+    art.dataset.route = it.route_id; art.dataset.user = it.user_id;
+    const rank = R ? R.badgeFor(it.km) : null;
+    let h = '<div class="k-rv-route"><a href="index.html?atlas=1&trasa=' + encodeURIComponent(it.route_id) + '">' + esc(it.route_name) + '</a>' +
+      (it.stars ? rvStars(it.stars) : '') + '<span class="k-rv-date">' + esc(rvDate(it.ts)) + '</span></div>' +
+      '<div class="k-rv-head"><b>' + esc(it.nick) + esc(roleTag(it.role)) + '</b>' +
+      (rank ? '<span class="k-rv-rank" title="' + esc(rank.name) + '">' + rank.icon + '</span>' : '') +
+      (it.rode ? '<span class="k-rv-rode" title="Tuto trasu projel/a s navigací nebo záznamem v CendurOFF">Projel/a</span>' : '') + '</div>';
+    if(it.text) h += '<div class="k-rv-text"></div>';
+    if(it.user_id === meId || isMod()){
+      h += '<div class="k-rv-act">' + (it.user_id === meId ? '<button type="button" class="k-linkbtn" data-redit>Upravit</button>' : '') +
+           (it.text ? '<button type="button" class="k-linkbtn k-danger" data-rdel>Smazat komentář</button>' : '') + '</div>';
+    }
+    art.innerHTML = h;
+    if(it.text) art.querySelector('.k-rv-text').textContent = it.text;
+    art._it = it;
+    return art;
+  }
+  async function loadReviews(more){
+    const box = eEl('k-reviews'), btn = eEl('k-rmore');
+    if(!more){ rv.offset = 0; }
+    const q = '?offset=' + rv.offset + (rv.stars ? '&stars=' + rv.stars : '') + (rv.route ? '&route=' + rv.route : '') + '&sort=' + rv.sort + (rv.text ? '&text=1' : '');
+    try{
+      const d = await api('/api/community/reviews' + q);
+      if(!more) box.innerHTML = '';
+      d.items.forEach(it => box.appendChild(reviewEl(it)));
+      rv.offset += d.items.length;
+      if(!box.children.length) box.innerHTML = '<p class="k-empty">Žádné recenze podle tohoto filtru.</p>';
+      btn.hidden = !d.more;
+    }catch(e){ if(!more) fail(box, e); }
+  }
+  function drawTodo(){
+    const box = eEl('k-rtodo'), list = eEl('k-rtodo-list');
+    const todo = rv.routes.filter(r => !r.votes && !r.texts && r.owner_id !== meId).slice(0, 8);
+    box.hidden = !todo.length; list.innerHTML = '';
+    todo.forEach(r => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'k-todo-i'; b.dataset.todo = r.id;
+      b.innerHTML = '<b></b><small>' + esc(num(Math.round((r.distance_km || 0) * 10) / 10)) + ' km · ohodnotit</small>';
+      b.querySelector('b').textContent = r.name; list.appendChild(b);
+    });
+  }
+  function drawRStars(){
+    const box = eEl('k-rstars');
+    box.innerHTML = [1, 2, 3, 4, 5].map(n => '<button type="button" class="k-star' + (n <= rv.s ? ' on' : '') + '" data-s="' + n + '" aria-label="' + n + ' z 5">★</button>').join('') +
+      (rv.s ? '<button type="button" class="k-linkbtn" data-s="0">zrušit hvězdičky</button>' : '');
+  }
+  function rWords(t){ return String(t || '').trim().split(/\s+/).filter(Boolean).length; }
+  function rOpen(routeId, it){
+    if(!me){ rvLogin('Recenze mohou psát jen přihlášení členové.'); return; }
+    const f = eEl('k-rform');
+    f.route.innerHTML = '<option value="">Vyber trasu…</option>' + rv.routes.map(r => '<option value="' + r.id + '">' + esc(r.name) + '</option>').join('');
+    f.route.value = routeId ? String(routeId) : ''; f.route.disabled = !!it;
+    f.text.value = it && it.text ? it.text : ''; rv.s = it && it.stars ? it.stars : 0; rv.editing = !!it;
+    eEl('k-rcount').textContent = rWords(f.text.value) + ' / 200 slov'; drawRStars();
+    f.querySelector('.k-err').textContent = ''; f.hidden = false; f.scrollIntoView({ block:'nearest' });
+  }
+  function rClose(){ const f = eEl('k-rform'); f.hidden = true; f.reset(); f.route.disabled = false; rv.s = 0; rv.editing = false; }
+  async function openReviews(){
+    if(rv.loaded) return;
+    rv.loaded = true;
+    try{ rv.routes = await api('/api/community/route-list'); }catch(e){ rv.routes = []; }
+    eEl('k-rroute').innerHTML = '<option value="">Všechny trasy</option>' + rv.routes.map(r => '<option value="' + r.id + '">' + esc(r.name) + '</option>').join('');
+    eEl('k-rstarsf').innerHTML = '<button type="button" class="k-chip on" data-st="">Vše</button>' + [5, 4, 3, 2, 1].map(n => '<button type="button" class="k-chip" data-st="' + n + '">' + n + ' ★</button>').join('');
+    drawTodo();
+    loadReviews(false);
+  }
+  (function(){
+    const f = eEl('k-rform');
+    eEl('k-rnew').addEventListener('click', () => rOpen(0, null));
+    eEl('k-rcancel').addEventListener('click', rClose);
+    eEl('k-rtodo-list').addEventListener('click', e => { const b = e.target.closest('[data-todo]'); if(b) rOpen(b.dataset.todo, null); });
+    eEl('k-rstars').addEventListener('click', e => { const b = e.target.closest('[data-s]'); if(!b) return; rv.s = Number(b.dataset.s); drawRStars(); });
+    f.text.addEventListener('input', () => { eEl('k-rcount').textContent = rWords(f.text.value) + ' / 200 slov'; });
+    eEl('k-rstarsf').addEventListener('click', e => {
+      const b = e.target.closest('[data-st]'); if(!b) return;
+      rv.stars = b.dataset.st; eEl('k-rstarsf').querySelectorAll('.k-chip').forEach(c => c.classList.toggle('on', c === b)); loadReviews(false);
+    });
+    eEl('k-rroute').addEventListener('change', e => { rv.route = e.target.value; loadReviews(false); });
+    eEl('k-rsort').addEventListener('change', e => { rv.sort = e.target.value; loadReviews(false); });
+    eEl('k-rtext').addEventListener('change', e => { rv.text = e.target.checked; loadReviews(false); });
+    eEl('k-rmore').addEventListener('click', () => loadReviews(true));
+    f.addEventListener('submit', async e => {
+      e.preventDefault();
+      const err = f.querySelector('.k-err'); err.textContent = '';
+      const id = Number(f.route.value), text = f.text.value.trim();
+      if(!id){ err.textContent = 'Vyber trasu.'; return; }
+      if(!rv.s && !text){ err.textContent = 'Dej aspoň hvězdičky nebo napiš komentář.'; return; }
+      if(rWords(text) > 200){ err.textContent = 'Komentář může mít nejvýš 200 slov.'; return; }
+      const btn = f.querySelector('button[type=submit]'); btn.disabled = true;
+      try{
+        if(rv.s) await send('PUT', '/api/routes/' + id + '/rating', { stars:rv.s });
+        if(text) await send('PUT', '/api/routes/' + id + '/review', { text });
+        rClose();
+        rv.routes = await api('/api/community/route-list').catch(() => rv.routes); drawTodo();
+        loadReviews(false);
+      }catch(e2){ err.textContent = e2.message; }
+      btn.disabled = false;
+    });
+    eEl('k-reviews').addEventListener('click', e => {
+      const art = e.target.closest('.k-review'); if(!art) return;
+      if(e.target.closest('[data-redit]')) { rOpen(art._it.route_id, art._it); return; }
+      if(e.target.closest('[data-rdel]')){
+        const it = art._it;
+        const run = async () => { try{ await send('DELETE', '/api/routes/' + it.route_id + '/review' + (it.user_id === meId ? '' : '?userId=' + it.user_id)); loadReviews(false); }catch(e2){ alert(e2.message); } };
+        if(window.CendurHeader && window.CendurHeader.ask) window.CendurHeader.ask({ title:'Smazat komentář?', msg:'Hvězdičky zůstanou, smaže se jen text.', yes:{ label:'Smazat', fn:run } });
+        else if(confirm('Smazat komentář?')) run();
       }
     });
   })();

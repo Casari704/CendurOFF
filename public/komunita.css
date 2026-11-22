@@ -186,3 +186,56 @@ select.k-in{background:#fff;}
 }
 
 .k-nl.k-ccnt{color:var(--moss);font-weight:700;font-size:0.82rem;}
+
+/* recenze (v4.99) */
+.k-rfilters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 12px;}
+.k-rfilters .k-chips{margin:0;}
+.k-rfilters select.k-in{width:auto;max-width:100%;padding:7px 10px;}
+.k-rcheck{display:flex;align-items:center;gap:6px;font-size:0.88rem;cursor:pointer;}
+.k-review{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:11px 14px;margin:0 0 10px;}
+.k-review.mine{background:#FFF8E5;border-color:#E6D9A8;}
+.k-rv-head{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;font-size:0.9rem;}
+.k-rv-rank{font-size:0.8rem;color:var(--ink-soft);}
+.k-rv-rode{font-size:0.74rem;font-weight:700;background:var(--moss);color:#fff;border-radius:999px;padding:2px 9px;}
+.k-rv-date{margin-left:auto;font-size:0.8rem;color:var(--ink-soft);}
+.k-rv-route{margin:4px 0 2px;font-weight:700;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;}
+.k-rv-route a{color:var(--ink);text-decoration:none;}
+.k-rv-route a:hover{color:var(--rust-dark);text-decoration:underline;}
+.k-rs{color:#C79A18;letter-spacing:1px;font-size:1rem;}
+.k-rs i{font-style:normal;color:#D9D2BC;}
+.k-rv-text{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:4px;}
+.k-rv-act{display:flex;gap:14px;margin-top:6px;}
+.k-linkbtn{background:none;border:0;padding:0;font:inherit;font-size:0.85rem;color:var(--ink-soft);text-decoration:underline;cursor:pointer;}
+.k-linkbtn.k-danger{color:#B3261E;}
+.k-rstars{display:flex;align-items:center;gap:2px;}
+.k-star{background:none;border:0;font-size:2rem;line-height:1;padding:2px 4px;color:#D9D2BC;cursor:pointer;}
+.k-star.on{color:#C79A18;}
+.k-todo{background:#F1ECD8;border-radius:10px;padding:10px 12px;margin:0 0 12px;}
+.k-todo h3{font-size:0.95rem;margin:0 0 8px;font-family:'Exo 2',sans-serif;}
+.k-todo-list{display:flex;flex-wrap:wrap;gap:8px;}
+.k-todo-i{display:flex;flex-direction:column;align-items:flex-start;text-align:left;background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 11px;font:inherit;cursor:pointer;max-width:100%;}
+.k-todo-i:hover{border-color:var(--moss);}
+.k-todo-i b{font-size:0.9rem;}
+.k-todo-i small{color:var(--ink-soft);}
+
+/* recenze – kompaktní (v4.99) */
+.k-review{padding:7px 11px;margin:0 0 6px;}
+.k-rv-route{margin:0;font-size:0.92rem;gap:2px 8px;align-items:baseline;}
+.k-rv-head{gap:2px 8px;font-size:0.8rem;color:var(--ink-soft);margin-top:1px;}
+.k-rv-head b{color:var(--ink);font-weight:600;}
+.k-rv-rode{font-size:0.68rem;padding:1px 7px;}
+.k-rs{font-size:0.85rem;}
+.k-rv-text{margin-top:3px;font-size:0.9rem;line-height:1.4;}
+.k-rv-act{margin-top:3px;gap:12px;}
+.k-rfilters{margin:10px 0 8px;gap:6px;}
+.k-rfilters .k-chip{padding:4px 11px;font-size:0.8rem;}
+.k-rfilters select.k-in{padding:5px 8px;font-size:0.85rem;}
+.k-rcheck{font-size:0.82rem;}
+.k-todo{padding:7px 10px;margin:0 0 8px;}
+.k-todo h3{font-size:0.85rem;margin:0 0 5px;}
+.k-todo-list{gap:5px;}
+.k-todo-i{padding:4px 9px;}
+.k-todo-i b{font-size:0.82rem;}
+.k-todo-i small{font-size:0.72rem;}
+.k-rform{gap:8px;}
+.k-star{font-size:1.6rem;padding:0 3px;}
