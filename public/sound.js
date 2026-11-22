@@ -31,8 +31,8 @@
     if('speechSynthesis' in window){ try{ speechSynthesis.getVoices(); }catch(e){} }
   }
 
-  // v3.6: tóny o ~15 % tišší, ať nepřebíjejí hlas telefonu (1 = původní hlasitost)
-  const TONE_VOLUME = 0.85;
+  // v3.6: tóny o ~15 % tišší, v5.06 o dalších ~10 % (0,85 → 0,77), ať nepřebíjejí hlas telefonu (1 = původní hlasitost)
+  const TONE_VOLUME = 0.77;
   function tone(f, t0, dur, type, vol, f2){
     vol = (vol || 0.3) * TONE_VOLUME;
     const t = ctx.currentTime + t0, o = ctx.createOscillator(), g = ctx.createGain();
