@@ -239,3 +239,38 @@ select.k-in{background:#fff;}
 .k-todo-i small{font-size:0.72rem;}
 .k-rform{gap:8px;}
 .k-star{font-size:1.6rem;padding:0 3px;}
+
+/* ---------- v5.00: celá Komunita kompaktní ---------- */
+.k-wrap{padding:12px 14px 40px;}
+.k-wrap h1{font-size:clamp(22px,3vw,28px);margin:0 0 8px;}
+.k-tabs{margin:0 0 12px;border-bottom-width:2px;}
+.k-tab{padding:7px 12px;font-size:0.8rem;letter-spacing:0.3px;}
+.k-panel h2{font-size:1.1rem;margin:0 0 6px;padding-bottom:4px;}
+.k-panel .k-h2b{margin-top:16px;}
+.k-note{margin:0 0 6px;font-size:0.82rem;}
+.k-empty{margin:4px 0;}
+.k-btn{padding:7px 14px;}
+.k-postbar{margin:0 0 8px;}
+.k-postbar .k-btn,.k-fbtns .k-btn,.k-morewrap .k-btn,.k-join,.k-cform .k-btn{padding:7px 14px;font-size:0.88rem;}
+.k-morewrap{margin:4px 0;}
+.k-form{padding:10px;margin:0 0 10px;gap:7px;}
+.k-in{padding:6px 9px;}
+.k-file{padding:6px 12px;font-size:0.88rem;}
+.k-th{width:72px;height:72px;}
+.k-chips{gap:5px;margin:0 0 8px;}
+.k-chip{padding:4px 11px;font-size:0.8rem;}
+.k-post{padding:9px 12px;margin:0 0 8px;}
+.k-post h3{font-size:1.02rem;margin:0 0 2px;}
+.k-pmeta{margin-bottom:4px;}
+.k-pgal{margin-top:8px;}
+.k-cbtn{margin-top:8px;}
+.k-comments{margin-top:8px;padding-top:8px;}
+.k-edet{margin-top:8px;padding-top:8px;}
+.k-ni{padding:8px 0;gap:10px;}
+.k-ebar2{margin-top:8px;gap:10px;}
+.k-msgs{height:min(50vh,440px);padding:8px 10px;gap:6px;}
+.k-send{padding:7px;}
+.k-box{max-height:440px;}
+.k-t th,.k-t td{padding:6px 10px;font-size:0.86rem;}
+.k-t th{font-size:0.72rem;}
+.k-ach span{font-size:1rem;}
