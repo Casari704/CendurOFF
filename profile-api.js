@@ -247,7 +247,7 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
       const q = `
         WITH p AS (SELECT route_id, user_id FROM reviews UNION SELECT route_id, user_id FROM ratings)
         SELECT p.route_id, p.user_id, r.name AS route_name, r.route_type, u.display_name AS nick, u.role,
-               ROUND(COALESCE(u.ride_m, 0) / 1000.0, 1)::float AS km,
+               COALESCE(u.ride_m, 0) AS ride_m,
                rt.stars, rv.text, GREATEST(rv.updated_at, rt.updated_at) AS ts, ${rode} AS rode
         FROM p
         JOIN routes r ON r.id = p.route_id
@@ -258,7 +258,8 @@ function mount(app, { pool, requireAuth, optionalAuth, isAdmin }) {
         ORDER BY ${sort}
         LIMIT $${args.length - 1} OFFSET $${args.length}`;
       const r = await pool.query(q, args);
-      res.json({ items: r.rows.slice(0, LIM), more: r.rows.length > LIM });
+      const items = r.rows.slice(0, LIM).map(x => { x.km = Math.round((Number(x.ride_m) || 0) / 100) / 10; delete x.ride_m; return x; });
+      res.json({ items, more: r.rows.length > LIM });
     } catch (e) { console.error(e); res.status(500).json({ error: 'Recenze se nepodařilo načíst.' }); }
   });
   // lehký seznam tras (bez bodů) pro filtr, psaní recenze a „trasy čekající na recenzi“
