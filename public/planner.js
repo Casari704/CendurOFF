@@ -748,19 +748,19 @@ joinBar.className = 'pl-crossbar pl-joinbar'; joinBar.hidden = true;
 joinBar.innerHTML = '<span id="pl-join-msg"></span><span class="pl-join-btns"><button type="button" id="pl-join-ok" hidden>Připojit</button><button type="button" id="pl-join-alt" hidden>Jiné napojení</button><button type="button" id="pl-join-cancel">Zrušit</button></span>';
 map.getContainer().appendChild(joinBar);
 L.DomEvent.disableClickPropagation(joinBar);
-document.getElementById('pl-join-cancel').addEventListener('click', ()=> setJoinMode(false));
-document.getElementById('pl-join-ok').addEventListener('click', joinApply);
-document.getElementById('pl-join-alt').addEventListener('click', ()=>{ joinIdx = (joinIdx + 1) % joinOpts.length; joinPreview(); });
+joinBar.querySelector('#pl-join-cancel').addEventListener('click', ()=> setJoinMode(false));
+joinBar.querySelector('#pl-join-ok').addEventListener('click', joinApply);
+joinBar.querySelector('#pl-join-alt').addEventListener('click', ()=>{ joinIdx = (joinIdx + 1) % joinOpts.length; joinPreview(); });
 document.addEventListener('keydown', e=>{ if(e.key === 'Escape' && joinMode) setJoinMode(false); });
 function setJoinMode(on){
   if(on){ if(crossMode) setCrossMode(false); if(cutoutMode) setCutoutMode(false); }
   joinMode = !!on; joinCand = null; joinOpts = [];
   if(joinPrev){ map.removeLayer(joinPrev); joinPrev = null; }
   joinBar.hidden = !joinMode;
-  document.getElementById('pl-join-ok').hidden = true;
-  document.getElementById('pl-join-alt').hidden = true;
+  joinBar.querySelector('#pl-join-ok').hidden = true;
+  joinBar.querySelector('#pl-join-alt').hidden = true;
   document.body.classList.toggle('pl-cross-mode', cutoutMode || crossMode || joinMode);
-  if(joinMode) document.getElementById('pl-join-msg').textContent = '＋ Klepni na trasu, kterou chceš připojit';
+  if(joinMode) joinBar.querySelector('#pl-join-msg').textContent = '＋ Klepni na trasu, kterou chceš připojit';
   drawOthers();
 }
 const joinKm = m => m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1).replace('.', ',') + ' km';
@@ -793,9 +793,9 @@ function joinPreview(){
   L.polyline([[a.lat, a.lng], b], { pane:'pl-route', color:'#F5B700', weight:4, dashArray:'6 8', interactive:false }).addTo(g);
   joinPrev = g;
   map.fitBounds(L.latLngBounds(ll.concat([[a.lat, a.lng]])), { padding:[60,60], maxZoom:16 });
-  document.getElementById('pl-join-msg').textContent = '„' + (joinCand.r.name || 'trasa') + '“ · ' + o.txt + ', mezera ' + joinKm(o.d);
-  document.getElementById('pl-join-ok').hidden = false;
-  document.getElementById('pl-join-alt').hidden = false;
+  joinBar.querySelector('#pl-join-msg').textContent = '„' + (joinCand.r.name || 'trasa') + '“ · ' + o.txt + ', mezera ' + joinKm(o.d);
+  joinBar.querySelector('#pl-join-ok').hidden = false;
+  joinBar.querySelector('#pl-join-alt').hidden = false;
 }
 function joinApply(){
   if(!joinCand) return;
